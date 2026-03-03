@@ -32,6 +32,41 @@ export interface ApiV3RoomClientEvent<C = any> extends z.infer<typeof ApiV3RoomC
     content: C;
 }
 
+/** @see https://spec.matrix.org/v1.17/client-server-api/#get_matrixclientv1roomsroomidhierarchy */
+export interface ApiV1RoomHierarchyRequest {
+    from?: string;
+    limit?: number;
+    max_depth?: number;
+    suggested_only?: boolean;
+}
+export const ApiV1StrippedChildStateEventSchema = camelizeSchemaWithoutTransform(z.object({
+    content: z.any(),
+    origin_server_ts: z.number(),
+    sender: z.string(),
+    state_key: z.string(),
+    type: z.string(),
+}))
+export const ApiV1RoomHierarchyResponseSchema = camelizeSchema(z.object({
+    next_batch: z.string().optional(),
+    rooms: z.array(z.object({
+        allowed_room_ids: z.array(z.string()).optional(),
+        avatar_url: z.string().optional(),
+        canonical_alias: z.string().optional(),
+        children_state: z.array(ApiV1StrippedChildStateEventSchema),
+        encryption: z.enum(['m.megolm.v1.aes-sha2']).optional(),
+        guest_can_join: z.boolean().optional(),
+        join_rule: z.string().optional(),
+        name: z.string().optional(),
+        num_joined_members: z.number(),
+        room_id: z.string(),
+        room_type: z.string().optional(),
+        room_version: z.string().optional(),
+        topic: z.string().optional(),
+        world_readable: z.boolean(),
+    })),
+}))
+export type ApiV1RoomHierarchyResponse = z.infer<typeof ApiV1RoomHierarchyResponseSchema>
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#get_matrixclientv3joined_rooms */
 export const ApiV3JoinedRoomsResponseSchema = camelizeSchema(z.object({
     joined_rooms: z.array(z.string()),

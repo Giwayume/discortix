@@ -1,0 +1,6 @@
+:root {
+    --p-skeleton-background: hsl(from var(--text-default) h s l / 0.06);
+    --p-skeleton-border-radius: var(--radius-md);
+
+    --p-skeleton-animation-background: rgba(255, 255, 255, 0.2);
+}

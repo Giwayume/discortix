@@ -642,7 +642,7 @@ export const useRoomStore = defineStore('room', () => {
                         : roomCreateEvent.content.creator
                 ) ?? '',
                 heroes,
-                id: roomId,
+                roomId,
                 joinedMemberCount,
                 name: roomNameEvent?.content.name ?? '',
                 roomVersion,

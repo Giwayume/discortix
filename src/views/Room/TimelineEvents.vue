@@ -5,6 +5,7 @@
         class="p-chattimeline"
         @pointerdown="onPointerDownTimeline"
         @pointerup="onPointerUpTimeline"
+        @click.capture="onClickTimeline"
     >
         <ScrollPanel ref="scrollPanel">
             <!-- <MessagePlaceholder /> -->
@@ -475,8 +476,23 @@ function onPointerUpTimeline(event: PointerEvent) {
         && Math.abs(event.pageX - pointerDownTimelineItemX) < 8
         && Math.abs(event.pageY - pointerDownTimelineItemY) < 8
     ) {
-        const link = (event.target as HTMLElement)?.closest('[data-link-id],[data-user-id]')
+        const link = (event.target as HTMLElement)?.closest('a[href],[data-link-id],[data-user-id]')
         if (!link) return
+        const href = link.getAttribute('href')
+        if (link.tagName === 'A' && href) {
+            if (href.startsWith('https://matrix.to/#/!')) {
+                const [roomId, eventId] = href.replace('https://matrix.to/#/', '').split('/')
+                console.log(roomId, eventId)
+                // TODO - handle user click
+            } else if (href.startsWith('https://matrix.to/#/@')) {
+                const userId = href.replace('https://matrix.to/#/', '')
+                console.log(userId)
+                // TODO - open user modal
+            } else {
+                window.open(href, '_blank')
+            }
+            return
+        }
         const linkId = link.getAttribute('data-link-id')
         switch (linkId) {
             case 'editGroup':
@@ -489,9 +505,16 @@ function onPointerUpTimeline(event: PointerEvent) {
             default:
                 break
         }
-        const userId = (event.target as HTMLElement)?.closest('[data-user-id]')
-        // TODO open user modal
+        const userId = link.getAttribute('data-user-id')
+        if (userId) {
+            // TODO - open user modal
+            console.log(userId)
+        }
     }
+}
+
+function onClickTimeline(event: MouseEvent) {
+    event.preventDefault()
 }
 
 function viewPhoto(event: ApiV3SyncClientEventWithoutRoomId<EventImageContent>) {

@@ -2,10 +2,12 @@ import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { createLogger } from '@/composables/logger'
 import { useRoomStore } from '@/stores/room'
+import { useSpaceStore } from '@/stores/space'
 import { useSessionStore } from '@/stores/session'
 import { fetchJson } from '@/utils/fetch'
 
 import {
+    type ApiV1RoomHierarchyRequest, ApiV1RoomHierarchyResponseSchema, type ApiV1RoomHierarchyResponse,
     ApiV3JoinedRoomsResponseSchema, type ApiV3JoinedRoomsResponse,
     type ApiV3RoomMessagesRequest, ApiV3RoomMessagesResponseSchema, type ApiV3RoomMessagesResponse,
 } from '@/types'
@@ -15,11 +17,19 @@ const log = createLogger(import.meta.url)
 const retrievingPreviousMessagePromises = ref<Record<string, Promise<void>>>({})
 const messageFetchErrorsByRoomId = ref<Record<string, Error>>({})
 
+const retrievingRoomHierarchyPromises = ref<Record<string, Promise<void>>>({})
+const hierarchyFetchErrorsByRoomId = ref<Record<string, Error>>({})
+const hierarchyFetchTimestamps = ref<Record<string, number>>({})
+const hierarcyFetchFrequency = 1.8e+6 // 30 minutes
+
 export function useRooms() {
     const { homeserverBaseUrl } = storeToRefs(useSessionStore())
     const roomStore = useRoomStore()
     const { joined, left } = storeToRefs(roomStore)
     const { populateFromApiV3RoomMessagesResponse } = roomStore
+    const spaceStore = useSpaceStore()
+    const { spaceRoomSummaries, spaceLoadingRoomSummaries } = storeToRefs(spaceStore)
+    const { populateFromApiV1RoomHierarchyResponse } = spaceStore
 
     async function getJoinedRooms() {
         return fetchJson<ApiV3JoinedRoomsResponse>(
@@ -56,12 +66,12 @@ export function useRooms() {
                             jsonSchema: ApiV3RoomMessagesResponseSchema,
                         }
                     )
-                    delete retrievingPreviousMessagePromises.value[roomId]
 
                     populateFromApiV3RoomMessagesResponse(roomId, result)
 
                     from = room.timelineGapStartToken
                 }
+                delete retrievingPreviousMessagePromises.value[roomId]
 
                 resolve()
             } catch (error) {
@@ -79,9 +89,70 @@ export function useRooms() {
         return fetchPromise
     }
 
+    async function getRoomHierarchy(roomId: string) {
+        if (spaceRoomSummaries.value[roomId] && Date.now() - hierarcyFetchFrequency > (hierarchyFetchTimestamps.value[roomId] ?? 0)) {
+            return
+        }
+        if (retrievingRoomHierarchyPromises.value[roomId]) {
+            return retrievingRoomHierarchyPromises.value[roomId]
+        }
+        spaceLoadingRoomSummaries.value[roomId] = true
+        delete hierarchyFetchErrorsByRoomId.value[roomId]
+        let fetchPromise = new Promise<void>(async (resolve, reject) => {
+            try {
+                let from: string | undefined = undefined
+                const rooms: ApiV1RoomHierarchyResponse['rooms'] = []
+
+                do {
+                    const request: ApiV1RoomHierarchyRequest = {
+                        from,
+                        limit: 20,
+                        max_depth: 1,
+                        suggested_only: false,
+                    }
+                    const result = await fetchJson<ApiV1RoomHierarchyResponse>(
+                        `${homeserverBaseUrl.value}/_matrix/client/v1/rooms/${roomId}/hierarchy?`
+                        + new URLSearchParams(request as never),
+                        {
+                            useAuthorization: true,
+                            jsonSchema: ApiV1RoomHierarchyResponseSchema,
+                        }
+                    )
+                    
+                    for (const room of result.rooms) {
+                        rooms.push(room)
+                    }
+
+                    from = result.nextBatch
+                } while (from)
+
+                populateFromApiV1RoomHierarchyResponse(roomId, rooms)
+
+                delete retrievingRoomHierarchyPromises.value[roomId]
+                hierarchyFetchTimestamps.value[roomId] = Date.now()
+                
+                resolve()
+            } catch (error) {
+                delete retrievingRoomHierarchyPromises.value[roomId]
+                if (error instanceof Error) {
+                    hierarchyFetchErrorsByRoomId.value[roomId] = error
+                } else {
+                    hierarchyFetchErrorsByRoomId.value[roomId] = new Error('The thrown object was not an error.')
+                }
+                log.error('Error when fetching space hierarchy for room ' + roomId, error)
+                reject(error)
+            } finally {
+                spaceLoadingRoomSummaries.value[roomId] = false
+            }
+        })
+        retrievingRoomHierarchyPromises.value[roomId] = fetchPromise
+        return fetchPromise
+    }
+
     return {
         messageFetchErrorsByRoomId: computed(() => messageFetchErrorsByRoomId.value),
         getJoinedRooms,
         getPreviousMessages,
+        getRoomHierarchy,
     }
 }

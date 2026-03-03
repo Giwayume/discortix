@@ -144,7 +144,7 @@ const directChatItems = computed<MenuItem[]>(() => {
         const userId = room.heroes[0]
         const profile = profiles.value[userId ?? '']
         return {
-            key: room.id,
+            key: room.roomId,
             label: userId,
             isGroup: room.heroes.length > 1,
             displayname: room.heroes.map(

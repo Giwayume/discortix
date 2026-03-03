@@ -7,12 +7,19 @@ import {
 
 export interface RoomSummary {
     avatarUrl?: string;
-    creator: string;
+    creator?: string;
     heroes: string[];
-    id: string;
     joinedMemberCount: number;
     name: string;
-    roomVersion: string;
+    roomId: string;
+    roomVersion?: string;
+    caategoryName?: string;
+}
+
+export interface RoomSummaryCategory {
+    name: string;
+    collapsed?: boolean;
+    rooms: RoomSummary[];
 }
 
 export interface SpaceSummary {
@@ -96,4 +103,8 @@ export interface LeftRoom {
     timelineGapStartToken?: string; // The prev_batch token that represents the start of the gap (newer events)
     timelineGapEndToken?: string; // The next_batch token that represents the end of the gap (older events)
     timelineGapNewestEventId?: string; // The event_id of the last event we saw before the gap was created
+}
+
+export interface SpaceClientSettings {
+    collapsedCategoryNames: string[];
 }

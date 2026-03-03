@@ -5,6 +5,8 @@
 @use "./variables/font.scss";
 @use "./variables/mask.scss" as _;
 
+@use "./vue/transition.scss";
+
 @use "./components/avatar.scss";
 @use "./components/button.scss";
 @use "./components/chattimeline.scss";
@@ -21,6 +23,7 @@
 @use "./components/scrollpanel.scss";
 @use "./components/select.scss";
 @use "./components/selectbutton.scss";
+@use "./components/skeleton.scss";
 @use "./components/slider.scss";
 @use "./components/splitbutton.scss";
 @use "./components/splitter.scss";

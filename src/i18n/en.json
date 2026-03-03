@@ -73,7 +73,8 @@
     },
     "fixDecryption": {
         "title": "Fix Decryption",
-        "deviceEncryptionNotSupported": "Please visit this application in the most recent version of Chrome, Firefox, or Safari. This app relies on the SubtleCrypto web APIs, which your browser or webview does not support. These APIs can be disabled if this application is hosted without HTTPS security. Your best bet to fix this problem is to use a modern web browser.",
+        "deviceEncryptionNotSupported": "Please visit this app in the most recent version of Chrome, Firefox, or Safari. This app relies on the SubtleCrypto web APIs, which your browser or webview does not support. Your best bet to fix this problem is to use a modern web browser.",
+        "deviceEncryptionNotEnabledSecureContext": "This app is being hosted without HTTPS security, which disables its ability to use encryption. Please contact the administrator who hosts this website and ask them to fix it.",
         "unknownError": "We were unable to detect why this message can't be decrypted."
     },
     "home": {
@@ -135,7 +136,9 @@
         "addSpace": "Add a Space",
         "discover": "Discover",
         "unnamedSpace": "Unnamed Space",
+        "unnamedRoomCategory": "Uncategorized",
         "inviteToSpace": "Invite to Space",
+        "createRoom": "Create Room",
         "browseRooms": "Browse Rooms",
         "userStatusSettings": "User Status & Settings",
         "userAvatarImage": "Avatar image",

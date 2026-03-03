@@ -7,7 +7,12 @@
         @update:visible="(visible) => emit('update:visible', visible)"
     >
         <template v-if="encryptionNotSupported">
-            {{ t('fixDecryption.deviceEncryptionNotSupported') }}
+            <template v-if="isSecureContext">
+                {{ t('fixDecryption.deviceEncryptionNotSupported') }}
+            </template>
+            <template v-else>
+                {{ t('fixDecryption.deviceEncryptionNotEnabledSecureContext') }}
+            </template>
         </template>
         <template v-else>
             {{ t('fixDecryption.unknownError') }}
@@ -67,5 +72,7 @@ const props = defineProps({
 const emit = defineEmits<{
     (e: 'update:visible', visible: boolean): void
 }>()
+
+const isSecureContext = !!window.isSecureContext
 
 </script>

@@ -80,6 +80,7 @@ import { useProfiles } from '@/composables/profiles'
 import { useSync } from '@/composables/sync'
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
 import { useSessionStore } from '@/stores/session'
+import { useSpaceStore } from '@/stores/space'
 
 import CrashError from './CrashError.vue'
 import Spaces from './Spaces.vue'
@@ -119,6 +120,10 @@ const {
     loading: sessionStoreLoading,
     hasAuthenticatedSession,
 } = storeToRefs(sessionStore)
+const spaceStore = useSpaceStore()
+const {
+    loading: spaceStoreLoading,
+} = storeToRefs(spaceStore)
 const {
     identityVerificationRequired,
 } = storeToRefs(useCryptoKeysStore())
@@ -150,7 +155,7 @@ const identityVerificationVisible = ref<boolean>(false)
 const initializeErrorMessage = ref<string | null>(null)
 
 const loading = computed(() => {
-    return sessionStoreLoading.value || !syncInitialized.value
+    return sessionStoreLoading.value || spaceStoreLoading.value || !syncInitialized.value
 })
 
 async function initialize() {
