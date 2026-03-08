@@ -10,6 +10,10 @@
     }
 }
 
+.p-chattimeline-scroll-content-container {
+    display: flow-root;
+}
+
 .p-chattimeline-event {
     position: relative;
     padding: 0.125rem 1.5rem 0.125rem 4.5rem;

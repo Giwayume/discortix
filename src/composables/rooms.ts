@@ -106,7 +106,7 @@ export function useRooms() {
                 do {
                     const request: ApiV1RoomHierarchyRequest = {
                         from,
-                        limit: 20,
+                        limit: 40,
                         max_depth: 1,
                         suggested_only: false,
                     }

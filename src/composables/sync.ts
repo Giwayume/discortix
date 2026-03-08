@@ -144,12 +144,14 @@ export function useSync() {
         await until(() => !roomsLoading.value && !profilesLoading.value && !accountDataLoading.value)
 
         fullSyncRequired.value = (
-            !!accountDataLoadError.value
+            localStorage.getItem('mx_full_sync_required') == 'true'
+            || !!accountDataLoadError.value
             || !!roomsLoadError.value
             || !!profilesLoadError.value
             || !getNextBatch()
-            || true // TODO - for debugging; remove.
+            // || true // TODO - for debugging; remove.
         )
+        localStorage.setItem('mx_full_sync_required', 'false')
 
         if (isLeader.value) {
             startSyncing()

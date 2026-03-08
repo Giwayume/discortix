@@ -2,7 +2,7 @@
     <MainHeader>
         <div class="flex pl-4 py-2 pr-2 items-center">
             <template v-if="isInsideSpace">
-                <span class="pi pi-hashtag w-8 text-center text-(--channel-icon)" />
+                <span class="pi pi-hashtag w-4 mr-2 text-center text-(--channel-icon)" />
             </template>
             <template v-else-if="otherMembersDisplayed.length === 1">
                 <OverlayStatus level="low" :status="otherMembersDisplayed[0]!.presence" size="small" class="w-5 h-5 mr-2">
@@ -37,7 +37,7 @@
         </div>
     </MainHeader>
     <MainBody :disableScrollbar="true">
-        <TimelineEvents :room="props.room" />
+        <TimelineEvents :key="`TimelineEventsFor${props.room.roomId}`" :room="props.room" />
         <template #footer>
             <div class="joined-room__chat-bar">
                 <InputText

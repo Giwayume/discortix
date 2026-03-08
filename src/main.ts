@@ -55,15 +55,18 @@ app.use(VueDOMPurifyHTML, {
                         mediaCacheByTimelineId[timelineId] = useMediaCache()
                         mediaCacheEntries = mediaCacheByTimelineId[timelineId]
                     }
+                    const img = document.getElementById(imageId)
+                    if (img) {
+                        const hasOnlyImg = img.parentElement?.childElementCount === 1 &&
+                            img.parentElement.firstElementChild?.tagName === 'IMG' &&
+                            img.parentElement.textContent.trim() === ''
+                        img.classList.toggle('p-chattimeline-event-jumbo-emoji', hasOnlyImg)
+                    }
                     mediaCacheEntries.getMxcObjectUrl(mxcUri, { type: 'thumbnail', width: 96, height: 96, method: 'scale' }).then((src) => {
                         const img = document.getElementById(imageId)
                         if (!img) return
                         img.setAttribute('src', src)
                         if (!img.parentElement) return
-                        const hasOnlyImg = img.parentElement.childElementCount === 1 &&
-                            img.parentElement.firstElementChild?.tagName === 'IMG' &&
-                            img.parentElement.textContent.trim() === ''
-                        img.classList.toggle('p-chattimeline-event-jumbo-emoji', hasOnlyImg)
                     }).catch((error) => {
                         document.getElementById(imageId)?.setAttribute('src', '/assets/images/image-load-error.svg')
                     })

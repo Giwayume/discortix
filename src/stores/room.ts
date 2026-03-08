@@ -145,10 +145,14 @@ function addJoinedOrLeftRoomStateEvent(room: JoinedRoom | LeftRoom, event: ApiV3
     room.stateEventsById[event.eventId] = event
 }
 
-function addJoinedOrLeftRoomTimelineEvent(room: JoinedRoom | LeftRoom, event: ApiV3SyncClientEventWithoutRoomId) {
+/** Merges event into the timeline in server timestamp order. Returns true if it was a duplicate event. */
+function addJoinedOrLeftRoomTimelineEvent(
+    room: JoinedRoom | LeftRoom,
+    event: ApiV3SyncClientEventWithoutRoomId
+): boolean {
     if (room.timeline.length === 0) {
         room.timeline.push(event)
-        return
+        return false
     }
     let low = 0
     let high = room.timeline.length
@@ -171,8 +175,9 @@ function addJoinedOrLeftRoomTimelineEvent(room: JoinedRoom | LeftRoom, event: Ap
             }
         }
     }
-    if (room.timeline[low]?.eventId === event.eventId) return
+    if (room.timeline[low]?.eventId === event.eventId) return true
     room.timeline.splice(low, 0, event)
+    return false
 }
 
 function getTimelineEventIndexById(room: JoinedRoom | LeftRoom, eventId?: string): number | undefined {
@@ -288,19 +293,19 @@ export const useRoomStore = defineStore('room', () => {
         try {
             await Promise.all([
                 loadDiscortixTableKey('rooms', 'invited').then((invitedRooms) => {
-                    if (!invitedRooms) throw new DOMException('Invited rooms not found in database.', 'NotFoundError')
+                    if (!invitedRooms) return
                     invited.value = invitedRooms
                 }),
                 loadDiscortixTableKey('rooms', 'knocked').then((knockedRooms) => {
-                    if (!knockedRooms) throw new DOMException('Knocked rooms not found in database.', 'NotFoundError')
+                    if (!knockedRooms) return
                     knocked.value = knockedRooms
                 }),
                 loadDiscortixTableKey('rooms', 'joined').then((joinedRooms) => {
-                    if (!joinedRooms) throw new DOMException('Joined rooms not found in database.', 'NotFoundError')
+                    if (!joinedRooms) return
                     joined.value = joinedRooms
                 }),
                 loadDiscortixTableKey('rooms', 'left').then((leftRooms) => {
-                    if (!leftRooms) throw new DOMException('Left rooms not found in database.', 'NotFoundError')
+                    if (!leftRooms) return
                     left.value = leftRooms
                 }),
             ])
@@ -565,13 +570,22 @@ export const useRoomStore = defineStore('room', () => {
         const room = joinedRoom ?? leftRoom
         if (!room) return
 
+        let duplicateEncounteredCount = 0
+
         for (const timelineEvent of messages.chunk) {
-            addJoinedOrLeftRoomTimelineEvent(room, timelineEvent)
+            duplicateEncounteredCount += addJoinedOrLeftRoomTimelineEvent(room, timelineEvent) ? 1 : 0
+            if (duplicateEncounteredCount > 3) break
         }
 
         if (room.timelineGapStartToken && room.timelineGapEndToken) {
             if (messages.end) {
-                room.timelineGapStartToken = messages.end
+                if (duplicateEncounteredCount > 3) {
+                    delete room.timelineGapStartToken
+                    delete room.timelineGapEndToken
+                    room.timelineEndToken = messages.end
+                } else {
+                    room.timelineGapStartToken = messages.end
+                }
             } else {
                 delete room.timelineGapStartToken
                 delete room.timelineGapEndToken
