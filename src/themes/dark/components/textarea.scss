@@ -1,0 +1,38 @@
+:root {
+    --p-textarea-padding-x: var(--p-form-field-padding-x);
+    --p-textarea-padding-y: var(--p-form-field-padding-y);
+    --p-textarea-border-radius: var(--p-form-field-border-radius);
+    --p-textarea-focus-ring-width: var(--p-form-field-focus-ring-width);
+    --p-textarea-focus-ring-style: var(--p-form-field-focus-ring-style);
+    --p-textarea-focus-ring-color: var(--p-form-field-focus-ring-color);
+    --p-textarea-focus-ring-offset: var(--p-form-field-focus-ring-offset);
+    --p-textarea-focus-ring-shadow: var(--p-form-field-focus-ring-shadow);
+    --p-textarea-transition-duration: var(--p-form-field-transition-duration);
+
+    --p-textarea-background: var(--p-form-field-background);
+    --p-textarea-border-color: var(--p-form-field-border-color);
+    --p-textarea-hover-border-color: var(--p-form-field-hover-border-color);
+    --p-textarea-focus-border-color: var(--p-form-field-focus-border-color);
+    --p-textarea-color: var(--p-form-field-color);
+    --p-textarea-placeholder-color: var(--p-form-field-placeholder-color);
+    --p-textarea-shadow: var(--p-form-field-shadow);
+
+    --p-textarea-invalid-border-color: var(--text-feedback-critical);
+}
+
+.p-textarea {
+    &.p-invalid {
+        --p-textarea-hover-border-color: var(--p-textarea-invalid-border-color);
+
+        outline: 1px solid var(--p-textarea-invalid-border-color);
+    }
+}
+
+.p-textarea-transparent {
+    --p-textarea-border-radius: 0;
+    --p-textarea-background: transparent;
+    --p-textarea-border-color: transparent;
+    --p-textarea-hover-border-color: transparent;
+    --p-textarea-focus-border-color: transparent;
+    --p-textarea-focus-ring-color: transparent;
+}

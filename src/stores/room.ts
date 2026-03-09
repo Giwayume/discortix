@@ -1,8 +1,8 @@
 import { computed, ref, toRaw } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
-import { redactEvent } from '@/utils/event'
 
 import { useBroadcast } from '@/composables/broadcast'
+import { useEventTimeline } from '@/composables/event-timeline'
 import { useSessionStore } from '@/stores/session'
 
 import {
@@ -26,6 +26,8 @@ import {
     type ApiV3SyncTimeline,
     type EventRoomRedactionContent,
 } from '@/types'
+
+const { isEventVisible, redactEvent } = useEventTimeline()
 
 function isRoomStateEventType(type: string) {
     return /^(m\.room|m\.space)/.test(type)
@@ -150,15 +152,106 @@ function addJoinedOrLeftRoomTimelineEvent(
     room: JoinedRoom | LeftRoom,
     event: ApiV3SyncClientEventWithoutRoomId
 ): boolean {
-    if (room.timeline.length === 0) {
-        room.timeline.push(event)
+    let timeline = isEventVisible(event) ? room.visibleTimeline : room.invisibleTimeline
+
+    // Process redaction
+    if (event.type === 'm.room.redaction') {
+        const redactedEventId = event.content?.redacts
+        const eventIndex = getTimelineEventIndexById(room.visibleTimeline, redactedEventId)
+        if (eventIndex == -1 || eventIndex == null) {
+            room.redactions.push(redactedEventId)
+        } else {
+            const redactedVisibleEvent = room.visibleTimeline.splice(eventIndex, 1)[0]
+            if (redactedVisibleEvent) {
+                redactEvent(redactedVisibleEvent)
+            }
+
+            const redactedInvisibleEvent = room.invisibleTimeline.splice(eventIndex, 1)[0]
+            if (redactedInvisibleEvent) {
+
+                removeReaction:
+                if (redactedInvisibleEvent.type === 'm.reaction') {
+                    const relatesTo = redactedInvisibleEvent.content?.['m.relates_to']
+                    const relatedEventId: string | undefined = relatesTo?.eventId
+                    const reactionKey: string | undefined = relatesTo?.key
+                    if (!relatedEventId || !reactionKey || !room.reactions[relatedEventId]) break removeReaction
+                    let reactionIndex = room.reactions[relatedEventId].findIndex(
+                        (reaction) => reaction.key === reactionKey
+                    )
+                    const reaction = room.reactions[relatedEventId][reactionIndex]
+                    if (!reaction) break removeReaction
+                    const reactionEventIndex = reaction.events.findIndex(
+                        (event) => event.eventId === redactedInvisibleEvent.eventId
+                    )
+                    const reactionEvent = reaction.events[reactionEventIndex]
+                    if (!reactionEvent) break removeReaction
+                    reaction.events.splice(reactionEventIndex, 1)
+                    if (reaction.events.length === 0) {
+                        room.reactions[relatedEventId].splice(reactionIndex, 1)
+                    }
+                    if (room.reactions[relatedEventId].length === 0) {
+                        delete room.reactions[relatedEventId]
+                    }
+                }
+
+                redactEvent(redactedInvisibleEvent)
+                if (redactedInvisibleEvent.type !== 'm.room.redaction') {
+                    addJoinedOrLeftRoomTimelineEvent(room, redactedInvisibleEvent)
+                }
+            }
+        }
+    } else if (room.redactions.includes(event.eventId)) {
+        room.redactions.splice(room.redactions.indexOf(event.eventId), 1)
+        redactEvent(event)
+        timeline = room.invisibleTimeline
+    }
+
+    // Process reaction
+    if (event.type === 'm.reaction') {
+        const relatesTo = event.content?.['m.relates_to']
+        const relatedEventId: string | undefined = relatesTo?.eventId
+        const reactionKey: string | undefined = relatesTo?.key
+        if (relatedEventId && reactionKey) { // Redacted reaction is missing these properties
+            if (!room.reactions[relatedEventId]) {
+                room.reactions[relatedEventId] = []
+            }
+            let reactionIndex = room.reactions[relatedEventId].findIndex(
+                (reaction) => reaction.key === reactionKey
+            )
+            if (reactionIndex === -1) {
+                room.reactions[relatedEventId].push({
+                    key: reactionKey,
+                    ts: event.originServerTs,
+                    events: []
+                })
+                reactionIndex = 0
+            }
+            const reaction = room.reactions[relatedEventId][reactionIndex]
+            if (reaction) {
+                reaction.events.push({
+                    eventId: event.eventId,
+                    sender: event.sender,
+                })
+                if (event.originServerTs < reaction.ts) {
+                    reaction.ts = event.originServerTs
+                }
+            }
+            room.reactions[relatedEventId].sort((a, b) => {
+                return a.ts < b.ts ? -1 : 1
+            })
+        }
+    }
+
+    // Insert event into timeline
+    if (timeline.length === 0) {
+        timeline.push(event)
         return false
     }
     let low = 0
-    let high = room.timeline.length
+    let high = timeline.length
     while (low < high) {
         const mid = (low + high) >>> 1
-        const midEvent = room.timeline[mid]
+        const midEvent = timeline[mid]
         if (midEvent == null) {
             low = high
             break
@@ -175,15 +268,18 @@ function addJoinedOrLeftRoomTimelineEvent(
             }
         }
     }
-    if (room.timeline[low]?.eventId === event.eventId) return true
-    room.timeline.splice(low, 0, event)
+    if (timeline[low]?.eventId === event.eventId) return true
+    timeline.splice(low, 0, event)
     return false
 }
 
-function getTimelineEventIndexById(room: JoinedRoom | LeftRoom, eventId?: string): number | undefined {
+function getTimelineEventIndexById(
+    timeline: ApiV3SyncClientEventWithoutRoomId[],
+    eventId?: string
+): number | undefined {
     if (eventId == null) return
-    for (let eventIndex = room.timeline.length - 1; eventIndex >= 0; eventIndex--)  {
-        if (room.timeline[eventIndex]?.eventId === eventId) {
+    for (let eventIndex = timeline.length - 1; eventIndex >= 0; eventIndex--)  {
+        if (timeline[eventIndex]?.eventId === eventId) {
             return eventIndex
         }
     }
@@ -200,22 +296,26 @@ function manageTimelineGap(room: JoinedRoom | LeftRoom, timeline: ApiV3SyncTimel
          *                                      |----timeline2----|              |-------timeline3-------|
          *                                   endToken         gapEndtoken    gapStartToken           startToken
          */
-        const gapEndEventIndex = getTimelineEventIndexById(room, room.timelineGapNewestEventId)
-        if (gapEndEventIndex != null) {
-            room.timeline = room.timeline.slice(gapEndEventIndex + 1)
+        const visibleGapEndEventIndex = getTimelineEventIndexById(room.visibleTimeline, room.timelineGapNewestVisibleEventId)
+        const invisibleGapEndEventIndex = getTimelineEventIndexById(room.invisibleTimeline, room.timelineGapNewestInvisibleEventId)
+        if (visibleGapEndEventIndex != null || invisibleGapEndEventIndex != null) {
+            room.visibleTimeline = visibleGapEndEventIndex != null ? room.visibleTimeline.slice(visibleGapEndEventIndex + 1) : room.visibleTimeline
+            room.invisibleTimeline = invisibleGapEndEventIndex != null ? room.invisibleTimeline.slice(invisibleGapEndEventIndex + 1) : room.invisibleTimeline
             room.timelineEndToken = room.timelineGapStartToken
             room.timelineGapEndToken = room.timelineStartToken
             room.timelineGapStartToken = timeline.prevBatch
             room.timelineStartToken = nextBatch
         } else {
             // If we can't find where to slice the timeline, do a total reset.
-            room.timeline = []
+            room.visibleTimeline = []
+            room.invisibleTimeline = []
             room.timelineGapStartToken = undefined
             room.timelineGapEndToken = undefined
             room.timelineEndToken = timeline.prevBatch
             room.timelineStartToken = nextBatch
         }
-        room.timelineGapNewestEventId = room.timeline[room.timeline.length - 1]?.eventId
+        room.timelineGapNewestVisibleEventId = room.visibleTimeline[room.visibleTimeline.length - 1]?.eventId
+        room.timelineGapNewestInvisibleEventId = room.invisibleTimeline[room.invisibleTimeline.length - 1]?.eventId
     } else if (timeline.limited && room.timelineEndToken) {
         /* 
          * We have a normal timeline, but a gap is being created. Future API calls will fill in the gap.
@@ -229,7 +329,8 @@ function manageTimelineGap(room: JoinedRoom | LeftRoom, timeline: ApiV3SyncTimel
         room.timelineGapEndToken = room.timelineStartToken
         room.timelineGapStartToken = timeline.prevBatch
         room.timelineStartToken = nextBatch
-        room.timelineGapNewestEventId = room.timeline[room.timeline.length - 1]?.eventId
+        room.timelineGapNewestVisibleEventId = room.visibleTimeline[room.visibleTimeline.length - 1]?.eventId
+        room.timelineGapNewestInvisibleEventId = room.invisibleTimeline[room.invisibleTimeline.length - 1]?.eventId
     } else {
         /*
          * No gap and not creating a gap. Only take prevBatch token if we don't already have an older one.
@@ -406,11 +507,14 @@ export const useRoomStore = defineStore('room', () => {
                     joined.value[roomId] = {
                         roomId,
                         accountData: left.value[roomId]?.accountData ?? {},
+                        reactions: {},
                         readRecepts: {},
+                        redactions: [],
                         stateEventsByType: {},
                         stateEventsById: {},
                         summary: {},
-                        timeline: [],
+                        visibleTimeline: [],
+                        invisibleTimeline: [],
                         typingUserIds: [],
                         unreadNotifications: { highlightCount: 0, notificationCount: 0 },
                         unreadThreadNotifications: {},
@@ -488,9 +592,12 @@ export const useRoomStore = defineStore('room', () => {
                     left.value[roomId] = {
                         roomId,
                         accountData: joined.value[roomId]?.accountData ?? {},
+                        reactions: {},
+                        redactions: [],
                         stateEventsByType: {},
                         stateEventsById: {},
-                        timeline: [],
+                        visibleTimeline: [],
+                        invisibleTimeline: [],
                     }
                 }
 

@@ -10,6 +10,7 @@ import {
     type ApiV1RoomHierarchyRequest, ApiV1RoomHierarchyResponseSchema, type ApiV1RoomHierarchyResponse,
     ApiV3JoinedRoomsResponseSchema, type ApiV3JoinedRoomsResponse,
     type ApiV3RoomMessagesRequest, ApiV3RoomMessagesResponseSchema, type ApiV3RoomMessagesResponse,
+    type ApiV3RoomTypingRequest,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
@@ -23,7 +24,7 @@ const hierarchyFetchTimestamps = ref<Record<string, number>>({})
 const hierarcyFetchFrequency = 1.8e+6 // 30 minutes
 
 export function useRooms() {
-    const { homeserverBaseUrl } = storeToRefs(useSessionStore())
+    const { homeserverBaseUrl, userId } = storeToRefs(useSessionStore())
     const roomStore = useRoomStore()
     const { joined, left } = storeToRefs(roomStore)
     const { populateFromApiV3RoomMessagesResponse } = roomStore
@@ -149,10 +150,25 @@ export function useRooms() {
         return fetchPromise
     }
 
+    async function sendTypingNotification(roomId: string, typing: boolean) {
+        await fetchJson(
+            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${roomId}/typing/${userId.value}`,
+            {
+                method: 'PUT',
+                useAuthorization: true,
+                body: JSON.stringify({
+                    timeout: typing ? 20000 : undefined,
+                    typing,
+                } satisfies ApiV3RoomTypingRequest)
+            }
+        )
+    }
+
     return {
         messageFetchErrorsByRoomId: computed(() => messageFetchErrorsByRoomId.value),
         getJoinedRooms,
         getPreviousMessages,
         getRoomHierarchy,
+        sendTypingNotification,
     }
 }

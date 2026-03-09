@@ -100,6 +100,32 @@
                                 <span class="pi pi-exclamation-triangle mr-1 !text-sm" aria-hidden="true" />{{ i18nText.unableToDecryptMessage }}
                                 <span data-link-id="fixDecrypt" class="link" role="button" tabindex="0">{{ i18nText.learnFixDecrypt }}</span>
                             </div>
+                            <!-- Reactions -->
+                            <div v-if="e.reactions.length > 0" class="flex flex-wrap">
+                                <span
+                                    v-for="reaction of e.reactions"
+                                    :key="reaction.key"
+                                    role="button"
+                                    tabindex="0"
+                                    class="p-chattimeline-event-reaction"
+                                    :class="{ 'p-chattimeline-event-reaction--self': reaction.highlighted }"
+                                    data-link-id="react"
+                                    :data-react-key="reaction.key"
+                                >
+                                    {{ reaction.key }}
+                                    <span class="p-chattimeline-event-reaction-count">{{ reaction.displaynames.length }}</span>
+                                </span>
+                                <span
+                                    v-tooltip.top="{ value: isTouchEventsDetected ? undefined : i18nText.addReaction }"
+                                    role="button"
+                                    tabindex="0"
+                                    class="p-chattimeline-event-reaction"
+                                    data-link-id="react"
+                                    :aria-label="i18nText.addReaction"
+                                >
+                                    <span class="pi pi-face-smile" aria-hidden="true" />
+                                </span>
+                            </div>
                         </div>
                         <div
                             v-else-if="e.category === 'settings'"
@@ -140,7 +166,7 @@
                                     <span class="link" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
                                 </strong>
                                 {{ i18nText.changedGroupNamePrefix }}<strong>{{ e.event.content.name }}</strong>{{ i18nText.changedGroupNameSuffix }}
-                                <span data-link-id="fixDecrypt" class="link" role="button" tabindex="0">{{ i18nText.editGroupButton }}</span>
+                                <span data-link-id="editGroup" class="link" role="button" tabindex="0">{{ i18nText.editGroupButton }}</span>
                                 <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
                             </template>
                             <template v-else-if="e.event.type === 'm.room.encryption'">
@@ -191,10 +217,16 @@ import { v4 as uuidv4 } from 'uuid'
 import { decryptMegolmEvent } from '@/utils/crypto'
 import { throttle } from '@/utils/timing'
 
+import { useApplication } from '@/composables/application'
 import { useRooms } from '@/composables/rooms'
+import { messageEventTypes, settingsEventTypes } from '@/composables/event-timeline'
+
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
+import { useSessionStore } from '@/stores/session'
+
+import vTooltip from 'primevue/tooltip'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 const EditGroup = defineAsyncComponent(() => import('./EditGroup.vue'))
@@ -205,7 +237,11 @@ const PhotoViewer = defineAsyncComponent(() => import('./PhotoViewer.vue'))
 
 import ScrollPanel from 'primevue/scrollpanel'
 
-import { type JoinedRoom, type ApiV3SyncClientEventWithoutRoomId, type EventImageContent } from '@/types'
+import {
+    type JoinedRoom, type RoomEventReactionRender,
+    type ApiV3SyncClientEventWithoutRoomId,
+    type EventImageContent,
+} from '@/types'
 
 interface EventWithRenderInfo {
     category: 'settings' | 'message' | 'unknown';
@@ -217,6 +253,7 @@ interface EventWithRenderInfo {
     isoTimestamp: string;
     avatarUrl?: string;
     event: ApiV3SyncClientEventWithoutRoomId;
+    reactions: RoomEventReactionRender[];
 }
 
 interface EventChunk {
@@ -227,11 +264,13 @@ interface EventChunk {
 
 const { t } = useI18n()
 const { profiles } = storeToRefs(useProfileStore())
+const { isTouchEventsDetected } = useApplication()
 const { getPreviousMessages } = useRooms()
 const roomStore = useRoomStore()
 const { decryptedRoomEvents } = storeToRefs(roomStore)
 const { getTimelineEventIndexById } = useRoomStore()
 const { roomKeys } = storeToRefs(useCryptoKeysStore())
+const { userId } = storeToRefs(useSessionStore())
 
 const props = defineProps({
     room: {
@@ -240,73 +279,11 @@ const props = defineProps({
     }
 })
 
+const emit = defineEmits<{
+    (e: 'update:anchoredToBottom', isAnchoredToBottom: boolean ): void
+}>()
+
 const componentUuid = uuidv4()
-
-// Lists all known custom rendered events. The events we do not wish to display in the timeline are commented out.
-const customEventTypes = [
-    'm.room.create',
-]
-
-// Lists all known "setting-type" events. The events we do not wish to display in the timeline are commented out.
-const settingsEventTypes = [
-    // 'm.room.aliases',
-    'm.room.avatar',
-    // 'm.room.canonical_alias',
-    'm.room.encryption',
-    // 'm.room.guest_access',
-    // 'm.room.history_visibility',
-    // 'm.room.join_rules',
-    'm.room.member',
-    'm.room.name',
-    'm.room.pinned_events',
-    // 'm.room.power_levels',
-    // 'm.room.related_groups',
-    // 'm.room.server_acl',
-    // 'm.room.third_party_invite',
-    'm.room.tombstone',
-    // 'm.room.topic',
-
-    // msgtype for m.room.message
-    'm.emote',
-    'm.location',
-    'm.notice',
-    'm.poll.response',
-    'm.poll.start',
-    // 'm.reaction',
-    // 'm.replace',
-    'm.server_notice',
-]
-// Lists all known "message-type" events. The events we do not wish to display in the timeline are commented out.
-const messageEventTypes = [
-    'm.room.encrypted',
-    'm.room.message',
-    'm.sticker',
-
-    // msgtype for m.room.message
-    'm.audio',
-    'm.file',
-    'm.image',
-    'm.poll.start',
-    'm.sticker',
-    'm.text',
-    'm.video',
-]
-// Lists all known message types for "message-type" events. The events we do not wish to display in the timeline are commented out.
-const messageEventMessageTypes = [
-    'm.audio',
-    'm.emote',
-    'm.file',
-    'm.image',
-    'm.location',
-    'm.notice',
-    // 'm.reaction',
-    // 'm.replace',
-    'm.server_notice',
-    'm.sticker',
-    'm.text',
-    'm.video',
-]
-const visibleMembershipStatuses = ['join', 'leave', 'ban']
 
 // Caching i18n here, calculating in template for each item is extremely slow.
 const i18nText = {
@@ -321,6 +298,7 @@ const i18nText = {
     changedGroupNamePrefix: t('room.changedGroupNamePrefix'),
     changedGroupNameSuffix: t('room.changedGroupNameSuffix'),
     editGroupButton: t('room.editGroupButton'),
+    addReaction: t('room.addReaction'),
 }
 
 const isJustMounted = ref<boolean>(false)
@@ -353,16 +331,25 @@ const isAnchoredToBottom = ref<boolean>(true)
 watch(() => props.room, () => {
     isAnchoredToBottom.value = true
 })
+watch(() => isAnchoredToBottom.value, () => {
+    emit('update:anchoredToBottom', isAnchoredToBottom.value)
+}, { immediate: true })
+watch(() => props.room.visibleTimeline.length, () => {
+    if (isAnchoredToBottom.value && props.room.visibleTimeline.length > 0) {
+        offsetEventId.value = props.room.visibleTimeline[props.room.visibleTimeline.length - 1]?.eventId
+        offsetChunk.value = 0
+    }
+})
 
 const offsetEventIndex = computed<number>(() => {
-    return getTimelineEventIndexById(props.room, offsetEventId.value) ?? props.room.timeline.length - 1
+    return getTimelineEventIndexById(props.room.visibleTimeline, offsetEventId.value) ?? props.room.visibleTimeline.length - 1
 })
 
 const showOldEventMessagePlaceholder = computed<boolean>(() => {
     if (offsetEventIndex.value + (offsetChunk.value * eventsPerChunk) - (chunksPerView * eventsPerChunk) > 0) {
         return true
     } else {
-        return props.room.timeline[0]?.type !== 'm.room.create'
+        return props.room.visibleTimeline[0]?.type !== 'm.room.create'
     }
 })
 watch(() => showOldEventMessagePlaceholder.value, () => {
@@ -374,7 +361,10 @@ watch(() => showOldEventMessagePlaceholder.value, () => {
 }, { immediate: true })
 
 const showNewEventMessagePlaceholder = computed<boolean>(() => {
-    return offsetEventIndex.value + 1 + (offsetChunk.value * eventsPerChunk) < props.room.timeline.length
+    return (
+        !isAnchoredToBottom.value
+        && offsetEventIndex.value + 1 + (offsetChunk.value * eventsPerChunk) < props.room.visibleTimeline.length
+    )
 })
 watch(() => showNewEventMessagePlaceholder.value, () => {
     if (showNewEventMessagePlaceholder.value) {
@@ -383,20 +373,6 @@ watch(() => showNewEventMessagePlaceholder.value, () => {
         })
     }
 }, { immediate: true })
-
-function isEventVisible(event: ApiV3SyncClientEventWithoutRoomId) {
-    if (
-        !settingsEventTypes.includes(event.type)
-        && !messageEventTypes.includes(event.type)
-        && !customEventTypes.includes(event.type)
-    ) return false
-    if (event.type === 'm.room.member') {
-        if (!visibleMembershipStatuses.includes(event.content.membership)) return false
-    } else if (event.type === 'm.room.message') {
-        if (!messageEventMessageTypes.includes(event.content.msgtype)) return false
-    }
-    return true
-}
 
 const visibleEventChunks = computed<EventChunk[]>(() => {
     const today = new Date()
@@ -413,11 +389,10 @@ const visibleEventChunks = computed<EventChunk[]>(() => {
             events: [],
         }
 
-        const eventSlice = props.room.timeline.slice(
+        const eventSlice = props.room.visibleTimeline.slice(
             Math.max(0, currentChunkBottomEventIndex + 1 - eventsPerChunk), Math.max(0, currentChunkBottomEventIndex + 1)
         )
         for (const event of eventSlice) {
-            if (!isEventVisible(event)) continue
 
             const previousEventOriginDate = new Date(currentDateDividerTs)
             const originDate = new Date(event.originServerTs)
@@ -442,6 +417,15 @@ const visibleEventChunks = computed<EventChunk[]>(() => {
                 && originDate.getMonth() === today.getMonth()
                 && originDate.getDate() === today.getDate()
             )
+
+            const reactions: RoomEventReactionRender[] = (props.room.reactions[event.eventId] ?? []).map((reaction) => {
+                return {
+                    ...reaction,
+                    highlighted: !!reaction.events.find((event) => event.sender === userId.value),
+                    displaynames: reaction.events.map((event) => profiles.value[event.sender]?.displayname ?? event.sender)
+                }
+            })
+
             chunk.events.push({
                 category,
                 currentDateDivider,
@@ -454,6 +438,7 @@ const visibleEventChunks = computed<EventChunk[]>(() => {
                 isoTimestamp: originDate.toISOString(),
                 avatarUrl: profiles.value[event.sender]?.avatarUrl,
                 event,
+                reactions,
             })
 
             previousEvent = event
@@ -500,14 +485,14 @@ watch(() => needsMoreOldEvents.value, async () => {
         let targetOffsetChunk = offsetChunk.value - Math.round(chunksPerView / 2)
         let targetOffsetEventId = offsetEventId.value
         let targetOffsetEventIndex = offsetEventIndex.value
-        if (props.room.timeline[0]?.type === 'm.room.create') {
+        if (props.room.visibleTimeline[0]?.type === 'm.room.create') {
             targetOffsetChunk = Math.max(Math.floor(-offsetEventIndex.value / eventsPerChunk), targetOffsetChunk)
             if (
                 offsetEventIndex.value + 1 + (targetOffsetChunk * eventsPerChunk) - (chunksPerView * eventsPerChunk)
                 < (eventsPerChunk * chunksPerView)
             ) {
-                targetOffsetEventIndex = Math.min(props.room.timeline.length - 1, eventsPerChunk * chunksPerView)
-                const targetOffsetEvent = props.room.timeline[targetOffsetEventIndex]
+                targetOffsetEventIndex = Math.min(props.room.visibleTimeline.length - 1, eventsPerChunk * chunksPerView)
+                const targetOffsetEvent = props.room.visibleTimeline[targetOffsetEventIndex]
                 if (!targetOffsetEvent) {
                     needsMoreOldEvents.value = false
                     return
@@ -518,28 +503,6 @@ watch(() => needsMoreOldEvents.value, async () => {
         }
 
         await loadPreviousMessagesUpToChunk(targetOffsetChunk, targetOffsetEventId, 'up', abortController)
-        // if (targetOffsetEventId === offsetEventId.value) {
-        //     while (
-        //         offsetEventIndex.value + 1 + (targetOffsetChunk * eventsPerChunk) - (chunksPerView * eventsPerChunk) < 0
-        //         && props.room.timeline[0]?.type !== 'm.room.create'
-        //     ) {
-        //         if (
-        //             abortController?.signal.aborted
-        //             || !showOldEventMessagePlaceholder.value
-        //         ) {
-        //             if (!showOldEventMessagePlaceholder.value) {
-        //                 needsMoreOldEvents.value = false
-        //             }
-        //             return
-        //         }
-
-        //         await getPreviousMessages(props.room.roomId)
-        //         scrollJumpDirection = 'up'
-
-        //         if (abortController?.signal.aborted) return
-        //         await nextTick()
-        //     }
-        // }
 
         if (abortController?.signal.aborted) return
 
@@ -570,14 +533,14 @@ watch(() => needsMoreNewEvents.value, async () => {
 
         if (
             needsMoreNewEvents.value
-            && offsetEventIndex.value + 1 + (offsetChunk.value * eventsPerChunk) - (chunksPerView * eventsPerChunk) < props.room.timeline.length
+            && offsetEventIndex.value + 1 + (offsetChunk.value * eventsPerChunk) - (chunksPerView * eventsPerChunk) < props.room.visibleTimeline.length
         ) {
             scrollJumpDirection = 'down'
             needsMoreNewEvents.value = false
             offsetChunk.value += Math.round(chunksPerView / 2)
-            const maxOffsetChunk = Math.floor((props.room.timeline.length - offsetEventIndex.value) / eventsPerChunk)
+            const maxOffsetChunk = Math.floor((props.room.visibleTimeline.length - offsetEventIndex.value) / eventsPerChunk)
             if (offsetChunk.value > maxOffsetChunk) {
-                const latestEvent = props.room.timeline[props.room.timeline.length - 1]
+                const latestEvent = props.room.visibleTimeline[props.room.visibleTimeline.length - 1]
                 if (latestEvent) {
                     offsetEventId.value = latestEvent.eventId
                     offsetChunk.value = 0
@@ -602,8 +565,8 @@ onMounted(() => {
     }
 
     // TODO - update to latest message whenever scrolled to bottom (live view)
-    if (props.room.timeline.length > 0) {
-        offsetEventId.value = props.room.timeline[props.room.timeline.length - 1]?.eventId
+    if (props.room.visibleTimeline.length > 0) {
+        offsetEventId.value = props.room.visibleTimeline[props.room.visibleTimeline.length - 1]?.eventId
     }
 
     if (props.room.timelineGapStartToken) {
@@ -614,7 +577,6 @@ onMounted(() => {
         isJustMounted.value = true
     })
 
-    console.log('mounted')
     loadPreviousMessagesUpToChunk(offsetChunk.value, offsetEventId.value)
 
     // TODO - how to handle error scenarios:
@@ -687,7 +649,7 @@ async function loadPreviousMessagesUpToChunk(targetOffsetChunk: number, targetOf
     if (targetOffsetEventId === offsetEventId.value) {
         while (
             offsetEventIndex.value + 1 + (targetOffsetChunk * eventsPerChunk) - (chunksPerView * eventsPerChunk) < 0
-            && props.room.timeline[0]?.type !== 'm.room.create'
+            && props.room.visibleTimeline[0]?.type !== 'm.room.create'
         ) {
             if (
                 abortController?.signal.aborted

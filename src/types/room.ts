@@ -58,6 +58,22 @@ export interface RoomReadReceipt {
     ts?: number;
 }
 
+export interface RoomEventReactionShortEvent {
+    eventId: string;
+    sender: string;
+}
+
+export interface RoomEventReaction {
+    events: RoomEventReactionShortEvent[];
+    ts: number;
+    key: string;
+}
+
+export interface RoomEventReactionRender extends RoomEventReaction {
+    highlighted: boolean; // Logged in user reacted
+    displaynames: string[];
+}
+
 export interface InvitedRoom {
     roomId: string;
     stateEventsByType: ApiV3SyncStrippedStateEventRecordFrom;
@@ -71,16 +87,20 @@ export interface KnockedRoom {
 export interface JoinedRoom {
     roomId: string;
     accountData: EventDataRecordFrom;
+    reactions: Record<string, RoomEventReaction[]>;
     readRecepts: Record<string, RoomReadReceipt>;
+    redactions: string[];
     stateEventsById: Record<string, ApiV3SyncClientEventWithoutRoomId>;
     stateEventsByType: ApiV3SyncClientEventWithoutRoomIdRecordFrom;
     summary: ApiV3SyncRoomSummary;
-    timeline: Array<ApiV3SyncClientEventWithoutRoomId>;
+    visibleTimeline: Array<ApiV3SyncClientEventWithoutRoomId>;
+    invisibleTimeline: Array<ApiV3SyncClientEventWithoutRoomId>;
     timelineStartToken?: string; // The next_batch token used to fetch the newest events
     timelineEndToken?: string; // The prev_batch token used to fetch the oldest events
     timelineGapStartToken?: string; // The prev_batch token that represents the start of the gap (newer events)
     timelineGapEndToken?: string; // The next_batch token that represents the end of the gap (older events)
-    timelineGapNewestEventId?: string; // The event_id of the last event we saw before the gap was created
+    timelineGapNewestVisibleEventId?: string; // The event_id of the last event we saw before the gap was created
+    timelineGapNewestInvisibleEventId?: string; // The event_id of the last event we saw before the gap was created
     typingUserIds: string[];
     unreadNotifications: {
         highlightCount: number;
@@ -95,14 +115,18 @@ export interface JoinedRoom {
 export interface LeftRoom {
     roomId: string;
     accountData: EventDataRecordFrom;
+    reactions: Record<string, RoomEventReaction[]>;
+    redactions: string[];
     stateEventsById: Record<string, ApiV3SyncClientEventWithoutRoomId>;
     stateEventsByType: ApiV3SyncClientEventWithoutRoomIdRecordFrom;
-    timeline: Array<ApiV3SyncClientEventWithoutRoomId>;
+    visibleTimeline: Array<ApiV3SyncClientEventWithoutRoomId>;
+    invisibleTimeline: Array<ApiV3SyncClientEventWithoutRoomId>;
     timelineStartToken?: string; // The next_batch token used to fetch the newest events
     timelineEndToken?: string; // The prev_batch token used to fetch the oldest events
     timelineGapStartToken?: string; // The prev_batch token that represents the start of the gap (newer events)
     timelineGapEndToken?: string; // The next_batch token that represents the end of the gap (older events)
-    timelineGapNewestEventId?: string; // The event_id of the last event we saw before the gap was created
+    timelineGapNewestVisibleEventId?: string; // The event_id of the last event we saw before the gap was created
+    timelineGapNewestInvisibleEventId?: string; // The event_id of the last event we saw before the gap was created
 }
 
 export interface SpaceClientSettings {
