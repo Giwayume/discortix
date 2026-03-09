@@ -242,6 +242,17 @@ function addJoinedOrLeftRoomTimelineEvent(
         }
     }
 
+    // Process message replacement
+    if (event.type === 'm.room.message' && event.content?.['m.relates_to']?.relType === 'm.replace') {
+        const relatedEventId: string | undefined = event.content?.['m.relates_to']?.eventId
+        if (relatedEventId) {
+            const existingReplacementTimestamp = room.replacements[relatedEventId]?.originServerTs ?? 0
+            if (event.originServerTs > existingReplacementTimestamp) {
+                room.replacements[relatedEventId] = event
+            }
+        }
+    }
+
     // Insert event into timeline
     if (timeline.length === 0) {
         timeline.push(event)
@@ -510,6 +521,7 @@ export const useRoomStore = defineStore('room', () => {
                         reactions: {},
                         readRecepts: {},
                         redactions: [],
+                        replacements: {},
                         stateEventsByType: {},
                         stateEventsById: {},
                         summary: {},
@@ -594,6 +606,7 @@ export const useRoomStore = defineStore('room', () => {
                         accountData: joined.value[roomId]?.accountData ?? {},
                         reactions: {},
                         redactions: [],
+                        replacements: {},
                         stateEventsByType: {},
                         stateEventsById: {},
                         visibleTimeline: [],

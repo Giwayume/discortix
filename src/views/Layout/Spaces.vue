@@ -10,6 +10,7 @@
                     }"
                     :aria-label="t('layout.directMessages')"
                     @click="viewDirectMessages"
+                    @contextmenu.prevent
                 >
                     <div class="application__space__icon">
                         <span class="pi pi-comments" aria-hidden="true" />
@@ -25,6 +26,7 @@
                         }"
                         :aria-label="space.name"
                         @click="viewSpace(space)"
+                        @contextmenu="showSpaceContextMenu($event, space)"
                     >
                         <div class="application__space__icon">
                             <AuthenticatedImage
@@ -50,6 +52,7 @@
                     v-tooltip.right="{ value: isTouchEventsDetected ? undefined : t('layout.addSpace') }"
                     class="application__space application__space--action"
                     :aria-label="t('layout.addSpace')"
+                    @contextmenu.prevent
                 >
                     <div class="application__space__icon">
                         <span class="pi pi-plus-circle" aria-hidden="true" />
@@ -59,6 +62,7 @@
                     v-tooltip.right="{ value: isTouchEventsDetected ? undefined : t('layout.discover') }"
                     class="application__space application__space--action"
                     :aria-label="t('layout.discover')"
+                    @contextmenu.prevent
                 >
                     <div class="application__space__icon">
                         <span class="pi pi-compass" aria-hidden="true" />
@@ -66,10 +70,21 @@
                 </button>
             </div>
         </ScrollPanel>
+        <ContextMenu ref="contextMenu" :model="contextMenuItems">
+            <template #item="{ item, props }">
+                <a class="p-contextmenu-item-link" v-bind="props.action">
+                    <span class="p-contextmenu-item-label">{{ item.label }}</span>
+                    <span v-if="item.shortcut" class="ml-auto border border-surface rounded bg-emphasis text-muted-color text-xs p-1">{{ item.shortcut }}</span>
+                    <i v-if="item.items" class="pi pi-angle-right ml-auto"></i>
+                </a>
+            </template>
+            <!-- p-contextmenu-item-label p-contextmenu-item-link p-contextmenu-item-content -->
+        </ContextMenu>
     </div>
 </template>
 
 <script setup lang="ts">
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
@@ -78,6 +93,7 @@ import { useSpaceStore } from '@/stores/space'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 
+import ContextMenu from 'primevue/contextmenu'
 import ScrollPanel from 'primevue/scrollpanel'
 import vTooltip from 'primevue/tooltip'
 
@@ -87,6 +103,152 @@ const { t } = useI18n()
 const router = useRouter()
 const { isTouchEventsDetected } = useApplication()
 const { currentTopLevelSpaceId, joinedSpaces } = storeToRefs(useSpaceStore())
+
+const contextMenu = ref<InstanceType<typeof ContextMenu>>()
+const contextMenuSelectedSpace = ref<SpaceSummary>()
+const contextMenuState = reactive({
+    generalNotifications: 'all' as 'all' | 'mentions' | 'nothing',
+    suppressEveryone: false,
+    suppressAllRoleMentions: false,
+    suppressHighlights: false,
+    muteNewEvents: false,
+    mobilePushNotifications: false,
+    hideMutedChannels: false,
+})
+const contextMenuItems = ref([
+    {
+        label: 'Mark as Read',
+    },
+    {
+        separator: true,
+    },
+    {
+        label: 'Invite to Space',
+    },
+    {
+        separator: true,
+    },
+    {
+        label: 'Mute Space',
+        items: [
+            {
+                label: 'For 15 Minutes',
+            },
+            {
+                label: 'For 1 Hour',
+            },
+            {
+                label: 'For 3 Hours',
+            },
+            {
+                label: 'For 8 Hours',
+            },
+            {
+                label: 'For 24 Hours',
+            },
+            {
+                label: 'Until I turn it back on',
+            },
+        ]
+    },
+    {
+        label: 'Notification Settings',
+        items: [
+            {
+                label: 'All Messages',
+                radioModel: 'generalNotifications',
+                radioValue: 'all',
+            },
+            {
+                label: 'Only @mentions',
+                radioModel: 'generalNotifications',
+                radioValue: 'mentions',
+            },
+            {
+                label: 'Nothing',
+                radioModel: 'generalNotifications',
+                radioValue: 'nothing',
+            },
+            {
+                separator: true,
+            },
+            {
+                label: 'Suppress @everyone and @here',
+                checkboxModel: 'suppressEveryone',
+            },
+            {
+                label: 'Suppress All Role @mentions',
+                checkboxModel: 'suppressAllRoleMentions',
+            },
+            {
+                label: 'Suppress Highlights',
+                checkboxModel: 'suppressHighlights',
+            },
+            {
+                label: 'Mute New Events',
+                checkboxModel: 'muteNewEvents',
+            },
+            {
+                separator: true,
+            },
+            {
+                label: 'Mobile Push Notifications',
+                checkboxModel: 'mobilePushNotifications',
+            },
+        ]
+    },
+    {
+        label: 'Hide Muted Channels',
+        checkboxModel: 'hideMutedChannels',
+    },
+    {
+        separator: true,
+    },
+    {
+        label: 'Space Settings',
+        items: [
+            {
+                label: 'Space Profile',
+            },
+            {
+                label: 'Emoji',
+            },
+            {
+                label: 'Stickers',
+            },
+            {
+                label: 'Members',
+            },
+            {
+                label: 'Invites',
+            },
+            {
+                label: 'Access',
+            },
+            {
+                label: 'Bans',
+            },
+        ]
+    },
+    {
+        label: 'Privacy Settings',
+    },
+    {
+        separator: true,
+    },
+    {
+        label: 'Create Room',
+    },
+    {
+        label: 'Create Category',
+    },
+    {
+        separator: true,
+    },
+    {
+        label: 'Copy Space ID',
+    },
+])
 
 function createAcronym(spaceName: string) {
     const wordSplit = spaceName.toUpperCase().split(' ')
@@ -102,6 +264,11 @@ function viewDirectMessages() {
 function viewSpace(space: SpaceSummary) {
     router.push({ name: 'room', params: { roomId: space.roomId } })
 }
+
+function showSpaceContextMenu(event: MouseEvent, space: SpaceSummary) {
+    contextMenuSelectedSpace.value = space
+    contextMenu.value?.show(event)
+};
 </script>
 
 <style lang="scss" scoped>

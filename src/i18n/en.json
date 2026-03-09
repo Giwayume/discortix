@@ -236,6 +236,7 @@
         "changedGroupIcon": "changed the group icon.",
         "changedGroupNamePrefix": "changed the group name: ",
         "changedGroupNameSuffix": ".",
+        "messageEditedIndicator": "(edited)",
         "inviteFriendsButton": "Invite Friends",
         "editGroupButton": "Edit Group",
         "editRoom": "Edit Room",

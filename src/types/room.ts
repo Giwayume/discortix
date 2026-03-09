@@ -90,6 +90,7 @@ export interface JoinedRoom {
     reactions: Record<string, RoomEventReaction[]>;
     readRecepts: Record<string, RoomReadReceipt>;
     redactions: string[];
+    replacements: Record<string, ApiV3SyncClientEventWithoutRoomId>;
     stateEventsById: Record<string, ApiV3SyncClientEventWithoutRoomId>;
     stateEventsByType: ApiV3SyncClientEventWithoutRoomIdRecordFrom;
     summary: ApiV3SyncRoomSummary;
@@ -117,6 +118,7 @@ export interface LeftRoom {
     accountData: EventDataRecordFrom;
     reactions: Record<string, RoomEventReaction[]>;
     redactions: string[];
+    replacements: Record<string, ApiV3SyncClientEventWithoutRoomId>;
     stateEventsById: Record<string, ApiV3SyncClientEventWithoutRoomId>;
     stateEventsByType: ApiV3SyncClientEventWithoutRoomIdRecordFrom;
     visibleTimeline: Array<ApiV3SyncClientEventWithoutRoomId>;

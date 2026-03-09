@@ -76,9 +76,10 @@ function isEventVisible(event: ApiV3SyncClientEventWithoutRoomId) {
         && !customEventTypes.includes(event.type)
     ) return false
     if (event.type === 'm.room.member') {
-        if (!visibleMembershipStatuses.includes(event.content.membership)) return false
+        if (!visibleMembershipStatuses.includes(event.content?.membership)) return false
     } else if (event.type === 'm.room.message') {
-        if (!messageEventMessageTypes.includes(event.content.msgtype)) return false
+        if (!messageEventMessageTypes.includes(event.content?.msgtype)) return false
+        if (event.content?.['m.relates_to']?.relType === 'm.replace') return false
     }
     return true
 }

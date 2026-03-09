@@ -1,6 +1,7 @@
 <template>
     <!-- This is here to trigger Vue update events. Wish I didn't have to hack it like this. -->
-    <div hidden>{{ visibleEventChunks?.[0]?.events[0]?.event.eventId }}</div>
+    <!-- <div hidden>{{ visibleEventChunks?.[0]?.events[0]?.event.eventId }}</div> -->
+    <div hidden>{{ eventChunkRenderUuid }}</div>
     <div
         v-if="room"
         :data-timeline-id="componentUuid"
@@ -16,182 +17,192 @@
                     ref="oldMessagePlaceholder"
                     :key="`oldMessagePlaceholderFor${room.roomId}`"
                 />
-                <template v-for="chunk of visibleEventChunks" :key="chunk.id">
-                    <template v-for="e of chunk.events" :key="e.event.eventId">
-                        <div v-if="e.currentDateDivider && e.event.type !== 'm.room.create'" class="p-chattimeline-date-heading">
-                            <time :datetime="e.isoTimestamp">{{ e.currentDateDivider }}</time>
-                        </div>
-                        <div
-                            v-if="e.category === 'message'"
-                            class="p-chattimeline-event"
-                            :class="{ 'p-chattimeline-event-groupstart': e.displayHeader }"
-                            :data-event-id="e.event.eventId"
-                        >
-                            <!-- Message type events (most common) -->
-                            <template v-if="e.displayHeader">
-                                <h3 class="p-chattimeline-event-header">
-                                    <span class="link" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
-                                    <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
-                                </h3>
-                                <div class="p-avatar p-avatar-circle p-avatar-chat">
-                                    <AuthenticatedImage :mxcUri="e.avatarUrl" type="thumbnail" :width="48" :height="48" method="scale">
-                                        <template v-slot="{ src }">
-                                            <img :src="src" class="w-full h-full">
-                                        </template>
-                                        <template #error>
-                                            <span class="p-avatar-icon pi pi-user" />
-                                        </template>
-                                    </AuthenticatedImage>
+                <div
+                    v-for="(eventChunkList, eventChunkBufferIndex) of eventChunkBuffers"
+                    :key="eventChunkBufferIndex"
+                    :class="{
+                        'p-chattimeline-scroll-content': activeEventChunkBufferIndex === eventChunkBufferIndex,
+                        'p-chattimeline-scroll-content-sizer': activeEventChunkBufferIndex !== eventChunkBufferIndex,
+                    }"
+                >
+                    <div ref="eventChunkBufferContainers" class="p-chattimeline-scroll-content-chunks">
+                        <template v-for="chunk of eventChunkList" :key="chunk.id">
+                            <template v-for="e of chunk.events" :key="e.event.eventId">
+                                <div v-if="e.currentDateDivider && e.event.type !== 'm.room.create'" class="p-chattimeline-date-heading">
+                                    <time :datetime="e.isoTimestamp">{{ e.currentDateDivider }}</time>
                                 </div>
-                            </template>
-                            <template v-if="e.event.type === 'm.room.message'">
-                                <!-- Message -->
-                                <template v-if="e.event.content.msgtype === 'm.audio'">
-                                    <!-- Audio -->
-                                    {{ e.event.content.msgtype }}
-                                </template>
-                                <template v-else-if="e.event.content.msgtype === 'm.file'">
-                                    <!-- File -->
-                                    {{ e.event.content.msgtype }}
-                                </template>
-                                <template v-else-if="e.event.content.msgtype === 'm.image'">
-                                    <!-- Image -->
-                                    <AuthenticatedImage
-                                        :mxcUri="e.event.content.url"
-                                        :encryptedFile="e.event.content.info?.thumbnailFile || e.event.content.file"
-                                        type="download"
-                                    >
-                                        <template v-slot="{ src }">
-                                            <img
-                                                :src="src"
-                                                :alt="e.event.content.body"
-                                                class="p-chattimeline-event-image"
-                                                tabindex="0"
-                                                :style="{
-                                                    '--image-target-height': (e.event.content.info?.thumbnailInfo?.h || e.event.content.info?.h || 16) + 'px',
-                                                    '--image-aspect-ratio': (e.event.content.info?.thumbnailInfo?.w || e.event.content.info?.w || 16) / (e.event.content.info?.thumbnailInfo?.h || e.event.content.info?.h || 16),
-                                                }"
-                                                @dragstart.prevent
-                                                @click="viewPhoto(e.event)"
-                                            >
+                                <div
+                                    v-if="e.category === 'message'"
+                                    class="p-chattimeline-event"
+                                    :class="{ 'p-chattimeline-event-groupstart': e.displayHeader }"
+                                    :data-event-id="e.event.eventId"
+                                >
+                                    <!-- Message type events (most common) -->
+                                    <template v-if="e.displayHeader">
+                                        <h3 class="p-chattimeline-event-header">
+                                            <span class="link" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
+                                            <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
+                                        </h3>
+                                        <div class="p-avatar p-avatar-circle p-avatar-chat">
+                                            <AuthenticatedImage :mxcUri="e.avatarUrl" type="thumbnail" :width="48" :height="48" method="scale">
+                                                <template v-slot="{ src }">
+                                                    <img :src="src" class="w-full h-full">
+                                                </template>
+                                                <template #error>
+                                                    <span class="p-avatar-icon pi pi-user" />
+                                                </template>
+                                            </AuthenticatedImage>
+                                        </div>
+                                    </template>
+                                    <template v-if="e.event.type === 'm.room.message'">
+                                        <!-- Message -->
+                                        <template v-if="e.event.content.msgtype === 'm.audio'">
+                                            <!-- Audio -->
+                                            {{ e.event.content.msgtype }}
                                         </template>
-                                    </AuthenticatedImage>
-                                </template>
-                                <template v-else-if="e.event.content.msgtype === 'm.sticker'">
-                                    <!-- Sticker -->
-                                    {{ e.event.content.msgtype }}
-                                </template>
-                                <template v-else-if="e.event.content.msgtype === 'm.text'">
-                                    <!-- Text -->
-                                    <div
-                                        v-if="e.event.content.format === 'org.matrix.custom.html'"
-                                        class="p-chattimeline-event-content"
-                                        v-dompurify-html="e.event.content.formattedBody"
-                                    />
-                                    <div v-else class="p-chattimeline-event-content">{{ e.event.content.body }}</div>
-                                </template>
-                                <template v-else-if="e.event.content.msgtype === 'm.video'">
-                                    <!-- Video -->
-                                    {{ e.event.content.msgtype }}
-                                </template>
-                            </template>
-                            <!-- Encrypted Event -->
-                            <div v-else-if="e.event.type === 'm.room.encrypted'" class="text-(--channels-default)">
-                                <span class="pi pi-exclamation-triangle mr-1 !text-sm" aria-hidden="true" />{{ i18nText.unableToDecryptMessage }}
-                                <span data-link-id="fixDecrypt" class="link" role="button" tabindex="0">{{ i18nText.learnFixDecrypt }}</span>
-                            </div>
-                            <!-- Reactions -->
-                            <div v-if="e.reactions.length > 0" class="flex flex-wrap">
-                                <span
-                                    v-for="reaction of e.reactions"
-                                    :key="reaction.key"
-                                    role="button"
-                                    tabindex="0"
-                                    class="p-chattimeline-event-reaction"
-                                    :class="{ 'p-chattimeline-event-reaction--self': reaction.highlighted }"
-                                    data-link-id="react"
-                                    :data-react-key="reaction.key"
+                                        <template v-else-if="e.event.content.msgtype === 'm.file'">
+                                            <!-- File -->
+                                            {{ e.event.content.msgtype }}
+                                        </template>
+                                        <template v-else-if="e.event.content.msgtype === 'm.image'">
+                                            <!-- Image -->
+                                            <AuthenticatedImage
+                                                :mxcUri="e.event.content.url"
+                                                :encryptedFile="e.event.content.info?.thumbnailFile || e.event.content.file"
+                                                type="download"
+                                            >
+                                                <template v-slot="{ src }">
+                                                    <img
+                                                        :src="src"
+                                                        :alt="e.event.content.body"
+                                                        class="p-chattimeline-event-image"
+                                                        tabindex="0"
+                                                        :style="{
+                                                            '--image-target-height': (e.event.content.info?.thumbnailInfo?.h || e.event.content.info?.h || 16) + 'px',
+                                                            '--image-aspect-ratio': (e.event.content.info?.thumbnailInfo?.w || e.event.content.info?.w || 16) / (e.event.content.info?.thumbnailInfo?.h || e.event.content.info?.h || 16),
+                                                        }"
+                                                        @dragstart.prevent
+                                                        @click="viewPhoto(e.event)"
+                                                    >
+                                                </template>
+                                            </AuthenticatedImage>
+                                        </template>
+                                        <template v-else-if="e.event.content.msgtype === 'm.sticker'">
+                                            <!-- Sticker -->
+                                            {{ e.event.content.msgtype }}
+                                        </template>
+                                        <template v-else-if="e.event.content.msgtype === 'm.text'">
+                                            <!-- Text -->
+                                            <div class="p-chattimeline-event-content">
+                                                <div v-if="e.event.content.format === 'org.matrix.custom.html'" v-dompurify-html="e.event.content.formattedBody" />
+                                                <template v-else>{{ e.event.content.body }}</template>
+                                                <span v-if="e.replacementEvent" v-tooltip.top="{ value: isTouchEventsDetected ? undefined : e.replacementDate }" class="p-chattimeline-edited">{{ i18nText.messageEditedIndicator }}</span>
+                                            </div>
+                                        </template>
+                                        <template v-else-if="e.event.content.msgtype === 'm.video'">
+                                            <!-- Video -->
+                                            {{ e.event.content.msgtype }}
+                                        </template>
+                                    </template>
+                                    <!-- Encrypted Event -->
+                                    <div v-else-if="e.event.type === 'm.room.encrypted'" class="text-(--channels-default)">
+                                        <span class="pi pi-exclamation-triangle mr-1 !text-sm" aria-hidden="true" />{{ i18nText.unableToDecryptMessage }}
+                                        <span data-link-id="fixDecrypt" class="link" role="button" tabindex="0">{{ i18nText.learnFixDecrypt }}</span>
+                                    </div>
+                                    <!-- Reactions -->
+                                    <div v-if="e.reactions.length > 0" class="flex flex-wrap">
+                                        <span
+                                            v-for="reaction of e.reactions"
+                                            :key="reaction.key"
+                                            role="button"
+                                            tabindex="0"
+                                            class="p-chattimeline-event-reaction"
+                                            :class="{ 'p-chattimeline-event-reaction--self': reaction.highlighted }"
+                                            data-link-id="react"
+                                            :data-react-key="reaction.key"
+                                        >
+                                            {{ reaction.key }}
+                                            <span class="p-chattimeline-event-reaction-count">{{ reaction.displaynames.length }}</span>
+                                        </span>
+                                        <span
+                                            v-tooltip.top="{ value: isTouchEventsDetected ? undefined : i18nText.addReaction }"
+                                            role="button"
+                                            tabindex="0"
+                                            class="p-chattimeline-event-reaction"
+                                            data-link-id="react"
+                                            :aria-label="i18nText.addReaction"
+                                        >
+                                            <span class="pi pi-face-smile" aria-hidden="true" />
+                                        </span>
+                                    </div>
+                                </div>
+                                <div
+                                    v-else-if="e.category === 'settings'"
+                                    class="p-chattimeline-event p-chattimeline-event-settings"
+                                    :class="{ 'p-chattimeline-event-groupstart': e.displayHeader }"
+                                    :data-event-id="e.event.eventId"
                                 >
-                                    {{ reaction.key }}
-                                    <span class="p-chattimeline-event-reaction-count">{{ reaction.displaynames.length }}</span>
-                                </span>
-                                <span
-                                    v-tooltip.top="{ value: isTouchEventsDetected ? undefined : i18nText.addReaction }"
-                                    role="button"
-                                    tabindex="0"
-                                    class="p-chattimeline-event-reaction"
-                                    data-link-id="react"
-                                    :aria-label="i18nText.addReaction"
-                                >
-                                    <span class="pi pi-face-smile" aria-hidden="true" />
-                                </span>
-                            </div>
-                        </div>
-                        <div
-                            v-else-if="e.category === 'settings'"
-                            class="p-chattimeline-event p-chattimeline-event-settings"
-                            :class="{ 'p-chattimeline-event-groupstart': e.displayHeader }"
-                            :data-event-id="e.event.eventId"
-                        >
-                            <!-- Settings type events (less common) -->
-                            <template v-if="e.event.type === 'm.room.avatar'">
-                                <!-- Chat room icon/avatar changed -->
-                                <span class="p-chattimeline-event-icon pi pi-pencil" aria-hidden="true" />
-                                <strong>
-                                    <span class="link" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
-                                </strong>
-                                {{ i18nText.changedGroupIcon }}
-                                <span data-link-id="editGroup" class="link" role="button" tabindex="0">{{ i18nText.editGroupButton }}</span>
-                                <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
+                                    <!-- Settings type events (less common) -->
+                                    <template v-if="e.event.type === 'm.room.avatar'">
+                                        <!-- Chat room icon/avatar changed -->
+                                        <span class="p-chattimeline-event-icon pi pi-pencil" aria-hidden="true" />
+                                        <strong>
+                                            <span class="link" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
+                                        </strong>
+                                        {{ i18nText.changedGroupIcon }}
+                                        <span data-link-id="editGroup" class="link" role="button" tabindex="0">{{ i18nText.editGroupButton }}</span>
+                                        <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
+                                    </template>
+                                    <template v-else-if="e.event.type === 'm.room.member'">
+                                        <!-- Member Join/Leave room -->
+                                        <span class="p-chattimeline-event-icon pi" :class="[e.event.content.membership === 'join' ? 'pi-arrow-right' : 'pi-info-circle']" aria-hidden="true" />
+                                        <span v-if="e.event.content.membership === 'join'" class="mr-1">
+                                            {{ i18nText.joinedTheRoomPrefix }}<strong><span class="link" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span></strong>{{ i18nText.joinedTheRoomSuffix }}
+                                        </span>
+                                        <template v-else>
+                                            <strong class="mr-1">
+                                                <span class="link" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
+                                            </strong>
+                                            <span v-if="e.event.content.membership === 'leave'">{{ i18nText.leftTheRoom }}</span>
+                                            <span v-if="e.event.content.membership === 'ban'">{{ i18nText.bannedFromTheRoom }}</span>
+                                        </template>
+                                        <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
+                                    </template>
+                                    <template v-else-if="e.event.type === 'm.room.name'">
+                                        <!-- Chat group name changed -->
+                                        <span class="p-chattimeline-event-icon pi pi-pencil" aria-hidden="true" />
+                                        <strong>
+                                            <span class="link" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
+                                        </strong>
+                                        {{ i18nText.changedGroupNamePrefix }}<strong>{{ e.event.content.name }}</strong>{{ i18nText.changedGroupNameSuffix }}
+                                        <span data-link-id="editGroup" class="link" role="button" tabindex="0">{{ i18nText.editGroupButton }}</span>
+                                        <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
+                                    </template>
+                                    <template v-else-if="e.event.type === 'm.room.encryption'">
+                                        <!-- Encryption Enabled -->
+                                        <span class="p-chattimeline-event-icon pi pi-lock" aria-hidden="true" />
+                                        {{ i18nText.roomEncryptionEnabled }}
+                                        <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
+                                    </template>
+                                    <template v-else>
+                                        <!-- Unhandled Event Type -->
+                                        {{ e.event.type }}
+                                    </template>
+                                </div>
+                                <!-- Start of chat (least common) -->
+                                <MessageBeginning
+                                    v-else-if="e.event.type === 'm.room.create'"
+                                    :room="props.room"
+                                />
                             </template>
-                            <template v-else-if="e.event.type === 'm.room.member'">
-                                <!-- Member Join/Leave room -->
-                                <span class="p-chattimeline-event-icon pi" :class="[e.event.content.membership === 'join' ? 'pi-arrow-right' : 'pi-info-circle']" aria-hidden="true" />
-                                <span v-if="e.event.content.membership === 'join'" class="mr-1">
-                                    {{ i18nText.joinedTheRoomPrefix }}<strong><span class="link" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span></strong>{{ i18nText.joinedTheRoomSuffix }}
-                                </span>
-                                <template v-else>
-                                    <strong class="mr-1">
-                                        <span class="link" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
-                                    </strong>
-                                    <span v-if="e.event.content.membership === 'leave'">{{ i18nText.leftTheRoom }}</span>
-                                    <span v-if="e.event.content.membership === 'ban'">{{ i18nText.bannedFromTheRoom }}</span>
-                                </template>
-                                <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
-                            </template>
-                            <template v-else-if="e.event.type === 'm.room.name'">
-                                <!-- Chat group name changed -->
-                                <span class="p-chattimeline-event-icon pi pi-pencil" aria-hidden="true" />
-                                <strong>
-                                    <span class="link" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
-                                </strong>
-                                {{ i18nText.changedGroupNamePrefix }}<strong>{{ e.event.content.name }}</strong>{{ i18nText.changedGroupNameSuffix }}
-                                <span data-link-id="editGroup" class="link" role="button" tabindex="0">{{ i18nText.editGroupButton }}</span>
-                                <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
-                            </template>
-                            <template v-else-if="e.event.type === 'm.room.encryption'">
-                                <!-- Encryption Enabled -->
-                                <span class="p-chattimeline-event-icon pi pi-lock" aria-hidden="true" />
-                                {{ i18nText.roomEncryptionEnabled }}
-                                <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
-                            </template>
-                            <template v-else>
-                                <!-- Unhandled Event Type -->
-                                {{ e.event.type }}
-                            </template>
-                        </div>
-                        <!-- Start of chat (least common) -->
-                        <MessageBeginning
-                            v-else-if="e.event.type === 'm.room.create'"
-                            :room="props.room"
-                        />
-                    </template>
-                </template>
-                
-                <!-- New messages bar -->
-                <!--div class="p-chattimeline-new-divider">
-                    <div class="p-chattimeline-new-divider-tag">New</div>
-                </div-->
+                        </template>
+                    </div>
+                    <!-- New messages bar -->
+                    <!--div class="p-chattimeline-new-divider">
+                        <div class="p-chattimeline-new-divider-tag">New</div>
+                    </div-->
+                    
+                </div>
                 <MessagePlaceholder
                     v-if="showNewEventMessagePlaceholder"
                     ref="newMessagePlaceholder"
@@ -253,6 +264,8 @@ interface EventWithRenderInfo {
     isoTimestamp: string;
     avatarUrl?: string;
     event: ApiV3SyncClientEventWithoutRoomId;
+    replacementEvent?: ApiV3SyncClientEventWithoutRoomId;
+    replacementDate?: string;
     reactions: RoomEventReactionRender[];
 }
 
@@ -299,20 +312,27 @@ const i18nText = {
     changedGroupNameSuffix: t('room.changedGroupNameSuffix'),
     editGroupButton: t('room.editGroupButton'),
     addReaction: t('room.addReaction'),
+    messageEditedIndicator: t('room.messageEditedIndicator'),
 }
 
+const eventChunkSwapReadyUuid = ref<string | undefined>()
+const eventChunkRenderUuid = ref<string>('')
+const eventChunkBuffers = ref<EventChunk[][]>([[], []])
+const activeEventChunkBufferIndex = ref<number>(0)
+const eventChunkBufferContainers = ref<HTMLDivElement[]>([])
+
 const isJustMounted = ref<boolean>(false)
+const hasAttemptedToScroll = ref<boolean>(false)
 const scrollPanel = ref<typeof ScrollPanel>()
 const scrollPanelContent = ref<HTMLDivElement>()
 const scrollContentContainer = ref<HTMLDivElement>()
-let scrollContentContainerResizeObserver: ResizeObserver | undefined = undefined
-const scrollContentContainerHeight = ref<number>(window.innerHeight)
 
 const oldMessagePlaceholder = ref<InstanceType<typeof MessagePlaceholder>>()
 const oldMessagePlaceholderHeight = ref<number>(1)
 const newMessagePlaceholder = ref<InstanceType<typeof MessagePlaceholder>>()
 const newMessagePlaceholderHeight = ref<number>(1)
 const messagePlaceholderScrollMargin = ref<number>(Math.min(Math.floor(window.innerHeight / 2), 200))
+const isLoadingPreviousMessages = ref<boolean>(false)
 
 const needsMoreOldEvents = ref<boolean>(false)
 const needsMoreNewEvents = ref<boolean>(false)
@@ -374,7 +394,7 @@ watch(() => showNewEventMessagePlaceholder.value, () => {
     }
 }, { immediate: true })
 
-const visibleEventChunks = computed<EventChunk[]>(() => {
+const loadingEventChunks = computed<EventChunk[]>(() => {
     const today = new Date()
     const chunks: EventChunk[] = []
 
@@ -426,6 +446,8 @@ const visibleEventChunks = computed<EventChunk[]>(() => {
                 }
             })
 
+            const replacementEvent = props.room.replacements[event.eventId]
+
             chunk.events.push({
                 category,
                 currentDateDivider,
@@ -437,7 +459,9 @@ const visibleEventChunks = computed<EventChunk[]>(() => {
                 time: originDate.toLocaleString(undefined, { hour: 'numeric', minute: 'numeric' }),
                 isoTimestamp: originDate.toISOString(),
                 avatarUrl: profiles.value[event.sender]?.avatarUrl,
-                event,
+                event: replacementEvent?.content?.['m.new_content'] ? { ...event, content: replacementEvent.content['m.new_content'] } : event,
+                replacementEvent,
+                replacementDate: replacementEvent?.originServerTs ? new Date(replacementEvent.originServerTs).toLocaleString() : undefined,
                 reactions,
             })
 
@@ -447,7 +471,28 @@ const visibleEventChunks = computed<EventChunk[]>(() => {
 
         const decryptPromises: Promise<void>[] = []
         for (const event of chunk.events) {
-            if (event.event.type === 'm.room.encrypted') {
+            if (event.replacementEvent?.type === 'm.room.encrypted') {
+                if (decryptedRoomEvents.value[event.replacementEvent.eventId]) {
+                    event.replacementEvent = decryptedRoomEvents.value[event.replacementEvent.eventId]!
+                    event.event.content = event.replacementEvent.content['m.new_content']
+                    continue
+                }
+                const roomKey = roomKeys.value[props.room.roomId]?.[event.event.content.sessionId]?.[event.event.content.senderKey]
+                if (!roomKey) continue
+                decryptPromises.push(
+                    decryptMegolmEvent(event.replacementEvent.content, roomKey).then((decrypted) => {
+                        const decryptedEvent = {
+                            ...event.replacementEvent,
+                            ...decrypted,
+                        }
+                        decryptedRoomEvents.value[event.event.eventId] = decryptedEvent
+                        event.replacementEvent = decryptedEvent
+                        event.event.content = decryptedEvent.content['m.new_content']
+                    }).catch((error) => {
+                        console.error(error)
+                    })
+                )
+            } else if (event.event.type === 'm.room.encrypted') {
                 if (decryptedRoomEvents.value[event.event.eventId]) {
                     event.event = decryptedRoomEvents.value[event.event.eventId]!
                     continue
@@ -467,6 +512,7 @@ const visibleEventChunks = computed<EventChunk[]>(() => {
                     })
                 )
             }
+            
         }
         Promise.allSettled(decryptPromises).then(() => {
             chunk.loading = false
@@ -475,9 +521,58 @@ const visibleEventChunks = computed<EventChunk[]>(() => {
     }
     return chunks
 })
+watch(() => loadingEventChunks.value, (eventChunks) => {
+    if (eventChunkSwapReadyUuid.value) {
+        swapEventChunkBuffers()
+    }
+    const inactiveEventChunkBufferIndex = activeEventChunkBufferIndex.value === 0 ? 1 : 0
+    eventChunkBuffers.value[inactiveEventChunkBufferIndex] = eventChunks
+    eventChunkRenderUuid.value = uuidv4()
+}, { immediate: true })
+
+onUpdated(() => {
+    eventChunkSwapReadyUuid.value = eventChunkRenderUuid.value
+})
+
+function swapEventChunkBuffers() {
+    if (!eventChunkSwapReadyUuid.value) return
+
+    const inactiveEventChunkBufferIndex = activeEventChunkBufferIndex.value === 0 ? 1 : 0
+
+    manageScrollSwap:
+    if (scrollPanelContent.value) {
+        const activeContainer = eventChunkBufferContainers.value[activeEventChunkBufferIndex.value]
+        const inactiveContainer = eventChunkBufferContainers.value[inactiveEventChunkBufferIndex]
+        if (!activeContainer || !inactiveContainer) break manageScrollSwap
+        const oldEvents = activeContainer.querySelectorAll('[data-event-id]')
+        let oldReferenceEvent = oldEvents[0]
+        let newReferenceEvent = inactiveContainer.querySelector(`[data-event-id="${oldReferenceEvent?.getAttribute('data-event-id')}"]`)
+        if (!newReferenceEvent) {
+            oldReferenceEvent = oldEvents[oldEvents.length - 1]
+            newReferenceEvent = inactiveContainer.querySelector(`[data-event-id="${oldReferenceEvent?.getAttribute('data-event-id')}"]`)
+        }
+        if (!oldReferenceEvent || !newReferenceEvent) break manageScrollSwap
+
+        const newReferenceClientRect = newReferenceEvent.getBoundingClientRect() 
+        const newReferenceScrollTop = newReferenceClientRect.top - inactiveContainer.getBoundingClientRect().top
+        const oldReferenceClientRect = oldReferenceEvent.getBoundingClientRect()
+        const oldReferenceScrollTop = oldReferenceClientRect.top - activeContainer.getBoundingClientRect().top
+
+        const oldScrollTop = scrollPanelContent.value!.scrollTop
+        inactiveContainer.parentElement?.classList.remove('p-chattimeline-scroll-content-sizer')
+        activeContainer.parentElement?.classList.add('p-chattimeline-scroll-content-sizer')
+        scrollPanelContent.value!.scrollTop = oldScrollTop + (newReferenceScrollTop - oldReferenceScrollTop) + (newReferenceClientRect.height - oldReferenceClientRect.height)
+    }
+
+    eventChunkSwapReadyUuid.value = undefined
+    eventChunkBuffers.value[activeEventChunkBufferIndex.value] = []
+    activeEventChunkBufferIndex.value = inactiveEventChunkBufferIndex
+}
 
 let fetchOldEventsAbortController: AbortController | undefined
 watch(() => needsMoreOldEvents.value, async () => {
+    fetchOldEventsAbortController?.abort()
+
     if (needsMoreOldEvents.value) {
         const abortController = new AbortController()
         fetchOldEventsAbortController = abortController
@@ -485,6 +580,8 @@ watch(() => needsMoreOldEvents.value, async () => {
         let targetOffsetChunk = offsetChunk.value - Math.round(chunksPerView / 2)
         let targetOffsetEventId = offsetEventId.value
         let targetOffsetEventIndex = offsetEventIndex.value
+
+        // If the top of the timeline is encountered, reset to fit the chunked events exactly to the top.
         if (props.room.visibleTimeline[0]?.type === 'm.room.create') {
             targetOffsetChunk = Math.max(Math.floor(-offsetEventIndex.value / eventsPerChunk), targetOffsetChunk)
             if (
@@ -502,9 +599,27 @@ watch(() => needsMoreOldEvents.value, async () => {
             }
         }
 
-        await loadPreviousMessagesUpToChunk(targetOffsetChunk, targetOffsetEventId, 'up', abortController)
+        await loadPreviousMessagesUpToChunk(targetOffsetChunk, targetOffsetEventId, abortController)
 
         if (abortController?.signal.aborted) return
+
+        // If the top of the timeline is encountered, reset to fit the window exactly to the top.
+        if (props.room.visibleTimeline[0]?.type === 'm.room.create') {
+            targetOffsetChunk = Math.max(Math.floor(-offsetEventIndex.value / eventsPerChunk), targetOffsetChunk)
+            if (
+                offsetEventIndex.value + 1 + (targetOffsetChunk * eventsPerChunk) - (chunksPerView * eventsPerChunk)
+                < (eventsPerChunk * chunksPerView)
+            ) {
+                targetOffsetEventIndex = Math.min(props.room.visibleTimeline.length - 1, eventsPerChunk * chunksPerView)
+                const targetOffsetEvent = props.room.visibleTimeline[targetOffsetEventIndex]
+                if (!targetOffsetEvent) {
+                    needsMoreOldEvents.value = false
+                    return
+                }
+                targetOffsetEventId = targetOffsetEvent.eventId
+                targetOffsetChunk = 0
+            }
+        }
 
         if (
             needsMoreOldEvents.value
@@ -514,7 +629,6 @@ watch(() => needsMoreOldEvents.value, async () => {
                 || targetOffsetEventIndex !== offsetEventIndex.value
             )
         ) {
-            scrollJumpDirection = 'up'
             needsMoreOldEvents.value = false
             offsetChunk.value = targetOffsetChunk
             offsetEventId.value = targetOffsetEventId
@@ -527,6 +641,8 @@ watch(() => needsMoreOldEvents.value, async () => {
 
 let fetchNewEventsAbortController: AbortController | undefined
 watch(() => needsMoreNewEvents.value, async () => {
+    fetchNewEventsAbortController?.abort()
+
     if (needsMoreNewEvents.value) {
         const abortController = new AbortController()
         fetchNewEventsAbortController = abortController
@@ -535,7 +651,6 @@ watch(() => needsMoreNewEvents.value, async () => {
             needsMoreNewEvents.value
             && offsetEventIndex.value + 1 + (offsetChunk.value * eventsPerChunk) - (chunksPerView * eventsPerChunk) < props.room.visibleTimeline.length
         ) {
-            scrollJumpDirection = 'down'
             needsMoreNewEvents.value = false
             offsetChunk.value += Math.round(chunksPerView / 2)
             const maxOffsetChunk = Math.floor((props.room.visibleTimeline.length - offsetEventIndex.value) / eventsPerChunk)
@@ -553,11 +668,7 @@ watch(() => needsMoreNewEvents.value, async () => {
 }, { immediate: true })
 
 onMounted(() => {
-
-    if (scrollContentContainer.value) {
-        scrollContentContainerResizeObserver = new ResizeObserver(onResizeScrollContentContainer)
-        scrollContentContainerResizeObserver.observe(scrollContentContainer.value)
-    }
+    hasAttemptedToScroll.value = false
 
     if (scrollPanel.value) {
         scrollPanelContent.value = (scrollPanel.value as any).$el?.querySelector('.p-scrollpanel-content')
@@ -569,109 +680,61 @@ onMounted(() => {
         offsetEventId.value = props.room.visibleTimeline[props.room.visibleTimeline.length - 1]?.eventId
     }
 
-    if (props.room.timelineGapStartToken) {
-        getPreviousMessages(props.room.roomId)
-    }
+    // Initial timeline render
+    eventChunkBuffers.value[activeEventChunkBufferIndex.value] = loadingEventChunks.value
 
-    nextTick(() => {
-        isJustMounted.value = true
-    })
-
-    loadPreviousMessagesUpToChunk(offsetChunk.value, offsetEventId.value)
+    fetchOldEventsAbortController?.abort()
+    fetchOldEventsAbortController = new AbortController()
+    loadPreviousMessagesUpToChunk(offsetChunk.value, offsetEventId.value, fetchOldEventsAbortController)
 
     // TODO - how to handle error scenarios:
     // 400/404 M_NOT_FOUND
     // 400 M_LIMIT_EXCEEDED
     // 403 M_FORBIDDEN
     // May need to reset sync in some cases if can't request more message history. Prompt user?
-})
 
-let scrollJumpDirection: 'up' | 'down' | 'bottom' | undefined = undefined
-let scrollJumpReference: {
-    eventId: string;
-    offset: number;
-    height: number;
-    scrollTop: number;
-} | undefined = undefined
-let timer: any
+    nextTick(() => {
+        isJustMounted.value = true
 
-onBeforeUpdate(() => {
-    timer = window.performance.now()
-    if (scrollJumpDirection && scrollPanelContent.value) {
-        const eventElements = scrollContentContainer.value?.querySelectorAll('[data-event-id]')
-        let scrollReferenceEvent = scrollJumpDirection === 'up'
-            ? eventElements?.[0]
-            : eventElements?.[eventElements?.length - 1]
-        const scrollReferenceEventClientRect = scrollReferenceEvent?.getBoundingClientRect()
-
-        if (scrollReferenceEvent && scrollReferenceEventClientRect) {
-            scrollJumpReference = {
-                eventId: scrollReferenceEvent.getAttribute('data-event-id') ?? '',
-                offset: scrollReferenceEventClientRect.top,
-                height: scrollReferenceEventClientRect.height,
-                scrollTop: scrollPanelContent.value.scrollTop,
-            }
-        }
-
-        scrollPanelContent.value.style.overflow = 'hidden'
-    }
-})
-
-onUpdated(() => {
-    if (scrollJumpDirection && scrollJumpReference && scrollPanelContent.value) {
-        if (scrollJumpDirection === 'bottom') {
+        if (scrollPanelContent.value) {
             scrollPanelContent.value.scrollTop = scrollPanelContent.value.scrollHeight - scrollPanelContent.value.offsetHeight
-        } else {
-            const scrollReferenceEvent = scrollContentContainer.value?.querySelector(`[data-event-id="${scrollJumpReference.eventId}"]`) || undefined
-            if (scrollReferenceEvent) {
-                const afterClientRect = scrollReferenceEvent.getBoundingClientRect()
-                const afterOffset = afterClientRect.top
-                const afterHeight = afterClientRect.height
-                scrollPanelContent.value.scrollTop = scrollJumpReference.scrollTop - (scrollJumpReference.offset - afterOffset) + (afterHeight - scrollJumpReference.height)
-                scrollJumpReference = undefined
-            }
         }
-        scrollPanelContent.value.style.overflow = ''
-        scrollJumpDirection = undefined
-        scrollJumpReference = undefined
-    }
+    })
 })
 
 onUnmounted(() => {
     window.dispatchEvent(new CustomEvent('discortix-timeline-unmounted', { detail: { id: componentUuid } }))
     scrollPanelContent.value?.removeEventListener('scroll', onScrollContent)
-    scrollContentContainerResizeObserver?.disconnect()
     fetchOldEventsAbortController?.abort()
     fetchNewEventsAbortController?.abort()
 })
 
-async function loadPreviousMessagesUpToChunk(targetOffsetChunk: number, targetOffsetEventId?: string, scrollDirection: 'up' | 'bottom' = 'bottom', abortController?: AbortController) {
-    if (targetOffsetEventId === offsetEventId.value) {
-        while (
-            offsetEventIndex.value + 1 + (targetOffsetChunk * eventsPerChunk) - (chunksPerView * eventsPerChunk) < 0
-            && props.room.visibleTimeline[0]?.type !== 'm.room.create'
-        ) {
-            if (
-                abortController?.signal.aborted
-                || !showOldEventMessagePlaceholder.value
+async function loadPreviousMessagesUpToChunk(targetOffsetChunk: number, targetOffsetEventId?: string, abortController?: AbortController) {
+    isLoadingPreviousMessages.value = true
+    try {
+        if (targetOffsetEventId === offsetEventId.value) {
+            while (
+                offsetEventIndex.value + 1 + (targetOffsetChunk * eventsPerChunk) - (chunksPerView * eventsPerChunk) < 0
+                && props.room.visibleTimeline[0]?.type !== 'm.room.create'
             ) {
-                if (!showOldEventMessagePlaceholder.value) {
-                    needsMoreOldEvents.value = false
-                }
-                return
+                if (abortController?.signal.aborted) throw new Error('Canceling network fetch.')
+
+                await getPreviousMessages(props.room.roomId)
+
+                if (abortController?.signal.aborted) throw new Error('Canceling network fetch.')
+                await nextTick()
+                await new Promise((resolve) => requestAnimationFrame(resolve))
             }
-
-            await getPreviousMessages(props.room.roomId)
-            scrollJumpDirection = scrollDirection
-
-            if (abortController?.signal.aborted) return
-            await nextTick()
         }
+    } catch (error) {
+        // Throws are used for flow control
+    } finally {
+        isLoadingPreviousMessages.value = false
     }
 }
 
 function determineIfNearPlaceholderMargins() {
-    if (!scrollPanelContent.value) return
+    if (!scrollPanelContent.value || eventChunkSwapReadyUuid.value) return
     const needsOld = showOldEventMessagePlaceholder.value && (
         scrollPanelContent.value.scrollTop < oldMessagePlaceholderHeight.value + messagePlaceholderScrollMargin.value
     )
@@ -694,25 +757,36 @@ function determineIfNearPlaceholderMargins() {
     }
 }
 
-const onScrollContent = throttle(() => {
+let scrollEndTimeoutHandle: number | undefined = undefined
+function onScrollContent(event: Event) {
+    clearTimeout(scrollEndTimeoutHandle)
+    scrollEndTimeoutHandle = setTimeout(() => {
+        onScrollContentEnd()
+    }, 80)
+    onScrollContentDeferred(event)
+}
+
+function onScrollContentEnd() {
+    if (eventChunkSwapReadyUuid.value) {
+        swapEventChunkBuffers()
+    }
+}
+
+const onScrollContentDeferred = throttle((event: Event) => {
     if (isJustMounted.value) {
         isJustMounted.value = false
     } else {
         if (!scrollPanelContent.value) return
 
         determineIfNearPlaceholderMargins()
+        hasAttemptedToScroll.value = true
         isAnchoredToBottom.value = scrollPanelContent.value.scrollTop >= scrollPanelContent.value.scrollHeight - scrollPanelContent.value.offsetHeight - 100
     }
 }, 100)
 
-function onResizeScrollContentContainer(entries: ResizeObserverEntry[]) {
-    if (entries[0]) {
-        scrollContentContainerHeight.value = entries[0]?.borderBoxSize[0]?.blockSize ?? window.innerHeight
-    }
-    if (isAnchoredToBottom.value && scrollPanelContent.value) {
-        scrollPanelContent.value.scrollTop = scrollPanelContent.value.scrollHeight - scrollPanelContent.value.offsetHeight
-    }
-}
+/*--------------------------------*\
+| Handle Interaction with Timeline |
+\*--------------------------------*/
 
 let pointerDownTimelineTarget: HTMLElement | null
 let pointerDownTimelineItemX: number = 0

@@ -1,0 +1,41 @@
+:root {
+    --p-contextmenu-background: var(--background-surface-higher);
+    --p-contextmenu-color: var(--text-strong);
+    --p-contextmenu-border-color: var(--border-subtle);
+    --p-contextmenu-border-radius: 0.5rem;
+    --p-contextmenu-shadow: var(--shadow-high);
+    --p-contextmenu-transition-duration: 0.2s;
+
+    --p-contextmenu-list-padding: 0.5rem;
+    --p-contextmenu-list-gap: 0;
+
+    --p-contextmenu-item-border-radius: 0.25rem;
+    --p-contextmenu-item-color: var(--text-strong);
+    --p-contextmenu-item-padding: 0.5rem;
+    --p-contextmenu-item-gap: 0.5rem;
+
+    --p-contextmenu-item-icon-color: var(--text-strong);
+
+    --p-contextmenu-item-focus-color: var(--text-strong);
+    --p-contextmenu-item-focus-background: var(--background-mod-subtle);
+    --p-contextmenu-item-icon-focus-color: var(--text-strong);
+
+    --p-contextmenu-submenu-icon-size: 1.125rem;
+    --p-contextmenu-submenu-icon-color: var(--text-muted);
+    --p-contextmenu-submenu-icon-focus-color: var(--text-muted);
+    --p-contextmenu-submenu-icon-active-color: var(--text-muted);
+
+    --p-contextmenu-separator-border-color: var(--border-subtle);
+}
+
+.p-contextmenu-separator {
+    margin: 0.5rem;
+}
+
+.p-contextmenu-item .p-contextmenu-item-label {
+    line-height: 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+// var(--interactive-text-default)
