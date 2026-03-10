@@ -1,4 +1,5 @@
 import camelcaseKeys from 'camelcase-keys'
+import snakecaseKeys from 'snakecase-keys'
 
 import type { CamelCase } from 'type-fest'
 import { z } from 'zod'
@@ -47,7 +48,12 @@ export const camelizeSchemaWithoutTransform = <T extends z.ZodTypeAny>(
     zod: T,
 ): z.ZodType<CamelCasedPropertiesDeep<T["_output"]>> => zod as never
 
-/** Only convert to camel case if it appears to be a snake_case variable. */
+/** Only convert to camelCase if it appears to be a snake_case variable. */
 export function camelizeApiResponse(response: any) {
     return camelcaseKeys(response as any, { deep: true, exclude: [/^(?![a-z0-9_]*_[a-z0-9_]*$).+$/] })
+}
+
+/** Only convert to snake_case if it appears to be a camelCase variable. */
+export function snakeCaseApiRequest(request: any) {
+    return snakecaseKeys(request as any, { deep: true, exclude: [/^(?![a-z][a-z0-9]*(?:[A-Z][a-z0-9]*)*$).+$/] })
 }

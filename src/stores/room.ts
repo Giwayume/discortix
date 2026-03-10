@@ -253,6 +253,20 @@ function addJoinedOrLeftRoomTimelineEvent(
         }
     }
 
+    // Remove event with same transaction ID
+    if (event.unsigned?.transactionId) {
+        const otherEventIndex = getTimelineEventIndexByTransactionId(timeline, event.unsigned.transactionId, 100)
+        if (otherEventIndex != null) {
+            timeline.splice(otherEventIndex, 1)
+        }
+    }
+
+    // Remove event with duplicate ID
+    const duplicateEventIndex = getTimelineEventIndexById(timeline, event.eventId, 100)
+    if (duplicateEventIndex != null) {
+        timeline.splice(duplicateEventIndex, 1)
+    }
+
     // Insert event into timeline
     if (timeline.length === 0) {
         timeline.push(event)
@@ -286,11 +300,27 @@ function addJoinedOrLeftRoomTimelineEvent(
 
 function getTimelineEventIndexById(
     timeline: ApiV3SyncClientEventWithoutRoomId[],
-    eventId?: string
+    eventId?: string,
+    limit: number = Infinity,
 ): number | undefined {
     if (eventId == null) return
-    for (let eventIndex = timeline.length - 1; eventIndex >= 0; eventIndex--)  {
+    const lowerLimit = Math.max(0, timeline.length - 1 - limit)
+    for (let eventIndex = timeline.length - 1; eventIndex >= lowerLimit; eventIndex--)  {
         if (timeline[eventIndex]?.eventId === eventId) {
+            return eventIndex
+        }
+    }
+}
+
+function getTimelineEventIndexByTransactionId(
+    timeline: ApiV3SyncClientEventWithoutRoomId[],
+    txnId?: string,
+    limit: number = Infinity,
+): number | undefined {
+    if (txnId == null) return
+    const lowerLimit = Math.max(0, timeline.length - 1 - limit)
+    for (let eventIndex = timeline.length - 1; eventIndex >= lowerLimit; eventIndex--)  {
+        if (timeline[eventIndex]?.txnId === txnId) {
             return eventIndex
         }
     }
@@ -415,6 +445,18 @@ export const useRoomStore = defineStore('room', () => {
                 loadDiscortixTableKey('rooms', 'joined').then((joinedRooms) => {
                     if (!joinedRooms) return
                     joined.value = joinedRooms
+
+                    // Mark recent unsent messages as errored.
+                    const checkLimit = Math.max(Math.round(1000 / Object.keys(joined.value).length), 20)
+                    for (const roomId in joined.value) {
+                        const joinedRoom = joined.value[roomId]!
+                        const lowerLimit = Math.max(0, joinedRoom.visibleTimeline.length - checkLimit)
+                        for (let i = joinedRoom.visibleTimeline.length - 1; i >= lowerLimit; i--) {
+                            const event = joinedRoom.visibleTimeline[i]
+                            if (!event?.txnId) continue
+                            event.sendError = true
+                        }
+                    }
                 }),
                 loadDiscortixTableKey('rooms', 'left').then((leftRooms) => {
                     if (!leftRooms) return
@@ -684,6 +726,49 @@ export const useRoomStore = defineStore('room', () => {
 
     }
 
+    async function populateSentMessageEvent(roomId: string, event: ApiV3SyncClientEventWithoutRoomId) {
+        const room = joined.value[roomId]
+        if (!room) return
+        addJoinedOrLeftRoomTimelineEvent(room, event)
+
+        if (isLeader.value) {
+            try {
+                await saveDiscortixTableKey('rooms', 'joined', toRaw(joined.value))
+            } catch (error) {
+                // Ignore - It is not critical that message history is updated. Can fetch again.
+            }
+        }
+    }
+
+    async function associateTransactionIdWithEventId(roomId: string, txnId: string, eventId: string) {
+        const room = joined.value[roomId]
+        if (!room) return
+        const eventIndex = getTimelineEventIndexById(room.visibleTimeline, eventId)
+        const transactionEventIndex = getTimelineEventIndexByTransactionId(room.visibleTimeline, txnId, 100)
+        if (eventIndex != null && transactionEventIndex != null) {
+            if (eventIndex !== transactionEventIndex) {
+                room.visibleTimeline.splice(transactionEventIndex, 1)
+            } else {
+                if (room.visibleTimeline[transactionEventIndex]) {
+                    delete room.visibleTimeline[transactionEventIndex].txnId
+                }
+            }
+        } else if (transactionEventIndex != null) {
+            if (room.visibleTimeline[transactionEventIndex]) {
+                room.visibleTimeline[transactionEventIndex].eventId = eventId
+                delete room.visibleTimeline[transactionEventIndex].txnId
+            }
+        }
+
+        if (isLeader.value) {
+            try {
+                await saveDiscortixTableKey('rooms', 'joined', toRaw(joined.value))
+            } catch (error) {
+                // Ignore - It is not critical that message history is updated. Can fetch again.
+            }
+        }
+    }
+
     async function populateFromApiV3RoomMessagesResponse(roomId: string, messages: ApiV3RoomMessagesResponse) {
         const joinedRoom = joined.value[roomId]
         const leftRoom = left.value[roomId]
@@ -795,6 +880,8 @@ export const useRoomStore = defineStore('room', () => {
         decryptedRoomEvents,
         directMessageRooms,
         getTimelineEventIndexById,
+        associateTransactionIdWithEventId,
+        populateSentMessageEvent,
         populateFromApiV3SyncResponse,
         populateFromApiV3RoomMessagesResponse,
     }

@@ -96,3 +96,9 @@ export interface ApiV3RoomTypingRequest {
     timeout?: number;
     typing: boolean;
 }
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#put_matrixclientv3roomsroomidsendeventtypetxnid */
+export const ApiV3RoomSendMessageEventResponseSchema = camelizeSchema(z.object({
+    event_id: z.string(),
+}))
+export type ApiV3RoomSendMessageEventResponse = z.infer<typeof ApiV3RoomSendMessageEventResponseSchema>

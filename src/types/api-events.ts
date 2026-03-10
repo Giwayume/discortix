@@ -4,7 +4,57 @@ import { camelizeSchema, camelizeSchemaWithoutTransform } from '@/utils/zod'
 import { PushNotificationPushRuleSchema } from './api-push-notifications'
 import { EncryptedFileSchema } from './encryption'
 
-/** https://spec.matrix.org/v1.17/client-server-api/#mforwarded_room_key */
+/** @see https://spec.matrix.org/v1.17/client-server-api/#maudio */
+export const EventAudioContentSchema = z.object({
+    body: z.string(),
+    file: EncryptedFileSchema.optional(),
+    filename: z.string().optional(),
+    format: z.string().optional(),
+    formattedBody: z.string().optional(),
+    info: z.object({
+        duration: z.number().optional(),
+        mimetype: z.string().optional(),
+        size: z.number().optional(),
+    }).optional(),
+    msgtype: z.enum(['m.audio']),
+    url: z.string().optional(),
+})
+export type EventAudioContent = z.infer<typeof EventAudioContentSchema>
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#memote */
+export const EventEmoteContentSchema = z.object({
+    body: z.string(),
+    format: z.string().optional(),
+    formattedBody: z.string().optional(),
+    msgtype: z.enum(['m.emote']),
+})
+export type EventEmoteContent = z.infer<typeof EventEmoteContentSchema>
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#mfile */
+export const EventFileContentSchema = z.object({
+    body: z.string(),
+    file: EncryptedFileSchema.optional(),
+    filename: z.string().optional(),
+    format: z.string().optional(),
+    formattedBody: z.string().optional(),
+    info: z.object({
+        mimetype: z.string().optional(),
+        size: z.number().optional(),
+        thumbnailFile: EncryptedFileSchema.optional(),
+        thumbnailInfo: z.object({
+            h: z.number().optional(),
+            mimetype: z.string().optional(),
+            size: z.number().optional(),
+            w: z.number().optional(),
+        }).optional(),
+        thumbnailUrl: z.string().optional(),
+    }).optional(),
+    msgtype: z.enum(['m.file']),
+    url: z.string().optional(),
+})
+export type EventFileContent = z.infer<typeof EventFileContentSchema>
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#mforwarded_room_key */
 export const EventForwardedRoomKeyContentSchema = z.object({
     algorithm: z.string(),
     forwardingCurve25519KeyChain: z.array(z.string()),
@@ -23,7 +73,7 @@ export type EventForwardedRoomKeyContent = z.infer<typeof EventForwardedRoomKeyC
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mimage */
 export const EventImageContentSchema = z.object({
     body: z.string(),
-    file: EncryptedFileSchema,
+    file: EncryptedFileSchema.optional(),
     filename: z.string().optional(),
     format: z.enum(['org.matrix.custom.html']).optional(),
     formattedBody: z.string().optional(),
@@ -31,7 +81,7 @@ export const EventImageContentSchema = z.object({
         h: z.number().optional(),
         mimetype: z.string().optional(),
         size: z.number().optional(),
-        thumbnailFile: EncryptedFileSchema,
+        thumbnailFile: EncryptedFileSchema.optional(),
         thumbnailInfo: z.object({
             h: z.number().optional(),
             mimetype: z.string().optional(),
@@ -45,6 +95,33 @@ export const EventImageContentSchema = z.object({
     url: z.string().optional(),
 })
 export type EventImageContent = z.infer<typeof EventImageContentSchema>
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#mlocation */
+export const EventLocationContentSchema = z.object({
+    body: z.string(),
+    geoUri: z.string(),
+    info: z.object({
+        thumbnailFile: EncryptedFileSchema.optional(),
+        thumbnailInfo: z.object({
+            h: z.number().optional(),
+            mimetype: z.string().optional(),
+            size: z.number().optional(),
+            w: z.number().optional(),
+        }).optional(),
+        thumbnailUrl: z.string().optional(),
+    }).optional(),
+    msgtype: z.enum(['m.location']),
+})
+export type EventLocationContent = z.infer<typeof EventLocationContentSchema>
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#mnotice */
+export const EventNoticeContentSchema = z.object({
+    body: z.string(),
+    format: z.string().optional(),
+    formattedBody: z.string().optional(),
+    msgtype: z.enum(['m.notice']),
+})
+export type EventNoticeContent = z.infer<typeof EventNoticeContentSchema>
 
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mpresence */
 export const EventPresenceContentSchema = z.object({
@@ -269,21 +346,57 @@ export const EventSpaceParentContentSchema = z.object({
 })
 export type EventSpaceParentContent = z.infer<typeof EventSpaceParentContentSchema>
 
+/** @see https://spec.matrix.org/v1.17/client-server-api/#mtext */
+export const EventTextContentSchema = z.object({
+    body: z.string(),
+    format: z.string().optional(),
+    formattedBody: z.string().optional(),
+    msgtype: z.enum(['m.text']),
+})
+export type EventTextContent = z.infer<typeof EventTextContentSchema>
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mtyping */
 export const EventTypingContentSchema = z.object({
     userIds: z.array(z.string()),
 })
 export type EventTypingContent = z.infer<typeof EventTypingContentSchema>
 
+/** @see https://spec.matrix.org/v1.17/client-server-api/#mvideo */
+export const EventVideoContentSchema = z.object({
+    body: z.string(),
+    file: EncryptedFileSchema.optional(),
+    filename: z.string().optional(),
+    format: z.string().optional(),
+    formattedBody: z.string().optional(),
+    info: z.object({
+        duration: z.number().optional(),
+        h: z.number().optional(),
+        mimetype: z.string().optional(),
+        size: z.number().optional(),
+        thumbnailFile: EncryptedFileSchema.optional(),
+        thumbnailInfo: z.object({
+            h: z.number().optional(),
+            mimetype: z.string().optional(),
+            size: z.number().optional(),
+            w: z.number().optional(),
+        }).optional(),
+        thumbnailUrl: z.string().optional(),
+        w: z.number().optional(),
+    }).optional(),
+    msgtype: z.enum(['m.video']),
+    url: z.string().optional(),
+})
+export type EventVideoContent = z.infer<typeof EventVideoContentSchema>
+
 export const eventContentSchemaByType = {
-    // 'm.audio': EventAudioContentSchema,
+    'm.audio': EventAudioContentSchema,
     'm.dummy': z.any(),
-    // 'm.emote': EventEmoteContentSchema,
-    // 'm.file': EventFileContentSchema,
+    'm.emote': EventEmoteContentSchema,
+    'm.file': EventFileContentSchema,
     'm.forwarded_room_key': EventForwardedRoomKeyContentSchema,
     'm.image': EventImageContentSchema,
-    // 'm.location': EventLocationContentSchema,
-    // 'm.notice': EventNoticeContentSchema,
+    'm.location': EventLocationContentSchema,
+    'm.notice': EventNoticeContentSchema,
     'm.presence': EventPresenceContentSchema,
     'm.push_rules': EventPushRulesContentSchema,
     'm.receipt': EventReceiptContentSchema,
@@ -303,20 +416,20 @@ export const eventContentSchemaByType = {
     'm.room_key_request': EventRoomKeyRequestContentSchema,
     'm.space.child': EventSpaceChildContentSchema,
     'm.space.parent': EventSpaceParentContentSchema,
-    // 'm.text': EventTextContentSchema,
+    'm.text': EventTextContentSchema,
     'm.typing': EventTypingContentSchema,
-    // 'm.video': EventVideoContentSchema,
+    'm.video': EventVideoContentSchema,
 } as const
 
 export interface EventContentByType {
-    // 'm.audio': EventAudioContent,
+    'm.audio': EventAudioContent,
     'm.dummy': any,
-    // 'm.emote': EventEmoteContent,
-    // 'm.file': EventFileContent,
+    'm.emote': EventEmoteContent,
+    'm.file': EventFileContent,
     'm.forwarded_room_key': EventForwardedRoomKeyContent,
     'm.image': EventImageContent,
-    // 'm.location': EventLocationContent,
-    // 'm.notice': EventNoticeContent,
+    'm.location': EventLocationContent,
+    'm.notice': EventNoticeContent,
     'm.presence': EventPresenceContent,
     'm.push_rules': EventPushRulesContent,
     'm.receipt': EventReceiptContent,
@@ -336,9 +449,9 @@ export interface EventContentByType {
     'm.room_key_request': EventRoomKeyRequestContent,
     'm.space.child': EventSpaceChildContent,
     'm.space.parent': EventSpaceParentContent,
-    // 'm.text': EventTextContent,
+    'm.text': EventTextContent,
     'm.typing': EventTypingContent,
-    // 'm.video': EventVideoContent,
+    'm.video': EventVideoContent,
 }
 
 /** @see https://spec.matrix.org/v1.17/client-server-api/#get_matrixclientv3sync_response-200_account-data */
@@ -377,6 +490,8 @@ export const ApiV3SyncClientEventWithoutRoomIdSchema = camelizeSchemaWithoutTran
         replaces_state: z.string().optional(), // UNOFFICIAL. https://github.com/matrix-org/matrix-spec/issues/274
         transaction_id: z.string().optional(),
     }).optional(),
+    txn_id: z.string().optional(), // Client-side only field to match sent events.
+    send_error: z.boolean().optional(), // Client-side only field to notify user to resend.
 }))
 export interface ApiV3SyncClientEventWithoutRoomId<C = any> extends z.infer<typeof ApiV3SyncClientEventWithoutRoomIdSchema> {
     content: C;

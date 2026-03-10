@@ -31,6 +31,7 @@
     padding: 0.125rem 1.5rem 0.125rem 4.5rem;
     line-height: 1.375rem;
 
+    &.p-chattimeline-event--hover,
     &:hover {
         background: var(--background-mod-subtle);
 
@@ -82,7 +83,7 @@
     }
 }
 
-.p-chattimeline-event.p-chattimeline-event-groupstart {
+.p-chattimeline-event.p-chattimeline-event--groupstart {
     margin-top: 1.0625rem;
 }
 
@@ -169,7 +170,7 @@
         transform: translateX(-50%);
     }
 
-    + .p-chattimeline-event.p-chattimeline-event-groupstart {
+    + .p-chattimeline-event.p-chattimeline-event--groupstart {
         margin-top: 0;
     }
 }
@@ -250,6 +251,9 @@
         width: var(--custom-emoji-size-jumbo-emoji);
         margin: 0.125rem 0;
     }
+}
+.p-chattimeline-event--sending .p-chattimeline-event-content {
+    color: var(--channels-default);
 }
 
 .p-chattimeline-event-image {

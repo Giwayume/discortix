@@ -8,6 +8,8 @@
         class="p-chattimeline"
         @pointerdown="onPointerDownTimeline"
         @pointerup="onPointerUpTimeline"
+        @mouseover="onMouseOverTimeline"
+        @mouseleave="onMouseLeaveTimeline"
         @click.capture="onClickTimeline"
     >
         <ScrollPanel ref="scrollPanel">
@@ -34,7 +36,11 @@
                                 <div
                                     v-if="e.category === 'message'"
                                     class="p-chattimeline-event"
-                                    :class="{ 'p-chattimeline-event-groupstart': e.displayHeader }"
+                                    :class="{
+                                        'p-chattimeline-event--groupstart': e.displayHeader,
+                                        'p-chattimeline-event--sending': !!e.event.txnId,
+                                        'p-chattimeline-event--hover': messageActionsTargetEventId === e.event.eventId || messageActionsContextMenuTargetEventId === e.event.eventId
+                                    }"
                                     :data-event-id="e.event.eventId"
                                 >
                                     <!-- Message type events (most common) -->
@@ -109,6 +115,8 @@
                                         <span class="pi pi-exclamation-triangle mr-1 !text-sm" aria-hidden="true" />{{ i18nText.unableToDecryptMessage }}
                                         <span data-link-id="fixDecrypt" class="link" role="button" tabindex="0">{{ i18nText.learnFixDecrypt }}</span>
                                     </div>
+                                    <!-- Display time -->
+                                    <time v-if="!e.displayHeader" class="p-chattimeline-asidetime" :datetime="e.isoTimestamp">{{ e.time }}</time>
                                     <!-- Reactions -->
                                     <div v-if="e.reactions.length > 0" class="flex flex-wrap">
                                         <span
@@ -135,11 +143,22 @@
                                             <span class="pi pi-face-smile" aria-hidden="true" />
                                         </span>
                                     </div>
+                                    <!-- Send Error -->
+                                    <Message v-if="e.event.sendError" severity="error" size="small" variant="simple">
+                                        <template #icon>
+                                            <span class="pi pi-exclamation-circle !text-xs !leading-3 -mt-[1px]" aria-hidden="true" />
+                                        </template>
+                                        {{ i18nText.messageSendError }}
+                                        <span class="link" role="button" tabindex="0" data-link-id="retrySendMessage">{{ i18nText.messageSendRetry }}</span>
+                                    </Message>
                                 </div>
                                 <div
                                     v-else-if="e.category === 'settings'"
                                     class="p-chattimeline-event p-chattimeline-event-settings"
-                                    :class="{ 'p-chattimeline-event-groupstart': e.displayHeader }"
+                                    :class="{
+                                        'p-chattimeline-event--groupstart': e.displayHeader,
+                                        'p-chattimeline-event--hover': messageActionsTargetEventId === e.event.eventId,
+                                    }"
                                     :data-event-id="e.event.eventId"
                                 >
                                     <!-- Settings type events (less common) -->
@@ -213,17 +232,56 @@
         <EditGroup v-model:visible="editGroupDialogVisible" :roomId="props.room.roomId" />
         <PhotoViewer v-model:visible="photoViewerVisible" :imageEvent="photoViewerImageEvent" />
         <FixDecryptionDialog v-model:visible="fixDecryptDialogVisible" :roomId="room.roomId" :eventId="fixDecryptEventId" />
+        <div
+            v-if="!isTouchEventsDetected"
+            ref="messageActionsContainer"
+            :hidden="!messageActionsTargetElement"
+            class="timeline-events__message-actions"
+            :style="messageActionsFloatingStyles"
+        >
+            <Button
+                v-tooltip.top="{ value: i18nText.addReaction }"
+                icon="pi pi-face-smile" :aria-label="i18nText.addReaction" severity="secondary" variant="text"
+            />
+            <Button
+                v-tooltip.top="{ value: i18nText.editMessage }"
+                icon="pi pi-pencil" :aria-label="i18nText.editMessage" severity="secondary" variant="text"
+            />
+            <Button
+                v-tooltip.top="{ value: i18nText.replyMessage }"
+                icon="pi pi-reply -scale-x-100" :aria-label="i18nText.replyMessage" severity="secondary" variant="text"
+            />
+            <Button
+                v-tooltip.top="{ value: i18nText.forwardMessage }"
+                icon="pi pi-reply" :aria-label="i18nText.forwardMessage" severity="secondary" variant="text"
+            />
+            <Button
+                v-tooltip.top="{ value: i18nText.moreActionsMessage }"
+                icon="pi pi-ellipsis-h" :aria-label="i18nText.moreActionsMessage" severity="secondary" variant="text"
+                @click="showMoreMessageActions($event)"
+            />
+        </div>
+        <ContextMenu ref="moreMessageActionsContextMenu" :model="moreMessageActionsContextMenuItems" @hide="messageActionsContextMenuTargetEventId = undefined">
+            <template #item="{ item, props }">
+                <a class="p-contextmenu-item-link" v-bind="props.action">
+                    <span class="p-contextmenu-item-label">{{ item.label }}</span>
+                    <span v-if="item.icon" :class="item.icon" class="ml-auto px-1 text-(--text-subtle)" aria-hidden="true" />
+                    <i v-if="item.items" class="pi pi-angle-right ml-auto"></i>
+                </a>
+            </template>
+        </ContextMenu>
     </div>
 </template>
 
 <script setup lang="ts">
 import {
     computed, defineAsyncComponent, nextTick,
-    onBeforeUpdate, onUpdated, onMounted, onUnmounted, ref, watch, type PropType,
+    onUpdated, onMounted, onUnmounted, ref, watch, type PropType,
  } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { v4 as uuidv4 } from 'uuid'
+import { useFloating, offset as floatingOffset, autoUpdate as floatingAutoUpdate } from '@floating-ui/vue'
 
 import { decryptMegolmEvent } from '@/utils/crypto'
 import { throttle } from '@/utils/timing'
@@ -237,8 +295,6 @@ import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
-import vTooltip from 'primevue/tooltip'
-
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 const EditGroup = defineAsyncComponent(() => import('./EditGroup.vue'))
 const FixDecryptionDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/FixDecryptionDialog.vue'))
@@ -246,7 +302,11 @@ import MessageBeginning from './MessageBeginning.vue'
 import MessagePlaceholder from './MessagePlaceholder.vue'
 const PhotoViewer = defineAsyncComponent(() => import('./PhotoViewer.vue'))
 
+import Button from 'primevue/button'
+import ContextMenu from 'primevue/contextmenu'
+import Message from 'primevue/message'
 import ScrollPanel from 'primevue/scrollpanel'
+import vTooltip from 'primevue/tooltip'
 
 import {
     type JoinedRoom, type RoomEventReactionRender,
@@ -294,6 +354,7 @@ const props = defineProps({
 
 const emit = defineEmits<{
     (e: 'update:anchoredToBottom', isAnchoredToBottom: boolean ): void
+    (e: 'retrySendMessage', eventId?: string): void
 }>()
 
 const componentUuid = uuidv4()
@@ -313,10 +374,17 @@ const i18nText = {
     editGroupButton: t('room.editGroupButton'),
     addReaction: t('room.addReaction'),
     messageEditedIndicator: t('room.messageEditedIndicator'),
+    messageSendError: t('room.messageSendError'),
+    messageSendRetry: t('room.messageSendRetry'),
+    editMessage: t('room.editMessage'),
+    replyMessage: t('room.replyMessage'),
+    forwardMessage: t('room.forwardMessage'),
+    moreActionsMessage: t('room.moreActionsMessage'),
 }
 
 const eventChunkSwapReadyUuid = ref<string | undefined>()
 const eventChunkRenderUuid = ref<string>('')
+const eventChunkRenderShowOldEventMessagePlaceholder = ref<boolean>(false)
 const eventChunkBuffers = ref<EventChunk[][]>([[], []])
 const activeEventChunkBufferIndex = ref<number>(0)
 const eventChunkBufferContainers = ref<HTMLDivElement[]>([])
@@ -347,6 +415,8 @@ const fixDecryptEventId = ref<string>()
 const photoViewerVisible = ref<boolean>(false)
 const photoViewerImageEvent = ref<ApiV3SyncClientEventWithoutRoomId<EventImageContent> | undefined>()
 
+const messageActionsContainer = ref<HTMLDivElement>()
+
 const isAnchoredToBottom = ref<boolean>(true)
 watch(() => props.room, () => {
     isAnchoredToBottom.value = true
@@ -365,13 +435,14 @@ const offsetEventIndex = computed<number>(() => {
     return getTimelineEventIndexById(props.room.visibleTimeline, offsetEventId.value) ?? props.room.visibleTimeline.length - 1
 })
 
-const showOldEventMessagePlaceholder = computed<boolean>(() => {
+const showOldEventMessagePlaceholder = ref<boolean>(true)
+function shouldShowOldEventMessagePlaceholder() {
     if (offsetEventIndex.value + (offsetChunk.value * eventsPerChunk) - (chunksPerView * eventsPerChunk) > 0) {
         return true
     } else {
         return props.room.visibleTimeline[0]?.type !== 'm.room.create'
     }
-})
+}
 watch(() => showOldEventMessagePlaceholder.value, () => {
     if (showOldEventMessagePlaceholder.value) {
         nextTick(() => {
@@ -451,7 +522,10 @@ const loadingEventChunks = computed<EventChunk[]>(() => {
             chunk.events.push({
                 category,
                 currentDateDivider,
-                displayHeader: previousEvent?.sender !== event.sender || category !== previousCategory || !!currentDateDivider,
+                displayHeader: previousEvent?.sender !== event.sender
+                    || category !== previousCategory
+                    || !!currentDateDivider
+                    || originDate.getTime() - previousEventOriginDate.getTime() > 300000,
                 displayname: profiles.value[event.sender]?.displayname ?? event.sender,
                 headerTime: isToday
                     ? originDate.toLocaleString(undefined, { hour: 'numeric', minute: 'numeric' })
@@ -528,10 +602,17 @@ watch(() => loadingEventChunks.value, (eventChunks) => {
     const inactiveEventChunkBufferIndex = activeEventChunkBufferIndex.value === 0 ? 1 : 0
     eventChunkBuffers.value[inactiveEventChunkBufferIndex] = eventChunks
     eventChunkRenderUuid.value = uuidv4()
+    eventChunkRenderShowOldEventMessagePlaceholder.value = shouldShowOldEventMessagePlaceholder()
 }, { immediate: true })
 
 onUpdated(() => {
-    eventChunkSwapReadyUuid.value = eventChunkRenderUuid.value
+    if (eventChunkRenderUuid.value) {
+        eventChunkSwapReadyUuid.value = eventChunkRenderUuid.value
+        eventChunkRenderUuid.value = ''
+        if (isAnchoredToBottom.value) {
+            swapEventChunkBuffers()
+        }
+    }
 })
 
 function swapEventChunkBuffers() {
@@ -545,6 +626,7 @@ function swapEventChunkBuffers() {
         const inactiveContainer = eventChunkBufferContainers.value[inactiveEventChunkBufferIndex]
         if (!activeContainer || !inactiveContainer) break manageScrollSwap
         const oldEvents = activeContainer.querySelectorAll('[data-event-id]')
+
         let oldReferenceEvent = oldEvents[0]
         let newReferenceEvent = inactiveContainer.querySelector(`[data-event-id="${oldReferenceEvent?.getAttribute('data-event-id')}"]`)
         if (!newReferenceEvent) {
@@ -558,15 +640,25 @@ function swapEventChunkBuffers() {
         const oldReferenceClientRect = oldReferenceEvent.getBoundingClientRect()
         const oldReferenceScrollTop = oldReferenceClientRect.top - activeContainer.getBoundingClientRect().top
 
+        const oldMessagePlaceholderGap = 0 /* (
+            (eventChunkRenderShowOldEventMessagePlaceholder.value ? oldMessagePlaceholderHeight.value : 0)
+            - (showOldEventMessagePlaceholder.value ? oldMessagePlaceholderHeight.value : 0)
+        )*/
+
         const oldScrollTop = scrollPanelContent.value!.scrollTop
         inactiveContainer.parentElement?.classList.remove('p-chattimeline-scroll-content-sizer')
         activeContainer.parentElement?.classList.add('p-chattimeline-scroll-content-sizer')
-        scrollPanelContent.value!.scrollTop = oldScrollTop + (newReferenceScrollTop - oldReferenceScrollTop) + (newReferenceClientRect.height - oldReferenceClientRect.height)
+        if (isAnchoredToBottom.value) {
+            scrollPanelContent.value!.scrollTop = scrollPanelContent.value!.scrollHeight - scrollPanelContent.value!.offsetHeight
+        } else {
+            scrollPanelContent.value!.scrollTop = oldScrollTop + (newReferenceScrollTop - oldReferenceScrollTop) + (newReferenceClientRect.height - oldReferenceClientRect.height) + oldMessagePlaceholderGap
+        }
     }
 
     eventChunkSwapReadyUuid.value = undefined
     eventChunkBuffers.value[activeEventChunkBufferIndex.value] = []
     activeEventChunkBufferIndex.value = inactiveEventChunkBufferIndex
+    showOldEventMessagePlaceholder.value = eventChunkRenderShowOldEventMessagePlaceholder.value
 }
 
 let fetchOldEventsAbortController: AbortController | undefined
@@ -585,7 +677,7 @@ watch(() => needsMoreOldEvents.value, async () => {
         if (props.room.visibleTimeline[0]?.type === 'm.room.create') {
             targetOffsetChunk = Math.max(Math.floor(-offsetEventIndex.value / eventsPerChunk), targetOffsetChunk)
             if (
-                offsetEventIndex.value + 1 + (targetOffsetChunk * eventsPerChunk) - (chunksPerView * eventsPerChunk)
+                offsetEventIndex.value + 1 + (targetOffsetChunk * eventsPerChunk)
                 < (eventsPerChunk * chunksPerView)
             ) {
                 targetOffsetEventIndex = Math.min(props.room.visibleTimeline.length - 1, eventsPerChunk * chunksPerView)
@@ -607,7 +699,7 @@ watch(() => needsMoreOldEvents.value, async () => {
         if (props.room.visibleTimeline[0]?.type === 'm.room.create') {
             targetOffsetChunk = Math.max(Math.floor(-offsetEventIndex.value / eventsPerChunk), targetOffsetChunk)
             if (
-                offsetEventIndex.value + 1 + (targetOffsetChunk * eventsPerChunk) - (chunksPerView * eventsPerChunk)
+                offsetEventIndex.value + 1 + (targetOffsetChunk * eventsPerChunk)
                 < (eventsPerChunk * chunksPerView)
             ) {
                 targetOffsetEventIndex = Math.min(props.room.visibleTimeline.length - 1, eventsPerChunk * chunksPerView)
@@ -682,6 +774,7 @@ onMounted(() => {
 
     // Initial timeline render
     eventChunkBuffers.value[activeEventChunkBufferIndex.value] = loadingEventChunks.value
+    showOldEventMessagePlaceholder.value = shouldShowOldEventMessagePlaceholder()
 
     fetchOldEventsAbortController?.abort()
     fetchOldEventsAbortController = new AbortController()
@@ -696,9 +789,7 @@ onMounted(() => {
     nextTick(() => {
         isJustMounted.value = true
 
-        if (scrollPanelContent.value) {
-            scrollPanelContent.value.scrollTop = scrollPanelContent.value.scrollHeight - scrollPanelContent.value.offsetHeight
-        }
+        scrollToBottom()
     })
 })
 
@@ -784,6 +875,114 @@ const onScrollContentDeferred = throttle((event: Event) => {
     }
 }, 100)
 
+async function scrollToBottom() {
+    if (scrollPanelContent.value) {
+        scrollPanelContent.value.scrollTop = scrollPanelContent.value.scrollHeight - scrollPanelContent.value.offsetHeight
+    }
+    isAnchoredToBottom.value = true
+    needsMoreNewEvents.value = true
+    await nextTick()
+}
+
+/*---------------*\
+| Message Actions |
+\*---------------*/
+
+const messageActionsTargetEventId = ref<string>()
+const messageActionsContextMenuTargetEventId = ref<string>()
+const messageActionsTargetElement = ref<HTMLElement>()
+const { floatingStyles: messageActionsFloatingStyles, update: updateMessageActionsFloating } = useFloating(
+    messageActionsTargetElement, messageActionsContainer, {
+        whileElementsMounted: floatingAutoUpdate,
+        transform: false,
+        placement: 'top-end',
+        middleware: [floatingOffset({ mainAxis: -12, crossAxis: -8 })]
+    }
+);
+
+const moreMessageActionsContextMenu = ref<InstanceType<typeof ContextMenu>>()
+const moreMessageActionsContextMenuItems = ref([
+    {
+        label: t('room.moreMessageActions.addReaction'),
+        icon: 'pi pi-face-smile',
+    },
+    { separator: true },
+    {
+        label: t('room.moreMessageActions.editMessage'),
+        icon: 'pi pi-pencil',
+    },
+    {
+        label: t('room.moreMessageActions.reply'),
+        icon: 'pi pi-reply -scale-x-100',
+    },
+    {
+        label: t('room.moreMessageActions.forward'),
+        icon: 'pi pi-reply',
+    },
+    {
+        label: t('room.moreMessageActions.createThread'),
+        icon: 'pi pi-receipt',
+    },
+    { separator: true },
+    {
+        label: t('room.moreMessageActions.copyText'),
+        icon: 'pi pi-copy',
+    },
+    {
+        label: t('room.moreMessageActions.pinMessage'),
+        icon: 'pi pi-thumbtack',
+    },
+    {
+        label: t('room.moreMessageActions.markUnread'),
+        icon: 'pi pi-book',
+    },
+    {
+        label: t('room.moreMessageActions.copyMessageLink'),
+        icon: 'pi pi-link',
+    },
+    {
+        label: t('room.moreMessageActions.speakMessage'),
+        icon: 'pi pi-headphones',
+    },
+    { separator: true },
+    {
+        label: t('room.moreMessageActions.deleteMessage'),
+        icon: 'pi pi-trash',
+    },
+    { separator: true },
+    {
+        label: t('room.moreMessageActions.copyMessageId'),
+        icon: 'pi pi-id-card',
+    },
+])
+
+function showMoreMessageActions(event: MouseEvent) {
+    messageActionsContextMenuTargetEventId.value = messageActionsTargetEventId.value
+    moreMessageActionsContextMenu.value?.show(event)
+}
+
+function onMouseOverTimeline(event: MouseEvent) {
+    const target = event.target as HTMLElement
+    if (isTouchEventsDetected.value || !target?.getAttribute || messageActionsContainer.value?.contains(target)) return
+    const eventElement = target?.closest('[data-event-id]')
+    const eventId = eventElement?.getAttribute('data-event-id')
+    if (eventId) {
+        messageActionsTargetElement.value = eventElement as HTMLElement
+        messageActionsTargetEventId.value = eventId
+        nextTick(() => {
+            updateMessageActionsFloating()
+        })
+    } else {
+        messageActionsTargetElement.value = undefined
+        messageActionsTargetEventId.value = undefined
+    }
+}
+
+function onMouseLeaveTimeline(event: MouseEvent) {
+    messageActionsTargetElement.value = undefined
+    messageActionsTargetEventId.value = undefined
+}
+
 /*--------------------------------*\
 | Handle Interaction with Timeline |
 \*--------------------------------*/
@@ -824,13 +1023,17 @@ function onPointerUpTimeline(event: PointerEvent) {
             return
         }
         const linkId = link.getAttribute('data-link-id')
+        const eventId = link.closest('[data-event-id]')?.getAttribute('data-event-id') ?? undefined
         switch (linkId) {
             case 'editGroup':
                 editGroupDialogVisible.value = true
                 return
             case 'fixDecrypt':
-                fixDecryptEventId.value = link.closest('[data-event-id]')?.getAttribute('data-event-id') ?? undefined
+                fixDecryptEventId.value = eventId
                 fixDecryptDialogVisible.value = true
+                return
+            case 'retrySendMessage':
+                emit('retrySendMessage', eventId)
                 return
             default:
                 break
@@ -851,6 +1054,14 @@ function viewPhoto(event: ApiV3SyncClientEventWithoutRoomId<EventImageContent>) 
     photoViewerVisible.value = true
 }
 
+/*--------------*\
+| Expose Methods |
+\*--------------*/
+
+defineExpose({
+    scrollToBottom,
+})
+
 </script>
 
 <style lang="scss" scoped>
@@ -869,5 +1080,26 @@ function viewPhoto(event: ApiV3SyncClientEventWithoutRoomId<EventImageContent>) 
 }
 .p-chattimeline:deep(.p-scrollpanel-bar.p-scrollpanel-bar-y) {
     margin-left: -0.125rem;
+}
+
+.timeline-events__message-actions {
+    display: flex;
+    position: absolute;
+    padding: 0.125rem;
+    background: var(--background-surface-high);
+    border: 1px solid var(--border-muted);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-low);
+    width: max-content;
+    top: 0;
+    left: auto !important;
+    right: 0.5rem !important;
+    z-index: 5;
+
+    > .p-button {
+        padding: 0.125rem !important;
+        width: 1.75rem !important;
+        height: 1.75rem !important;
+    }
 }
 </style>

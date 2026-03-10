@@ -135,7 +135,7 @@ import SidebarListHeader from './SidebarListHeader.vue'
 
 import Button from 'primevue/button'
 import Menu from 'primevue/menu'
-import { type MenuItem } from 'primevue/menuitem'
+import type { MenuItem } from 'primevue/menuitem'
 import Skeleton from 'primevue/skeleton'
 import vTooltip from 'primevue/tooltip'
 

@@ -38,9 +38,11 @@
     </MainHeader>
     <MainBody :disableScrollbar="true">
         <TimelineEvents
+            ref="timelineEvents"
             :key="`TimelineEventsFor${props.room.roomId}`"
             :room="props.room"
             @update:anchoredToBottom="isAnchoredToBottom = $event"
+            @retrySendMessage="retrySendMessage($event)"
         />
         <template #footer>
             <div v-if="typingDisplayNames.length > 0 && isAnchoredToBottom" class="relative">
@@ -94,14 +96,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, type PropType } from 'vue'
+import { computed, nextTick, reactive, ref, type PropType } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
+import { v4 as uuidv4 } from 'uuid'
 
 import { useApplication } from '@/composables/application'
 import { useRooms }from '@/composables/rooms'
 
 import { useProfileStore } from '@/stores/profile'
+import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
 import { isRoomPartOfSpace } from '@/utils/room'
@@ -121,12 +125,20 @@ import Textarea from 'primevue/textarea'
 
 import {
     type JoinedRoom,
+    type EventTextContent,
+    type ApiV3SyncClientEventWithoutRoomId,
 } from '@/types'
 
 const { t } = useI18n()
 const { isTouchEventsDetected } = useApplication()
-const { sendTypingNotification } = useRooms()
+const { sendTypingNotification, sendMessageEvent } = useRooms()
 
+const roomStore = useRoomStore()
+const {
+    getTimelineEventIndexById,
+    associateTransactionIdWithEventId,
+    populateSentMessageEvent
+} = roomStore
 const { profiles } = storeToRefs(useProfileStore())
 const { userId } = storeToRefs(useSessionStore())
 
@@ -137,6 +149,7 @@ const props = defineProps({
     }
 })
 
+const timelineEvents = ref<InstanceType<typeof TimelineEvents>>()
 const isAnchoredToBottom = ref<boolean>(false)
 const message = ref<string>('')
 
@@ -219,8 +232,52 @@ function onStopTyping() {
     sendTypingNotification(props.room.roomId, false)
 }
 
-function onSubmitMessageForm() {
-    console.log('submit')
+async function onSubmitMessageForm() {
+    if (message.value.trim() === '') return
+
+    await timelineEvents.value?.scrollToBottom()
+
+    const txnId = uuidv4()
+    const event: ApiV3SyncClientEventWithoutRoomId = reactive({
+        content: {
+            body: message.value,
+            msgtype: 'm.text',
+        } satisfies EventTextContent,
+        eventId: `PLACEHOLDER_${txnId}`,
+        originServerTs: Date.now(),
+        sender: userId.value!,
+        type: 'm.room.message',
+        txnId,
+        sendError: false,
+    })
+    message.value = ''
+
+    populateSentMessageEvent(props.room.roomId, event)
+
+    try {
+        const response = await sendMessageEvent<EventTextContent>(
+            props.room.roomId, 'm.room.message', txnId, event.content
+        )
+        associateTransactionIdWithEventId(props.room.roomId, txnId, response.eventId)
+    } catch (error) {
+        event.sendError = true
+    }
+}
+
+async function retrySendMessage(eventId?: string) {
+    const eventIndex = getTimelineEventIndexById(props.room.visibleTimeline, eventId)
+    const event = props.room.visibleTimeline[eventIndex ?? -1]
+    if (!event?.txnId) return
+    event.sendError = false
+
+    try {
+        const response = await sendMessageEvent(
+            props.room.roomId, event.type, event.txnId, event.content
+        )
+        associateTransactionIdWithEventId(props.room.roomId, event.txnId, response.eventId)
+    } catch (error) {
+        event.sendError = true
+    }
 }
 
 </script>

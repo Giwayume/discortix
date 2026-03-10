@@ -5,12 +5,14 @@ import { useRoomStore } from '@/stores/room'
 import { useSpaceStore } from '@/stores/space'
 import { useSessionStore } from '@/stores/session'
 import { fetchJson } from '@/utils/fetch'
+import { snakeCaseApiRequest } from '@/utils/zod'
 
 import {
     type ApiV1RoomHierarchyRequest, ApiV1RoomHierarchyResponseSchema, type ApiV1RoomHierarchyResponse,
     ApiV3JoinedRoomsResponseSchema, type ApiV3JoinedRoomsResponse,
     type ApiV3RoomMessagesRequest, ApiV3RoomMessagesResponseSchema, type ApiV3RoomMessagesResponse,
     type ApiV3RoomTypingRequest,
+    ApiV3RoomSendMessageEventResponseSchema, type ApiV3RoomSendMessageEventResponse,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
@@ -159,7 +161,26 @@ export function useRooms() {
                 body: JSON.stringify({
                     timeout: typing ? 20000 : undefined,
                     typing,
-                } satisfies ApiV3RoomTypingRequest)
+                } satisfies ApiV3RoomTypingRequest),
+            }
+        )
+    }
+
+    async function sendMessageEvent<E = any>(
+        roomId: string,
+        eventType: string,
+        txnId: string,
+        eventContent: E
+    ): Promise<ApiV3RoomSendMessageEventResponse> {
+        return await fetchJson(
+            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${roomId}/send/${eventType}/${txnId}`,
+            {
+                method: 'PUT',
+                useAuthorization: true,
+                body: JSON.stringify(
+                    snakeCaseApiRequest(eventContent)
+                ),
+                jsonSchema: ApiV3RoomSendMessageEventResponseSchema,
             }
         )
     }
@@ -170,5 +191,6 @@ export function useRooms() {
         getPreviousMessages,
         getRoomHierarchy,
         sendTypingNotification,
+        sendMessageEvent,
     }
 }
