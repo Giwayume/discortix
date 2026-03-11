@@ -87,10 +87,11 @@ export interface KnockedRoom {
 export interface JoinedRoom {
     roomId: string;
     accountData: EventDataRecordFrom;
+    nonSequentialUpdateUuid: string; // Value changes whenever there's an update (like a redaction) that should trigger an immediate render
     reactions: Record<string, RoomEventReaction[]>;
     readRecepts: Record<string, RoomReadReceipt>;
     redactions: string[];
-    replacements: Record<string, ApiV3SyncClientEventWithoutRoomId>;
+    replacements: Record<string, ApiV3SyncClientEventWithoutRoomId[]>;
     stateEventsById: Record<string, ApiV3SyncClientEventWithoutRoomId>;
     stateEventsByType: ApiV3SyncClientEventWithoutRoomIdRecordFrom;
     summary: ApiV3SyncRoomSummary;
@@ -116,9 +117,10 @@ export interface JoinedRoom {
 export interface LeftRoom {
     roomId: string;
     accountData: EventDataRecordFrom;
+    nonSequentialUpdateUuid: string; // Value changes whenever there's an update (like a redaction) that should trigger an immediate render
     reactions: Record<string, RoomEventReaction[]>;
     redactions: string[];
-    replacements: Record<string, ApiV3SyncClientEventWithoutRoomId>;
+    replacements: Record<string, ApiV3SyncClientEventWithoutRoomId[]>;
     stateEventsById: Record<string, ApiV3SyncClientEventWithoutRoomId>;
     stateEventsByType: ApiV3SyncClientEventWithoutRoomIdRecordFrom;
     visibleTimeline: Array<ApiV3SyncClientEventWithoutRoomId>;
@@ -133,4 +135,19 @@ export interface LeftRoom {
 
 export interface SpaceClientSettings {
     collapsedCategoryNames: string[];
+}
+
+export interface EventWithRenderInfo {
+    category: 'settings' | 'message' | 'unknown';
+    currentDateDivider: string | undefined;
+    displayHeader: boolean;
+    displayname: string;
+    headerTime: string;
+    time: string;
+    isoTimestamp: string;
+    avatarUrl?: string;
+    event: ApiV3SyncClientEventWithoutRoomId;
+    replacementEvent?: ApiV3SyncClientEventWithoutRoomId;
+    replacementDate?: string;
+    reactions: RoomEventReactionRender[];
 }

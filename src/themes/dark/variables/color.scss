@@ -6,6 +6,7 @@
     --blurple-50: hsl(234.935 calc(1*85.556%) 64.706%/1);
     --blurple-60: hsl(232.941 calc(1*46.667%) 50%/1);
 
+    --green-new-31: hsl(138.837 calc(1*36.441%) 53.725%/1);
     --green-new-50: hsl(151.128 calc(1*100%) 26.078%/1);
     --green-new-60: hsl(150.556 calc(1*100%) 21.176%/1);
     --green-new-65: hsl(150.316 calc(1*100%) 18.627%/1);
@@ -165,6 +166,7 @@
     --text-muted: var(--neutral-23);
     --text-brand: var(--blurple-26);
     --text-feedback-critical: var(--red-new-22);
+    --text-feedback-positive: var(--green-new-31);
 
     --white: white;
 }

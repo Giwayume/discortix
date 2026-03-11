@@ -82,32 +82,36 @@ window.addEventListener('storage', (event) => {
 claimLeadership()
 setInterval(claimLeadership, 3000)
 
-export function useBroadcast() {
+interface UseBroadcastOptions {
+    permanent?: boolean;
+}
+
+export function useBroadcast(options?: UseBroadcastOptions) {
 
     const onFollowerMessageListeners: Array<(message: BroadcastMessage) => void> = []
     const onTabMessageListeners: Array<(message: BroadcastMessage) => void> = []
 
-    if (getCurrentInstance()) {
-        const onMessageCallback = function(message: BroadcastMessage) {
-            if (message.fromLeader) {
-                for (const callback of onFollowerMessageListeners) {
-                    try {
-                        callback(message)
-                    } catch (error) {
-                        log.error(error)
-                    }
+    const onMessageCallback = function(message: BroadcastMessage) {
+        if (message.fromLeader) {
+            for (const callback of onFollowerMessageListeners) {
+                try {
+                    callback(message)
+                } catch (error) {
+                    log.error(error)
                 }
-            } else if (message.fromTabId !== tabId) {
-                for (const callback of onTabMessageListeners) {
-                    try {
-                        callback(message)
-                    } catch (error) {
-                        log.error(error)
-                    }
+            }
+        } else if (message.fromTabId !== tabId) {
+            for (const callback of onTabMessageListeners) {
+                try {
+                    callback(message)
+                } catch (error) {
+                    log.error(error)
                 }
             }
         }
-
+    }
+    
+    if (getCurrentInstance() && !options?.permanent) {
         onMounted(() => {
             onMessageListeners.push(onMessageCallback)
         })
@@ -118,6 +122,8 @@ export function useBroadcast() {
                 onMessageListeners.splice(messageListenerIndex, 1)
             }
         })
+    } else {
+        onMessageListeners.push(onMessageCallback)
     }
 
     function onFollowerMessage(callback: (message: BroadcastMessage) => void) {

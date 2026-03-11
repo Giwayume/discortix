@@ -1,5 +1,7 @@
 import { computed, ref, toRaw } from 'vue'
+import { useRoute } from 'vue-router'
 import { defineStore, storeToRefs } from 'pinia'
+import { v4 as uuidv4 } from 'uuid'
 
 import { useBroadcast } from '@/composables/broadcast'
 import { useEventTimeline } from '@/composables/event-timeline'
@@ -164,6 +166,7 @@ function addJoinedOrLeftRoomTimelineEvent(
             const redactedVisibleEvent = room.visibleTimeline.splice(eventIndex, 1)[0]
             if (redactedVisibleEvent) {
                 redactEvent(redactedVisibleEvent)
+                room.nonSequentialUpdateUuid = uuidv4()
             }
 
             const redactedInvisibleEvent = room.invisibleTimeline.splice(eventIndex, 1)[0]
@@ -204,6 +207,7 @@ function addJoinedOrLeftRoomTimelineEvent(
         room.redactions.splice(room.redactions.indexOf(event.eventId), 1)
         redactEvent(event)
         timeline = room.invisibleTimeline
+        room.nonSequentialUpdateUuid = uuidv4()
     }
 
     // Process reaction
@@ -246,10 +250,14 @@ function addJoinedOrLeftRoomTimelineEvent(
     if (event.type === 'm.room.message' && event.content?.['m.relates_to']?.relType === 'm.replace') {
         const relatedEventId: string | undefined = event.content?.['m.relates_to']?.eventId
         if (relatedEventId) {
-            const existingReplacementTimestamp = room.replacements[relatedEventId]?.originServerTs ?? 0
-            if (event.originServerTs > existingReplacementTimestamp) {
-                room.replacements[relatedEventId] = event
+            if (!room.replacements[relatedEventId]) {
+                room.replacements[relatedEventId] = []
             }
+            room.replacements[relatedEventId]!.push(event)
+            room.replacements[relatedEventId].sort((a, b) => {
+                return a.originServerTs < b.originServerTs ? 1 : -1 // Newest events first
+            })
+            room.nonSequentialUpdateUuid = uuidv4()
         }
     }
 
@@ -357,6 +365,7 @@ function manageTimelineGap(room: JoinedRoom | LeftRoom, timeline: ApiV3SyncTimel
         }
         room.timelineGapNewestVisibleEventId = room.visibleTimeline[room.visibleTimeline.length - 1]?.eventId
         room.timelineGapNewestInvisibleEventId = room.invisibleTimeline[room.invisibleTimeline.length - 1]?.eventId
+        room.nonSequentialUpdateUuid = uuidv4()
     } else if (timeline.limited && room.timelineEndToken) {
         /* 
          * We have a normal timeline, but a gap is being created. Future API calls will fill in the gap.
@@ -372,6 +381,7 @@ function manageTimelineGap(room: JoinedRoom | LeftRoom, timeline: ApiV3SyncTimel
         room.timelineStartToken = nextBatch
         room.timelineGapNewestVisibleEventId = room.visibleTimeline[room.visibleTimeline.length - 1]?.eventId
         room.timelineGapNewestInvisibleEventId = room.invisibleTimeline[room.invisibleTimeline.length - 1]?.eventId
+        room.nonSequentialUpdateUuid = uuidv4()
     } else {
         /*
          * No gap and not creating a gap. Only take prevBatch token if we don't already have an older one.
@@ -419,8 +429,9 @@ function populateEphemeralRoomEvents(room: JoinedRoom, events: Array<{ content: 
 }
 
 export const useRoomStore = defineStore('room', () => {
+    const route = useRoute()
     const { isLeader } = useBroadcast()
-    const { userId: currentUserId } = storeToRefs(useSessionStore())
+    const { userId: sessionUserId } = storeToRefs(useSessionStore())
 
     const roomsLoading = ref<boolean>(true)
     const roomsLoadError = ref<Error | null>(null)
@@ -560,6 +571,7 @@ export const useRoomStore = defineStore('room', () => {
                     joined.value[roomId] = {
                         roomId,
                         accountData: left.value[roomId]?.accountData ?? {},
+                        nonSequentialUpdateUuid: '',
                         reactions: {},
                         readRecepts: {},
                         redactions: [],
@@ -646,6 +658,7 @@ export const useRoomStore = defineStore('room', () => {
                     left.value[roomId] = {
                         roomId,
                         accountData: joined.value[roomId]?.accountData ?? {},
+                        nonSequentialUpdateUuid: '',
                         reactions: {},
                         redactions: [],
                         replacements: {},
@@ -731,13 +744,7 @@ export const useRoomStore = defineStore('room', () => {
         if (!room) return
         addJoinedOrLeftRoomTimelineEvent(room, event)
 
-        if (isLeader.value) {
-            try {
-                await saveDiscortixTableKey('rooms', 'joined', toRaw(joined.value))
-            } catch (error) {
-                // Ignore - It is not critical that message history is updated. Can fetch again.
-            }
-        }
+        updateJoinedRoomDatabase()
     }
 
     async function associateTransactionIdWithEventId(roomId: string, txnId: string, eventId: string) {
@@ -760,13 +767,7 @@ export const useRoomStore = defineStore('room', () => {
             }
         }
 
-        if (isLeader.value) {
-            try {
-                await saveDiscortixTableKey('rooms', 'joined', toRaw(joined.value))
-            } catch (error) {
-                // Ignore - It is not critical that message history is updated. Can fetch again.
-            }
-        }
+        updateJoinedRoomDatabase()
     }
 
     async function populateFromApiV3RoomMessagesResponse(roomId: string, messages: ApiV3RoomMessagesResponse) {
@@ -820,6 +821,16 @@ export const useRoomStore = defineStore('room', () => {
         }
     }
 
+    async function updateJoinedRoomDatabase() {
+        if (isLeader.value) {
+            try {
+                await saveDiscortixTableKey('rooms', 'joined', toRaw(joined.value))
+            } catch (error) {
+                // Ignore - It is not critical that message history is updated. Can fetch again.
+            }
+        }
+    }
+
     // This includes one-on-one and group chats.
     const directMessageRooms = computed(() => {
         const rooms: RoomSummary[] = []
@@ -837,14 +848,14 @@ export const useRoomStore = defineStore('room', () => {
             if (spaceParentEvent) continue
             const roomVersion = roomCreateEvent.content.roomVersion ?? '1'
 
-            let heroes: string[] = (room.summary?.['m.heroes'] ?? []).filter((userId) => userId !== currentUserId.value)
+            let heroes: string[] = (room.summary?.['m.heroes'] ?? []).filter((userId) => userId !== sessionUserId.value)
             let joinedMemberCount = room.summary?.['m.joined_member_count']
             if (heroes.length === 0 || !joinedMemberCount) {
                 const memberEvents = roomMemberEvents.filter(
                     (event) => event.stateKey && (event.content.membership === 'join' || event.content.membership === 'invite')
                 )
                 if (heroes.length === 0) {
-                    heroes = memberEvents.filter((event) => event.stateKey !== currentUserId.value).map((event) => event.stateKey ?? '')
+                    heroes = memberEvents.filter((event) => event.stateKey !== sessionUserId.value).map((event) => event.stateKey ?? '')
                 }
                 if (!joinedMemberCount) {
                     joinedMemberCount = memberEvents.filter(
@@ -870,6 +881,64 @@ export const useRoomStore = defineStore('room', () => {
         return rooms
     })
 
+    // Permissions in the current chat room for the current user
+    const currentRoomPermissions = computed(() => {
+        const currentRoomId = route.name === 'room' ? `${route.params?.roomId}` : ''
+        const roomCreateEvent = joined.value[currentRoomId]?.stateEventsByType['m.room.create']?.[0]
+        const roomVersion = parseInt(roomCreateEvent?.content.roomVersion ?? '1')
+        const roomCreators = roomVersion <= 10
+            ? [roomCreateEvent?.content?.creator]
+            : [roomCreateEvent?.sender, ...(roomVersion >= 12 ? roomCreateEvent?.content.additionalCreators ?? [] : []) ]
+        const roomPowerLevels = joined.value[currentRoomId]?.stateEventsByType['m.room.power_levels']?.[0]
+        const isRoomCreator = roomCreators.includes(sessionUserId.value)
+        const currentUserPowerLevel
+            = (isRoomCreator && roomVersion >= 12 ? Infinity : undefined)
+            ?? roomPowerLevels?.content.users?.[sessionUserId.value ?? '']
+            ?? roomPowerLevels?.content.usersDefault
+            ?? (isRoomCreator ? 100 : 0)
+        const events = roomPowerLevels?.content?.events
+        const eventsDefault = roomPowerLevels?.content?.eventsDefault ?? 0
+        const stateDefault = roomPowerLevels?.content?.stateDefault ?? 50
+        return {
+            ban: currentUserPowerLevel >= (roomPowerLevels?.content.ban ?? 50),
+            changeGuestAccess: currentUserPowerLevel >= (events?.['m.room.guest_access'] ?? stateDefault),
+            changeHistoryVisibility: currentUserPowerLevel >= (events?.['m.room.history_visibility'] ?? stateDefault),
+            changeJoinRules: currentUserPowerLevel >= (events?.['m.room.join_rules'] ?? stateDefault),
+            changePowerLevels: currentUserPowerLevel >= (events?.['m.room.power_levels'] ?? stateDefault),
+            changePinnedEvents: currentUserPowerLevel >= (events?.['m.room.pinned_events'] ?? stateDefault),
+            changeSeverAcl: currentUserPowerLevel >= (events?.['m.room.server_acl'] ?? stateDefault),
+            changeRoomAvatar: currentUserPowerLevel >= (events?.['m.room.avatar'] ?? stateDefault),
+            changeRoomCanonicalAlias: currentUserPowerLevel >= (events?.['m.room.canonical_alias'] ?? stateDefault),
+            changeRoomName: currentUserPowerLevel >= (events?.['m.room.name'] ?? stateDefault),
+            changeRoomTopic: currentUserPowerLevel >= (events?.['m.room.topic'] ?? stateDefault),
+            closeRoom: currentUserPowerLevel >= (events?.['m.room.tombstone'] ?? stateDefault),
+            enableRoomEncryption: currentUserPowerLevel >= (events?.['m.room.encryption'] ?? stateDefault),
+            endPoll: currentUserPowerLevel >= (
+                events?.['m.poll.end'] ?? events?.['org.matrix.msc3381.poll.end'] ?? eventsDefault
+            ),
+            invite: currentUserPowerLevel >= (roomPowerLevels?.content.invite ?? 0),
+            inviteThirdParty: currentUserPowerLevel >= (events?.['m.room.third_party_invite'] ?? stateDefault),
+            kick: currentUserPowerLevel >= (roomPowerLevels?.content.kick ?? 50),
+            redactOwnEvent: currentUserPowerLevel >= (events?.['m.room.redaction'] ?? eventsDefault),
+            redactOtherUserEvent: currentUserPowerLevel >= (events?.['m.room.redaction'] ?? eventsDefault)
+                && currentUserPowerLevel >= (roomPowerLevels?.content?.redact ?? 50),
+            sendKeyVerificationAccept: currentUserPowerLevel >= (events?.['m.key.verification.accept'] ?? eventsDefault),
+            sendKeyVerificationCancel: currentUserPowerLevel >= (events?.['m.key.verification.cancel'] ?? eventsDefault),
+            sendKeyVerificationDone: currentUserPowerLevel >= (events?.['m.key.verification.done'] ?? eventsDefault),
+            sendKeyVerificationRequest: currentUserPowerLevel >= (events?.['m.key.verification.request'] ?? eventsDefault),
+            sendKeyVerificationStart: currentUserPowerLevel >= (events?.['m.key.verification.start'] ?? eventsDefault),
+            sendMessage: currentUserPowerLevel >= (events?.['m.room.message'] ?? eventsDefault),
+            sendPollResponse: currentUserPowerLevel >= (
+                events?.['m.poll.response'] ?? events?.['org.matrix.msc3381.poll.response'] ?? eventsDefault
+            ),
+            sendReaction: currentUserPowerLevel >= (events?.['m.reaction'] ?? eventsDefault),
+            sendSticker: currentUserPowerLevel >= (events?.['m.sticker'] ?? eventsDefault),
+            startPoll: currentUserPowerLevel >= (
+                events?.['m.poll.start'] ?? events?.['org.matrix.msc3381.poll.start'] ?? eventsDefault
+            ),
+        }
+    })
+
     return {
         roomsLoading,
         roomsLoadError,
@@ -877,6 +946,7 @@ export const useRoomStore = defineStore('room', () => {
         knocked: computed(() => knocked.value),
         joined: computed(() => joined.value),
         left: computed(() => left.value),
+        currentRoomPermissions,
         decryptedRoomEvents,
         directMessageRooms,
         getTimelineEventIndexById,
@@ -884,5 +954,6 @@ export const useRoomStore = defineStore('room', () => {
         populateSentMessageEvent,
         populateFromApiV3SyncResponse,
         populateFromApiV3RoomMessagesResponse,
+        updateJoinedRoomDatabase,
     }
 })

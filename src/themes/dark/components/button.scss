@@ -121,6 +121,18 @@
             right: 1px;
             bottom: 1px;
         }
+
+        &.p-button-secondary {
+            &:before {
+                background: var(--p-button-secondary-background);
+            }
+        }
+
+        &.p-button-danger {
+            &:before {
+                background: var(--p-button-danger-background);
+            }
+        }
     }
 
     .p-button-loading-dots {

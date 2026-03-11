@@ -25,7 +25,7 @@ export function useAccountData() {
                 response = camelizeApiResponse(response)
             }
             const validationSchema = schema ?? eventContentSchemaByType[type as keyof typeof eventContentSchemaByType]
-            if (validationSchema && !validationSchema.safeParse(response)) {
+            if (validationSchema && !validationSchema.safeParse(response).success) {
                 return undefined
             }
             populateAccountDataByType(type, response)

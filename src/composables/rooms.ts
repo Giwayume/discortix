@@ -1,9 +1,14 @@
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
+import { v4 as uuidv4 } from 'uuid'
+
+import { useBroadcast } from '@/composables/broadcast'
 import { createLogger } from '@/composables/logger'
+
 import { useRoomStore } from '@/stores/room'
 import { useSpaceStore } from '@/stores/space'
 import { useSessionStore } from '@/stores/session'
+
 import { fetchJson } from '@/utils/fetch'
 import { snakeCaseApiRequest } from '@/utils/zod'
 
@@ -13,6 +18,7 @@ import {
     type ApiV3RoomMessagesRequest, ApiV3RoomMessagesResponseSchema, type ApiV3RoomMessagesResponse,
     type ApiV3RoomTypingRequest,
     ApiV3RoomSendMessageEventResponseSchema, type ApiV3RoomSendMessageEventResponse,
+    type ApiV3SyncClientEventWithoutRoomId,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
@@ -26,10 +32,11 @@ const hierarchyFetchTimestamps = ref<Record<string, number>>({})
 const hierarcyFetchFrequency = 1.8e+6 // 30 minutes
 
 export function useRooms() {
+    const { onTabMessage, broadcastMessageFromTab } = useBroadcast()
     const { homeserverBaseUrl, userId } = storeToRefs(useSessionStore())
     const roomStore = useRoomStore()
     const { joined, left } = storeToRefs(roomStore)
-    const { populateFromApiV3RoomMessagesResponse } = roomStore
+    const { getTimelineEventIndexById, populateFromApiV3RoomMessagesResponse, updateJoinedRoomDatabase } = roomStore
     const spaceStore = useSpaceStore()
     const { spaceRoomSummaries, spaceLoadingRoomSummaries } = storeToRefs(spaceStore)
     const { populateFromApiV1RoomHierarchyResponse } = spaceStore
@@ -185,6 +192,48 @@ export function useRooms() {
         )
     }
 
+    function redactUnsentEvent(roomId: string, eventId: string, isBroadcasterTab: boolean): boolean {
+        if (!joined.value[roomId]) return false
+        let timeline = joined.value[roomId].visibleTimeline
+        const eventIndex = getTimelineEventIndexById(timeline, eventId)
+        let event: ApiV3SyncClientEventWithoutRoomId | undefined
+        if (eventIndex != null) {
+            event = timeline[eventIndex]
+        } else {
+            timeline = joined.value[roomId].invisibleTimeline
+            const eventIndex = getTimelineEventIndexById(timeline, eventId)
+            event = timeline[eventIndex ?? -1]
+        }
+        if (event?.txnId && eventIndex != null) {
+            timeline.splice(eventIndex, 1)
+            joined.value[roomId].nonSequentialUpdateUuid = uuidv4()
+            if (isBroadcasterTab) {
+                broadcastMessageFromTab({
+                    type: 'redactUnsentRoomTimelineEvent',
+                    data: {
+                        roomId,
+                        eventId,
+                    },
+                })
+            }
+            updateJoinedRoomDatabase()
+            return true
+        }
+        return false
+    }
+
+    async function redactEvent(roomId: string, eventId: string) {
+        if (!redactUnsentEvent(roomId, eventId, true)) {
+            console.log('Do the API call!')
+        }
+    }
+
+    onTabMessage((message) => {
+        if (message.type === 'redactUnsentRoomTimelineEvent') {
+            redactUnsentEvent(message.data.roomId, message.data.eventId, false)
+        }
+    })
+
     return {
         messageFetchErrorsByRoomId: computed(() => messageFetchErrorsByRoomId.value),
         getJoinedRooms,
@@ -192,5 +241,6 @@ export function useRooms() {
         getRoomHierarchy,
         sendTypingNotification,
         sendMessageEvent,
+        redactEvent,
     }
 }

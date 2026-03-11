@@ -8,6 +8,15 @@
         "zoomLevel": "Zoom Level",
         "rotate": "Rotate"
     },
+    "deleteMessageConfirm": {
+        "title": "Delete Message",
+        "content": "Are you sure you want to delete this message?",
+        "deletionError": "An error occurred while deleting this message. Please try again later.",
+        "protipTitle": "Protip:",
+        "protipContent": "You can hold down shift when clicking *delete message* to bypass this confirmation entirely.",
+        "cancelButton": "Cancel",
+        "deleteButton": "Delete"
+    },
     "dialog": {
         "close": "Close dialog"
     },

@@ -12,7 +12,7 @@ import type {
 } from '@/types'
 
 export const useCryptoKeysStore = defineStore('cryptoKeys', () => {
-    const { onTabMessage, broadcastMessageFromTab } = useBroadcast()
+    const { onTabMessage, broadcastMessageFromTab } = useBroadcast({ permanent: true })
 
     const userId = ref<string | undefined>()
     const deviceId = ref<string | undefined>()

@@ -2,9 +2,6 @@ import { computed, ref, toRaw, watch } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
 
 import { onLogout } from '@/composables/logout'
-import { useCryptoKeysStore } from '@/stores/crypto-keys'
-import { getPickleKey } from '@/utils/pickle-key'
-import { decryptSecret, pickleKeyToAesKey } from '@/utils/secret-storage'
 import {
     loadTableKey as loadMatrixReactSdkTableKey,
     saveTableKey as saveMatrixReactSdkTableKey,
