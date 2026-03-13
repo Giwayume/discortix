@@ -160,3 +160,17 @@ export interface EventWithRenderInfo {
         isAttachment: boolean;
     };
 }
+
+export interface EmojiPickerEmojiItem {
+    emoji: string;
+    description: string;
+    codes: string[];
+    hidden?: boolean;
+}
+
+export interface EmojiPickerCategory {
+    id: string;
+    category: string;
+    emoji: EmojiPickerEmojiItem[];
+    hidden?: boolean;
+}

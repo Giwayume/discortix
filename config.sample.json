@@ -1,7 +1,8 @@
 {
     "defaultServerConfig": {
         "m.homeserver": {
-            "baseUrl": "https://matrix-client.matrix.org"
+            "baseUrl": "https://matrix-client.matrix.org",
+            "serverName": "matrix.org"
         },
         "m.identity_server": {
             "baseUrl": "https://vector.im"

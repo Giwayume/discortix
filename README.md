@@ -6,6 +6,10 @@ Since I have been dissatisfied with the general bugginess and lack of feature pa
 
 The design goal is to copy the Discord features as closely as possible within the Matrix spec. This should make an easier transition for Discord users who don't want to learn new things.
 
+## Config Setup
+
+You must create your own `config.json` file before you build this project. Reference the `config.sample.json` file as an example of the format to be used in `config.json`.
+
 ## Recommended IDE Setup
 
 [VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).

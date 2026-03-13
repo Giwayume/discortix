@@ -143,6 +143,9 @@
     --input-border-default: hsl(var(--opacity-20-hsl)/0.2);
     --input-placeholder-text-default: var(--neutral-37);
 
+    --interactive-background-active: hsl(var(--opacity-16-hsl)/0.1607843137254902);
+    --interactive-background-hover: hsl(var(--opacity-8-hsl)/0.0784313725490196);
+    --interactive-background-selected: hsl(var(--opacity-20-hsl)/0.2);
     --interactive-text-default: var(--neutral-23);
     --interactive-text-hover: var(--neutral-2)
 

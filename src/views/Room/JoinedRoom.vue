@@ -93,10 +93,11 @@
             </form>
         </template>
     </MainBody>
+    <ExpressionPicker />
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, type PropType } from 'vue'
+import { computed, defineAsyncComponent, reactive, ref, type PropType } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
@@ -112,6 +113,7 @@ import { isRoomPartOfSpace } from '@/utils/room'
 import { throttle } from '@/utils/timing'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
+const ExpressionPicker = defineAsyncComponent(() => import('@/views/Room/ExpressionPicker.vue'))
 import MainBody from '@/views/Layout/MainBody.vue'
 import MainHeader from '@/views/Layout/MainHeader.vue'
 import OverlayStatus from '@/views/Common/OverlayStatus.vue'

@@ -33,6 +33,10 @@
         "title": "Change Icon",
         "uploadImage": "Upload Image"
     },
+    "emojiPicker": {
+        "addEmojiButton": "Add Emoji",
+        "clearSearchButton": "Clear Search"
+    },
     "enterRecoveryKey": {
         "title": "Enter Recovery Key",
         "subtitle": "Please provide your recovery key to continue.",
@@ -79,6 +83,11 @@
             "httpError": "The server unexpectedly returned an error response when trying to sync chats. This could be a temporary error.",
             "serverDown": "The server is not responding to sync requests. This could be a temporary error."
         }
+    },
+    "expressionPicker": {
+        "gifs": "GIFs",
+        "stickers": "Stickers",
+        "emoji": "Emoji"
     },
     "fixDecryption": {
         "title": "Fix Decryption",

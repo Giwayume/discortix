@@ -250,7 +250,7 @@ defineExpose({
     top: 4rem;
 
     .p-avatar {
-        background: white;
+        background: var(--background-base-lower);
         outline: 0.375rem solid var(--background-base-low);
     }
 }

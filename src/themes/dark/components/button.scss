@@ -99,6 +99,18 @@
     --p-button-text-secondary-color: var(--p-button-text-secondary-hover-color);
 }
 
+.p-button[aria-pressed="true"] {
+    --p-button-text-primary-color: var(--p-button-text-primary-hover-color);
+    --p-button-text-secondary-color: var(--p-button-text-secondary-hover-color);
+
+    &.p-button-secondary {
+        background: var(--p-button-secondary-hover-background);
+    }
+    &.p-button-text.p-button-secondary {
+        background: var(--p-button-text-secondary-hover-background);
+    }
+}
+
 .p-button-sm {
     min-height: 2rem;
 }
