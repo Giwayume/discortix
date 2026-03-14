@@ -110,10 +110,12 @@ import { computed, defineAsyncComponent, reactive, ref, type PropType } from 'vu
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
+import { micromark } from 'micromark'
 
 import { vPointer } from '@/directives/pointer'
 
 import { useApplication } from '@/composables/application'
+import { useEmoji } from '@/composables/emoji'
 import { createLogger } from '@/composables/logger'
 import { useRooms }from '@/composables/rooms'
 
@@ -122,6 +124,7 @@ import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
 import { HttpError, PendingNetworkRequestError } from '@/utils/error'
+import { replaceSpoilers, spoilerSyntax, spoilerHtml } from '@/utils/micromark'
 import { isRoomPartOfSpace } from '@/utils/room'
 import { throttle } from '@/utils/timing'
 
@@ -153,6 +156,7 @@ const toast = useToast()
 const { isTouchEventsDetected } = useApplication()
 const { sendTypingNotification, sendMessageEvent, sendMessageReaction } = useRooms()
 
+const { currentRoomCustomEmojiByCode } = useEmoji()
 const roomStore = useRoomStore()
 const {
     getTimelineEventIndexById,
@@ -297,15 +301,40 @@ function onStopTyping() {
     sendTypingNotification(props.room.roomId, false)
 }
 
+function formatMessage() {
+    let html = micromark(message.value, {
+        extensions: [spoilerSyntax()],
+        htmlExtensions: [spoilerHtml()],
+    })
+    const emojiCodeRegex = /:(?!\s)([^:\s]+)(?<!\s):/g
+    html = html.replace(emojiCodeRegex, (match, inner) =>  {
+        const emoji = currentRoomCustomEmojiByCode.value[match]
+        if (emoji?.image?.url) {
+            return `<img data-mx-emoticon src="${emoji.image.url}" alt="${match}" title="${match}" height="32" vertical-align="middle">`
+        } else {
+            return match
+        }
+    });
+    return {
+        body: replaceSpoilers(message.value, t('room.spoilerRedacted')),
+        formattedBody: html,
+    }
+}
+
 async function onSubmitMessageForm() {
     if (message.value.trim() === '') return
 
     await timelineEvents.value?.scrollToBottom()
 
     const txnId = uuidv4()
+    const { body, formattedBody } = formatMessage()
+    console.log(body, formattedBody)
+
     const event: ApiV3SyncClientEventWithoutRoomId = reactive({
         content: {
-            body: message.value,
+            body,
+            format: formattedBody !== body ? 'org.matrix.custom.html' : undefined,
+            formattedBody: formattedBody !== body ? formattedBody : undefined,
             msgtype: 'm.text',
         } satisfies EventTextContent,
         eventId: `PLACEHOLDER_${txnId}`,

@@ -35,7 +35,10 @@
     },
     "emojiPicker": {
         "addEmojiButton": "Add Emoji",
-        "clearSearchButton": "Clear Search"
+        "clearSearchButton": "Clear Search",
+        "yourEmoji": "Your Emoji",
+        "spaceEmoji": "Space Emoji",
+        "roomEmoji": "Room Emoji"
     },
     "enterRecoveryKey": {
         "title": "Enter Recovery Key",
@@ -290,6 +293,7 @@
             "copyMessageId": "Copy Message ID"
         },
         "copyMessageIdConfirm": "Message ID {eventId} copied to the clipboard.",
+        "spoilerRedacted": "SPOILER REDACTED",
         "messageAddButton": "Add image, poll, etc.",
         "messagePlaceholder": "Message {roomName}",
         "messageEmojiButton": "Insert emoji",

@@ -1,4 +1,4 @@
-import { createApp, getCurrentInstance, nextTick } from 'vue'
+import { createApp, nextTick } from 'vue'
 import { createPinia } from 'pinia'
 import { i18n } from '@/i18n'
 import PrimeVue from 'primevue/config'
@@ -40,7 +40,6 @@ app.use(VueDOMPurifyHTML, {
     },
     hooks: {
         uponSanitizeElement: (currentNode: HTMLElement) => {
-            const instance = getCurrentInstance()
             if (currentNode?.tagName === 'IMG') {
                 const mxcUri = currentNode.getAttribute('src')
                 if (!mxcUri?.startsWith('mxc://')) return
@@ -71,6 +70,13 @@ app.use(VueDOMPurifyHTML, {
                         document.getElementById(imageId)?.setAttribute('src', '/assets/images/image-load-error.svg')
                     })
                 })
+            } else if (currentNode?.tagName === 'SPAN') {
+                if (currentNode.getAttribute('data-mx-spoiler') != null) {
+                    currentNode.setAttribute('role', 'button')
+                    currentNode.setAttribute('tabindex', '0')
+                    currentNode.setAttribute('aria-label', 'Spoiler')
+                    currentNode.setAttribute('aria-expanded', 'false')
+                }
             }
         },
     },

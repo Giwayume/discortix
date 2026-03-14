@@ -15,8 +15,10 @@
     --neutral-2: hsl(0 calc(1*0%) 98.431%/1);
     --neutral-10: hsl(240 calc(1*4.478%) 86.863%/1);
     --neutral-23: hsl(231.429 calc(1*4.348%) 68.431%/1);
+    --neutral-34: hsl(233.333 calc(1*3.797%) 53.529%/1);
     --neutral-35: hsl(233.333 calc(1*3.704%) 52.353%/1);
     --neutral-37: hsl(233.333 calc(1*3.557%) 49.608%/1);
+    --neutral-43: hsl(234 calc(1*4.673%) 41.961%/1);
     --neutral-55: hsl(234 calc(1*6.579%) 29.804%/1);
     --neutral-64: hsl(232.5 calc(1*6.557%) 23.922%/1);
     --neutral-73: hsl(230 calc(1*6.383%) 18.431%/1);
@@ -173,6 +175,10 @@
     --slider-track-background: var(--neutral-55);
 
     --spine-default: var(--neutral-55);
+
+    --spoiler-background-color: var(--neutral-43);
+    --spoiler-background-color-hover: var(--neutral-34);
+    --spoiler-background-color-revealed: var(--background-mod-subtle);
 
     --text-default: var(--neutral-10);
     --text-strong: var(--neutral-1);

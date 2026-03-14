@@ -303,6 +303,62 @@
         display: inline;
         text-indent: -9999px;
         height: var(--custom-emoji-size-emoji);
+        vertical-align: top;
+    }
+
+    span[data-mx-spoiler] {
+        background: var(--spoiler-background-color);
+        border-radius: var(--radius-xs);
+        color: transparent;
+        cursor: pointer;
+
+        * {
+            visibility: hidden;
+        }
+
+        &:hover {
+            background: var(--spoiler-background-color-hover);
+        }
+
+        &[aria-expanded="true"] {
+            background: var(--spoiler-background-color-revealed) !important;
+            color: inherit;
+
+            * {
+                visibility: visible;
+            }
+
+            cursor: default;
+        }
+    }
+
+    ul {
+        display: block;
+        list-style: disc;
+        padding: 0 0 0 1.5rem;
+        line-height: 1.2;
+        margin: 0;
+        white-space-collapse: collapse;
+
+        li {
+            display: list-item;
+            margin: 0;
+            white-space: break-spaces;
+        }
+    }
+    ol {
+        display: block;
+        list-style: decimal;
+        padding: 0 0 0 1.5rem;
+        line-height: 1.2;
+        margin: 0;
+        white-space-collapse: collapse;
+
+        li {
+            display: list-item;
+            margin: 0;
+            white-space: break-spaces;
+        }
     }
 
     blockquote {

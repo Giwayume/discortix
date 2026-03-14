@@ -1024,8 +1024,12 @@ function onPointerUpTimeline(event: PointerEvent) {
         && Math.abs(event.pageX - pointerDownTimelineItemX) < settings.pointerMoveRadius
         && Math.abs(event.pageY - pointerDownTimelineItemY) < settings.pointerMoveRadius
     ) {
-        const link = (event.target as HTMLElement)?.closest('a[href],[data-link-id]')
+        const link = (event.target as HTMLElement)?.closest('a[href],[data-link-id],[data-mx-spoiler]')
         if (!link) return
+        if (link.getAttribute('data-mx-spoiler') != null && link.getAttribute('aria-expanded') != 'true') {
+            link.setAttribute('aria-expanded', 'true')
+            return
+        }
         const href = link.getAttribute('href')
         if (link.tagName === 'A' && href) {
             if (href.startsWith('https://matrix.to/#/!')) {

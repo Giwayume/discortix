@@ -1,5 +1,6 @@
 import {
     type EventContentByType,
+    type EventImPoniesImage,
     type ApiV3SyncStrippedStateEvent,
     type ApiV3SyncClientEventWithoutRoomId,
     type ApiV3SyncRoomSummary,
@@ -166,6 +167,7 @@ export interface EmojiPickerEmojiItem {
     emoji: string;
     description: string;
     codes: string[];
+    image?: EventImPoniesImage,
     hidden?: boolean;
 }
 

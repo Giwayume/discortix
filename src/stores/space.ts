@@ -177,6 +177,7 @@ export const useSpaceStore = defineStore('space', () => {
 
     return {
         loading: computed(() => spaceClientSettingsLoading.value),
+        currentTopLevelSpace,
         currentTopLevelSpaceId,
         currentTopLevelSpaceName,
         currentTopLevelSpaceAvatarUrl,

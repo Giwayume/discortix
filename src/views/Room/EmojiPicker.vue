@@ -52,14 +52,36 @@
                                     role="button"
                                     tabindex="0"
                                 >
-                                    {{ emoji.emoji }}
+                                    <AuthenticatedImage v-if="emoji.image" :mxcUri="emoji.image.url" type="thumbnail" :width="48" :height="48" method="scale">
+                                        <template v-slot="{ src }">
+                                            <img :src="src" :aria-label="emoji.description"  />
+                                        </template>
+                                        <template #error>
+                                            
+                                        </template>
+                                    </AuthenticatedImage>
+                                    <template v-else>
+                                        {{ emoji.emoji }}
+                                    </template>
                                 </div>
                             </div>
                         </template>
                     </div>
                 </ScrollPanel>
                 <div class="emoji-picker__emoji-code">
-                    <div class="emoji-picker__selected-emoji-preview">{{ selectedEmoji?.emoji }}</div>
+                    <div class="emoji-picker__selected-emoji-preview">
+                        <AuthenticatedImage v-if="selectedEmoji?.image" :mxcUri="selectedEmoji.image.url" type="thumbnail" :width="48" :height="48" method="scale">
+                            <template v-slot="{ src }">
+                                <img :src="src" :aria-label="selectedEmoji.description"  />
+                            </template>
+                            <template #error>
+                                
+                            </template>
+                        </AuthenticatedImage>
+                        <template v-else>
+                            {{ selectedEmoji?.emoji }}
+                        </template>
+                    </div>
                     <span v-for="code of selectedEmoji?.codes" class="mr-1">
                         {{ code }}
                     </span>
@@ -76,7 +98,11 @@ import defaultEmojiCategories from '@/i18n/default-emoji/default-emoji.en.json'
 
 import { throttle } from '@/utils/timing'
 
+import { useEmoji } from '@/composables/emoji'
+
 import { useClientSettingsStore } from '@/stores/client-settings'
+
+import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 
 import Button from 'primevue/button'
 import IconField from 'primevue/iconfield'
@@ -88,13 +114,21 @@ import { type EmojiPickerCategory, type EmojiPickerEmojiItem } from '@/types'
 
 const { t } = useI18n()
 const { settings } = useClientSettingsStore()
+const { currentRoomCustomEmoji } = useEmoji()
 
 const emit = defineEmits<{
     (e: 'selectEmoji', emoji: EmojiPickerEmojiItem): void
 }>()
 
 const emojiCategories = computed<EmojiPickerCategory[]>(() => {
-    return reactive(defaultEmojiCategories)
+    const categories: EmojiPickerCategory[] = []
+    for (const category of currentRoomCustomEmoji.value) {
+        categories.push(category)
+    }
+    for (const category of defaultEmojiCategories) {
+        categories.push(reactive(category))
+    }
+    return categories
 })
 
 const emojiContainer = ref<HTMLDivElement>()
@@ -103,6 +137,9 @@ const searchText = ref<string>('')
 
 function getCategoryIcon(categoryId: string) {
     switch (categoryId) {
+        case 'yourEmoji': return 'pi pi-user'
+        case 'spaceEmoji': return 'pi pi-home'
+        case 'roomEmoji': return 'pi pi-home'
         case 'people': return 'pi pi-face-smile'
         case 'nature': return 'pi pi-sun'
         case 'food': return 'pi pi-shopping-cart'
@@ -124,17 +161,17 @@ function onMouseoverEmojis(event: MouseEvent) {
     selectedEmoji.value = emojiCategories.value[categoryIndex]?.emoji[emojiIndex]
 }
 
-let pointerDownEmojisTarget: HTMLElement | null
-let pointerDownEmojisItemX: number = 0
-let pointerDownEmojisItemY: number = 0
-let pointerDownEmojisTimestamp: number = 0
+let pointerDownEmojiTarget: HTMLElement | null
+let pointerDownEmojiItemX: number = 0
+let pointerDownEmojiItemY: number = 0
+let pointerDownEmojiTimestamp: number = 0
 
 function onPointerDownEmojis(event: PointerEvent) {
     if (event.button === 0) {
-        pointerDownEmojisTarget = event.target as HTMLElement
-        pointerDownEmojisItemX = event.pageX
-        pointerDownEmojisItemY = event.pageY
-        pointerDownEmojisTimestamp = window.performance.now()
+        pointerDownEmojiTarget = event.target as HTMLElement
+        pointerDownEmojiItemX = event.pageX
+        pointerDownEmojiItemY = event.pageY
+        pointerDownEmojiTimestamp = window.performance.now()
     }
 }
 
@@ -142,10 +179,10 @@ function onPointerUpEmojis(event: PointerEvent) {
     // "Click" / "Tap" simulation. Need to do this because of the Safari "double tap with hover states" issue.
     if (
         event.button === 0
-        && event.target && event.target === pointerDownEmojisTarget
-        && window.performance.now() - pointerDownEmojisTimestamp <= settings.pointerClickTimeout
-        && Math.abs(event.pageX - pointerDownEmojisItemX) < settings.pointerMoveRadius
-        && Math.abs(event.pageY - pointerDownEmojisItemY) < settings.pointerMoveRadius
+        && event.target && event.target === pointerDownEmojiTarget
+        && window.performance.now() - pointerDownEmojiTimestamp <= settings.pointerClickTimeout
+        && Math.abs(event.pageX - pointerDownEmojiItemX) < settings.pointerMoveRadius
+        && Math.abs(event.pageY - pointerDownEmojiItemY) < settings.pointerMoveRadius
     ) {
         const emojiItem = (event.target as HTMLElement).closest<HTMLElement>('[data-category-index]')
         if (!emojiItem) return
@@ -286,6 +323,13 @@ const onInputSearch = throttle(() => {
             width: 1.75rem;
             height: 1.75rem;
             margin-right: 0.5rem;
+
+            img {
+                text-indent: -9999px;
+                width: 1.75rem;
+                height: 1.75rem;
+                object-fit: contain;
+            }
         }
     }
 }
@@ -336,9 +380,17 @@ const onInputSearch = throttle(() => {
     font-size: 2rem;
     cursor: pointer;
     user-select: none;
+    overflow: hidden;
 
     &:hover {
         background-color: var(--interactive-background-selected);
+    }
+
+    img {
+        text-indent: -9999px;
+        width: 2.5rem;
+        height: 2.5rem;
+        object-fit: contain;
     }
 }
 </style>

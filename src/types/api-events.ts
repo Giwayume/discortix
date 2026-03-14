@@ -96,22 +96,35 @@ export const EventImageContentSchema = z.object({
 })
 export type EventImageContent = z.infer<typeof EventImageContentSchema>
 
+export const EventImPoniesImageSchema = z.object({
+    info: z.object({
+        h: z.number().optional(),
+        mimetype: z.string().optional(),
+        size: z.number().optional(),
+        w: z.number().optional(),
+    }).optional(),
+    url: z.string().optional(),
+})
+export type EventImPoniesImage = z.infer<typeof EventImPoniesImageSchema>
+
 export const EventImPoniesRoomEmotesContentSchema = z.object({
     images: z.record(
         z.string(), // Emote key
-        z.object({
-            info: z.object({
-                h: z.number().optional(),
-                mimetype: z.string().optional(),
-                size: z.number().optional(),
-                w: z.number().optional(),
-            }).optional(),
-            url: z.string().optional(),
-        }),
+        EventImPoniesImageSchema,
     ).optional(),
     pack: z.object({}).optional(),
 })
 export type EventImPoniesRoomEmotesContent = z.infer<typeof EventImPoniesRoomEmotesContentSchema>
+
+
+export const EventImPoniesUserEmotesContentSchema = z.object({
+    images: z.record(
+        z.string(), // Emote key
+        EventImPoniesImageSchema,
+    ).optional(),
+    pack: z.object({}).optional(),
+})
+export type EventImPoniesUserEmotesContent = z.infer<typeof EventImPoniesUserEmotesContentSchema>
 
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mlocation */
 export const EventLocationContentSchema = z.object({
@@ -429,6 +442,7 @@ export type EventVideoContent = z.infer<typeof EventVideoContentSchema>
 
 export const eventContentSchemaByType = {
     'im.ponies.room_emotes': EventImPoniesRoomEmotesContentSchema,
+    'im.ponies.user_emotes': EventImPoniesUserEmotesContentSchema,
     'm.audio': EventAudioContentSchema,
     'm.dummy': z.any(),
     'm.emote': EventEmoteContentSchema,
@@ -466,6 +480,7 @@ export const eventContentSchemaByType = {
 
 export interface EventContentByType {
     'im.ponies.room_emotes': EventImPoniesRoomEmotesContent,
+    'im.ponies.user_emotes': EventImPoniesUserEmotesContent,
     'm.audio': EventAudioContent,
     'm.dummy': any,
     'm.emote': EventEmoteContent,
