@@ -41,7 +41,9 @@
             ref="timelineEvents"
             :key="`TimelineEventsFor${props.room.roomId}`"
             :room="props.room"
+            :replyToEventId="replyToEventId"
             @update:anchoredToBottom="isAnchoredToBottom = $event"
+            @update:replyToEventId="replyToEventId = $event"
             @retrySendMessage="retrySendMessage($event)"
             @selectEmoji="showExpressionPicker"
             @toggleEmoji="onEmojiSelected"
@@ -58,6 +60,14 @@
                         </template>
                     </I18nT>
                 </div>
+            </div>
+            <div v-if="replyToEventId" class="joined-room__reply-bar">
+                {{ t('room.replyingTo') }} <strong>{{ replyToDisplayName }}</strong>
+                <Button
+                    icon="pi pi-times-circle" rounded severity="secondary"
+                    variant="text" :aria-label="t('room.messageCancelReplyButton')"
+                    @click="replyToEventId = undefined"
+                />
             </div>
             <form class="joined-room__chat-bar" @submit.prevent="onSubmitMessageForm">
                 <div class="joined-room__chat-bar-input">
@@ -117,7 +127,7 @@ import { vPointer } from '@/directives/pointer'
 import { useApplication } from '@/composables/application'
 import { useEmoji } from '@/composables/emoji'
 import { createLogger } from '@/composables/logger'
-import { useRooms }from '@/composables/rooms'
+import { useRooms } from '@/composables/rooms'
 
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
@@ -160,6 +170,7 @@ const { currentRoomCustomEmojiByCode } = useEmoji()
 const roomStore = useRoomStore()
 const {
     getTimelineEventIndexById,
+    getTimelineEventById,
     associateTransactionIdWithEventId,
     populateSentMessageEvent
 } = roomStore
@@ -180,6 +191,13 @@ const expressionPickerEmojiOnly = ref<boolean>(false)
 const isAnchoredToBottom = ref<boolean>(false)
 const message = ref<string>('')
 const messageTextarea = ref<InstanceType<typeof Textarea>>()
+const replyToEventId = ref<string | undefined>()
+
+const replyToDisplayName = computed<string | undefined>(() => {
+    if (!replyToEventId.value) return
+    const event = getTimelineEventById(props.room.visibleTimeline, replyToEventId.value)
+    return event?.sender ? (profiles.value[event.sender]?.displayname ?? event.sender) : undefined
+})
 
 const roomName = computed<string | undefined>(() => {
     const roomNameEvent = props.room.stateEventsByType['m.room.name']?.[0]
@@ -328,15 +346,24 @@ async function onSubmitMessageForm() {
 
     const txnId = uuidv4()
     const { body, formattedBody } = formatMessage()
-    console.log(body, formattedBody)
+
+    const eventContent: EventTextContent = {
+        body,
+        format: formattedBody !== body ? 'org.matrix.custom.html' : undefined,
+        formattedBody: formattedBody !== body ? formattedBody : undefined,
+        msgtype: 'm.text',
+    }
+
+    if (replyToEventId.value) {
+        eventContent['m.relates_to'] = {
+            'm.in_reply_to': {
+                eventId: replyToEventId.value,
+            },
+        }
+    }
 
     const event: ApiV3SyncClientEventWithoutRoomId = reactive({
-        content: {
-            body,
-            format: formattedBody !== body ? 'org.matrix.custom.html' : undefined,
-            formattedBody: formattedBody !== body ? formattedBody : undefined,
-            msgtype: 'm.text',
-        } satisfies EventTextContent,
+        content: eventContent,
         eventId: `PLACEHOLDER_${txnId}`,
         originServerTs: Date.now(),
         sender: userId.value!,
@@ -344,7 +371,9 @@ async function onSubmitMessageForm() {
         txnId,
         sendError: false,
     })
+
     message.value = ''
+    replyToEventId.value = undefined
 
     populateSentMessageEvent(props.room.roomId, event)
 
@@ -401,6 +430,37 @@ async function retrySendMessage(eventId?: string) {
         left: 2.25rem;
         top: 0.875rem;
         transform: scale(0.75);
+    }
+}
+.joined-room__reply-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    overflow: hidden;
+    position: relative;
+    background: var(--background-surface-higher);
+    border-bottom: 1px solid var(--border-subtle);
+    border-start-end-radius: var(--radius-sm);
+    border-start-start-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    padding: 0.1875rem 3rem 0 1rem;
+    margin: 0 3.75rem 0 0.5rem;
+    min-height: 2.1875rem;
+
+    .p-button {
+        position: absolute;
+        top: 50%;
+        right: 0.5rem;
+        transform: translateY(-50%);
+
+        --p-icon-size: 0.875rem;
+    }
+
+    ~ .joined-room__chat-bar {
+        .joined-room__chat-bar-input {
+            border-start-end-radius: 0;
+            border-start-start-radius: 0;
+        }
     }
 }
 .joined-room__chat-bar {

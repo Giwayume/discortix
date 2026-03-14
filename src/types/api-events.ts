@@ -4,6 +4,12 @@ import { camelizeSchema, camelizeSchemaWithoutTransform } from '@/utils/zod'
 import { PushNotificationPushRuleSchema } from './api-push-notifications'
 import { EncryptedFileSchema } from './encryption'
 
+const EventRelatesToContentSchema = z.object({
+    'm.in_reply_to': z.object({
+        eventId: z.string().optional(),
+    }).optional(),
+})
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#maudio */
 export const EventAudioContentSchema = z.object({
     body: z.string(),
@@ -16,6 +22,7 @@ export const EventAudioContentSchema = z.object({
         mimetype: z.string().optional(),
         size: z.number().optional(),
     }).optional(),
+    'm.relates_to': EventRelatesToContentSchema.optional(),
     msgtype: z.enum(['m.audio']),
     url: z.string().optional(),
 })
@@ -26,6 +33,7 @@ export const EventEmoteContentSchema = z.object({
     body: z.string(),
     format: z.string().optional(),
     formattedBody: z.string().optional(),
+    'm.relates_to': EventRelatesToContentSchema.optional(),
     msgtype: z.enum(['m.emote']),
 })
 export type EventEmoteContent = z.infer<typeof EventEmoteContentSchema>
@@ -49,6 +57,7 @@ export const EventFileContentSchema = z.object({
         }).optional(),
         thumbnailUrl: z.string().optional(),
     }).optional(),
+    'm.relates_to': EventRelatesToContentSchema.optional(),
     msgtype: z.enum(['m.file']),
     url: z.string().optional(),
 })
@@ -91,6 +100,7 @@ export const EventImageContentSchema = z.object({
         thumbnailUrl: z.string().optional(),
         w: z.number().optional(),
     }).optional(),
+    'm.relates_to': EventRelatesToContentSchema.optional(),
     msgtype: z.enum(['m.image']),
     url: z.string().optional(),
 })
@@ -116,7 +126,6 @@ export const EventImPoniesRoomEmotesContentSchema = z.object({
 })
 export type EventImPoniesRoomEmotesContent = z.infer<typeof EventImPoniesRoomEmotesContentSchema>
 
-
 export const EventImPoniesUserEmotesContentSchema = z.object({
     images: z.record(
         z.string(), // Emote key
@@ -140,6 +149,7 @@ export const EventLocationContentSchema = z.object({
         }).optional(),
         thumbnailUrl: z.string().optional(),
     }).optional(),
+    'm.relates_to': EventRelatesToContentSchema.optional(),
     msgtype: z.enum(['m.location']),
 })
 export type EventLocationContent = z.infer<typeof EventLocationContentSchema>
@@ -149,6 +159,7 @@ export const EventNoticeContentSchema = z.object({
     body: z.string(),
     format: z.string().optional(),
     formattedBody: z.string().optional(),
+    'm.relates_to': EventRelatesToContentSchema.optional(),
     msgtype: z.enum(['m.notice']),
 })
 export type EventNoticeContent = z.infer<typeof EventNoticeContentSchema>
@@ -403,6 +414,7 @@ export const EventTextContentSchema = z.object({
     body: z.string(),
     format: z.string().optional(),
     formattedBody: z.string().optional(),
+    'm.relates_to': EventRelatesToContentSchema.optional(),
     msgtype: z.enum(['m.text']),
 })
 export type EventTextContent = z.infer<typeof EventTextContentSchema>
@@ -435,6 +447,7 @@ export const EventVideoContentSchema = z.object({
         thumbnailUrl: z.string().optional(),
         w: z.number().optional(),
     }).optional(),
+    'm.relates_to': EventRelatesToContentSchema.optional(),
     msgtype: z.enum(['m.video']),
     url: z.string().optional(),
 })

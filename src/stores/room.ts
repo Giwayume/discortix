@@ -240,7 +240,6 @@ function addJoinedOrLeftRoomTimelineEvent(
                     eventId: event.eventId,
                     sender: event.sender,
                 })
-                console.log('add reaction event ', relatedEventId, event.sender, reactionKey)
                 if (event.originServerTs < reaction.ts) {
                     reaction.ts = event.originServerTs
                 }

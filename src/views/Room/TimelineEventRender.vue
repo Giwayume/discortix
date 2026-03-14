@@ -10,6 +10,7 @@
             'p-chattimeline-event--sending': !!e.event.txnId,
             'p-chattimeline-event--hover': messageActionsTargetEventId === e.event.eventId || messageActionsContextMenuTargetEventId === e.event.eventId,
             'p-chattimeline-event--flash': highlightEventId === e.event.eventId,
+            'p-chattimeline-event--reference': replyToEventId === e.event.eventId,
         }"
         :data-event-id="e.event.eventId"
         :data-event-sender="e.event.sender"
@@ -142,7 +143,22 @@
                 data-link-id="addReaction"
                 :data-reaction-key="reaction.key"
             >
-                {{ reaction.key }}
+                <template v-if="reaction.key?.[0] === ':'">
+                    <AuthenticatedImage :mxcUri="currentRoomCustomEmojiByCode[reaction.key]?.image?.url">
+                        <template v-slot="{ src }">
+                            <img
+                                :src="src"
+                                :alt="reaction.key"
+                            >
+                        </template>
+                        <template #error>
+                            {{ reaction.key }}
+                        </template>
+                    </AuthenticatedImage>
+                </template>
+                <template v-else>
+                    {{ reaction.key }}
+                </template>
                 <span class="p-chattimeline-event-reaction-count">{{ reaction.displaynames.length }}</span>
             </span>
             <span
@@ -172,6 +188,7 @@
             'p-chattimeline-event--groupstart': e.displayHeader,
             'p-chattimeline-event--hover': messageActionsTargetEventId === e.event.eventId || messageActionsContextMenuTargetEventId === e.event.eventId,
             'p-chattimeline-event--flash': highlightEventId === e.event.eventId,
+            'p-chattimeline-event--reference': replyToEventId === e.event.eventId,
         }"
         :data-event-id="e.event.eventId"
     >
@@ -234,6 +251,7 @@ import { computed, type PropType } from 'vue'
 import linkifyHtml from 'linkify-html'
 
 import { useApplication } from '@/composables/application'
+import { useEmoji } from '@/composables/emoji'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 import MessageBeginning from './MessageBeginning.vue'
@@ -248,6 +266,7 @@ import {
 } from '@/types'
 
 const { isTouchEventsDetected } = useApplication()
+const { currentRoomCustomEmojiByCode } = useEmoji()
 
 const props = defineProps({
     room: {
@@ -273,7 +292,11 @@ const props = defineProps({
     highlightEventId: {
         type: String,
         default: undefined,
-    }
+    },
+    replyToEventId: {
+        type: String,
+        default: undefined,
+    },
 })
 
 const emit = defineEmits<{

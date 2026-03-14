@@ -297,6 +297,8 @@
         "messageAddButton": "Add image, poll, etc.",
         "messagePlaceholder": "Message {roomName}",
         "messageEmojiButton": "Insert emoji",
+        "replyingTo": "Replying To",
+        "messageCancelReplyButton": "Cancel Reply",
         "messageSendButton": "Send message",
         "messageSendError": "Failed to send message.",
         "messageSendRetry": "Retry?",

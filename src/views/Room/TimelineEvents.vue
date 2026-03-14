@@ -37,6 +37,7 @@
                                 :messageActionsTargetEventId="messageActionsTargetEventId"
                                 :messageActionsContextMenuTargetEventId="messageActionsContextMenuTargetEventId"
                                 :highlightEventId="highlightEventId"
+                                :replyToEventId="replyToEventId"
                                 @viewPhoto="viewPhoto($event)"
                             />
                         </template>
@@ -77,6 +78,7 @@
                 v-if="currentRoomPermissions.sendMessage && messageActionsTargetEventSender !== sessionUserId"
                 v-tooltip.top="{ value: i18nText.replyMessage }"
                 icon="pi pi-reply -scale-x-100" :aria-label="i18nText.replyMessage" severity="secondary" variant="text"
+                data-link-id="replyToMessage"
             />
             <Button
                 v-tooltip.top="{ value: i18nText.forwardMessage }"
@@ -177,11 +179,16 @@ const props = defineProps({
     room: {
         type: Object as PropType<JoinedRoom>,
         required: true,
-    }
+    },
+    replyToEventId: {
+        type: String,
+        default: undefined,
+    },
 })
 
 const emit = defineEmits<{
     (e: 'update:anchoredToBottom', isAnchoredToBottom: boolean): void
+    (e: 'update:replyToEventId', replyToEventId?: string): void
     (e: 'retrySendMessage', eventId?: string): void
     (e: 'selectEmoji', event: Event, referenceEventId: string): void
     (e: 'toggleEmoji', emoji: EmojiPickerEmojiItem, referenceEventId: string): void
@@ -819,14 +826,14 @@ const moreMessageActionsContextMenuItems = computed(() => {
     }
     if (currentRoomPermissions.value.sendMessage) {
         contextMenuItems.push({
-            key: 'reply',
+            key: 'replyToMessage',
             label: t('room.moreMessageActions.reply'),
             icon: 'pi pi-reply -scale-x-100',
             command: runMoreMessageActionsContextMenuCommand,
         })
     }
     contextMenuItems.push({
-        key: 'forward',
+        key: 'forwardMessage',
         label: t('room.moreMessageActions.forward'),
         icon: 'pi pi-reply',
         command: runMoreMessageActionsContextMenuCommand,
@@ -908,6 +915,9 @@ async function runMoreMessageActionsContextMenuCommand(event: MenuItemCommandEve
             emit('selectEmoji', event.originalEvent, eventId)
             messageActionsContextMenuTargetEventId.value = eventId
             keepMessageActionsContextMenuTargetEventId.value = true
+            break
+        case 'replyToMessage':
+            emit('update:replyToEventId', eventId)
             break
         case 'deleteMessage':
             if (isShiftKeyPressed.value) {
@@ -1080,6 +1090,9 @@ function onPointerUpTimeline(event: PointerEvent) {
                 const jumpToEventId = link.getAttribute('data-jump-to-event-id')
                 if (!jumpToEventId) return
                 jumpToMessage(jumpToEventId)
+                return
+            case 'replyToMessage':
+                emit('update:replyToEventId', eventId ?? messageActionsTargetEventId.value)
                 return
             case 'retrySendMessage':
                 emit('retrySendMessage', eventId)
