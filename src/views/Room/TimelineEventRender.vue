@@ -139,8 +139,8 @@
                 tabindex="0"
                 class="p-chattimeline-event-reaction"
                 :class="{ 'p-chattimeline-event-reaction--self': reaction.highlighted }"
-                data-link-id="react"
-                :data-react-key="reaction.key"
+                data-link-id="addReaction"
+                :data-reaction-key="reaction.key"
             >
                 {{ reaction.key }}
                 <span class="p-chattimeline-event-reaction-count">{{ reaction.displaynames.length }}</span>
@@ -150,7 +150,7 @@
                 role="button"
                 tabindex="0"
                 class="p-chattimeline-event-reaction"
-                data-link-id="react"
+                data-link-id="addReaction"
                 :aria-label="i18nText.addReaction"
             >
                 <span class="pi pi-face-smile" aria-hidden="true" />
@@ -170,7 +170,7 @@
         class="p-chattimeline-event p-chattimeline-event-settings"
         :class="{
             'p-chattimeline-event--groupstart': e.displayHeader,
-            'p-chattimeline-event--hover': messageActionsTargetEventId === e.event.eventId,
+            'p-chattimeline-event--hover': messageActionsTargetEventId === e.event.eventId || messageActionsContextMenuTargetEventId === e.event.eventId,
             'p-chattimeline-event--flash': highlightEventId === e.event.eventId,
         }"
         :data-event-id="e.event.eventId"

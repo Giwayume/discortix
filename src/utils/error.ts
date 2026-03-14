@@ -30,6 +30,13 @@ export class HttpError extends Error {
         this.status = response.status
     }
 
+    isMatrixDuplicateAnnotation() {
+        return (
+            this.status === 400
+            &&  this.responseBody?.errcode === 'M_DUPLICATE_ANNOTATION'
+        )
+    }
+
     isMatrixGuestAccessForbidden() {
         return (
             this.status === 403
@@ -87,5 +94,13 @@ export class NetworkConnectionError extends Error {
         const defaultMessage = 'An error occurred when connecting to the network host.'
         super(message ?? defaultMessage)
         this.name = 'NetworkConnectionError'
+    }
+}
+
+export class PendingNetworkRequestError extends Error {
+    constructor(message?: string) {
+        const defaultMessage = 'Waiting on an existing pending network request.'
+        super(message ?? defaultMessage)
+        this.name = 'PendingNetworkRequestError'
     }
 }

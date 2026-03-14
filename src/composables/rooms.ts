@@ -10,6 +10,7 @@ import { useRoomStore } from '@/stores/room'
 import { useSpaceStore } from '@/stores/space'
 import { useSessionStore } from '@/stores/session'
 
+import { PendingNetworkRequestError } from '@/utils/error'
 import { fetchJson } from '@/utils/fetch'
 import { camelizeSchema, snakeCaseApiRequest } from '@/utils/zod'
 
@@ -20,7 +21,8 @@ import {
     type ApiV3RoomTypingRequest,
     ApiV3RoomSendMessageEventResponseSchema, type ApiV3RoomSendMessageEventResponse,
     type ApiV3SyncClientEventWithoutRoomId, ApiV3SyncClientEventWithoutRoomIdSchema,
-    type ApiV3RoomRedactMessageRequest, ApiV3RoomRedactMessageResponseSchema
+    type ApiV3RoomRedactMessageRequest, ApiV3RoomRedactMessageResponseSchema,
+    type EventReactionContent,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
@@ -36,7 +38,7 @@ const hierarcyFetchFrequency = 1.8e+6 // 30 minutes
 export function useRooms() {
     const { onTabMessage, broadcastMessageFromTab } = useBroadcast()
     const { settings } = useClientSettingsStore()
-    const { homeserverBaseUrl, userId } = storeToRefs(useSessionStore())
+    const { homeserverBaseUrl, userId: sessionUserId } = storeToRefs(useSessionStore())
     const roomStore = useRoomStore()
     const { joined, left } = storeToRefs(roomStore)
     const { getTimelineEventIndexById, populateFromApiV3RoomMessagesResponse, updateJoinedRoomDatabase } = roomStore
@@ -165,7 +167,7 @@ export function useRooms() {
     async function sendTypingNotification(roomId: string, typing: boolean) {
         if (!settings.sendTypingIndicators) return
         await fetchJson(
-            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${roomId}/typing/${userId.value}`,
+            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${roomId}/typing/${sessionUserId.value}`,
             {
                 method: 'PUT',
                 useAuthorization: true,
@@ -205,6 +207,81 @@ export function useRooms() {
                 jsonSchema: ApiV3RoomSendMessageEventResponseSchema,
             }
         )
+    }
+
+    function removeOwnLocalMessageReaction(
+        roomId: string,
+        key: string,
+        relatedEventId: string,
+    ) {
+        const room = joined.value[roomId]
+        if (!room || !sessionUserId.value) return
+        let existingReactionIndex = room.reactions[relatedEventId]
+            ?.findIndex((reaction) => reaction.key === key) ?? -1
+        const existingReactionShortEventIndex = room.reactions[relatedEventId]?.[existingReactionIndex]?.events
+            .findIndex((event) => event.sender === sessionUserId.value) ?? -1
+        const existingReactionShortEvent = room.reactions[relatedEventId]?.[existingReactionIndex]?.events[existingReactionShortEventIndex]
+        if (!existingReactionShortEvent) return
+        room.reactions[relatedEventId]![existingReactionIndex]!.events.splice(existingReactionShortEventIndex, 1)
+        if (room.reactions[relatedEventId]![existingReactionIndex]!.events.length === 0) {
+            room.reactions[relatedEventId]!.splice(existingReactionIndex, 1)
+        }
+        if (room.reactions[relatedEventId]!.length === 0) {
+            delete room.reactions[relatedEventId]
+        }
+    }
+
+    async function sendMessageReaction(
+        roomId: string,
+        key: string,
+        relatedEventId: string,
+    ) {
+        const room = joined.value[roomId]
+        if (!room || !sessionUserId.value) return
+        let existingReactionIndex = room.reactions[relatedEventId]
+            ?.findIndex((reaction) => reaction.key === key) ?? -1
+        const existingReactionShortEventIndex = room.reactions[relatedEventId]?.[existingReactionIndex]?.events
+            .findIndex((event) => event.sender === sessionUserId.value) ?? -1
+        const existingReactionShortEvent = room.reactions[relatedEventId]?.[existingReactionIndex]?.events[existingReactionShortEventIndex]
+        if (existingReactionShortEvent?.txnId) {
+            throw new PendingNetworkRequestError()
+        }
+        if (existingReactionShortEvent?.eventId) {
+            removeOwnLocalMessageReaction(roomId, key, relatedEventId)
+            room.nonSequentialUpdateUuid = uuidv4()
+            await redactEvent(roomId, existingReactionShortEvent.eventId)
+        } else {
+            const txnId = uuidv4()
+            if (!room.reactions[relatedEventId]) {
+                room.reactions[relatedEventId] = []
+            }
+            if (existingReactionIndex === -1) {
+                room.reactions[relatedEventId].push({
+                    key,
+                    ts: Date.now(),
+                    events: [],
+                })
+                existingReactionIndex = room.reactions[relatedEventId].length - 1
+            }
+            room.reactions[relatedEventId][existingReactionIndex]!.events.push({
+                sender: sessionUserId.value,
+                txnId,
+            })
+            room.nonSequentialUpdateUuid = uuidv4()
+            const eventContent: EventReactionContent = {
+                'm.relates_to': {
+                    eventId: relatedEventId,
+                    key,
+                    relType: 'm.annotation',
+                }
+            }
+            try {
+                await sendMessageEvent<EventReactionContent>(roomId, 'm.reaction', txnId, eventContent)
+            } catch (error) {
+                removeOwnLocalMessageReaction(roomId, key, relatedEventId)
+                throw error
+            }
+        }
     }
 
     function redactUnsentEvent(roomId: string, eventId: string, isBroadcasterTab: boolean): boolean {
@@ -268,6 +345,7 @@ export function useRooms() {
         sendTypingNotification,
         getMessageEvent,
         sendMessageEvent,
+        sendMessageReaction,
         redactEvent,
     }
 }

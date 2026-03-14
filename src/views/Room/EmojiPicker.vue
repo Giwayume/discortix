@@ -25,6 +25,8 @@
             <div
                 class="emoji-picker__emojis"
                 @mouseover="onMouseoverEmojis"
+                @pointerdown="onPointerDownEmojis"
+                @pointerup="onPointerUpEmojis"
             >
                 <ScrollPanel>
                     <div ref="emojiContainer" class="relative">
@@ -74,6 +76,8 @@ import defaultEmojiCategories from '@/i18n/default-emoji/default-emoji.en.json'
 
 import { throttle } from '@/utils/timing'
 
+import { useClientSettingsStore } from '@/stores/client-settings'
+
 import Button from 'primevue/button'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
@@ -83,6 +87,11 @@ import ScrollPanel from 'primevue/scrollpanel'
 import { type EmojiPickerCategory, type EmojiPickerEmojiItem } from '@/types'
 
 const { t } = useI18n()
+const { settings } = useClientSettingsStore()
+
+const emit = defineEmits<{
+    (e: 'selectEmoji', emoji: EmojiPickerEmojiItem): void
+}>()
 
 const emojiCategories = computed<EmojiPickerCategory[]>(() => {
     return reactive(defaultEmojiCategories)
@@ -113,6 +122,40 @@ function onMouseoverEmojis(event: MouseEvent) {
     const categoryIndex = parseInt(hoverItem.getAttribute('data-category-index') ?? '0')
     const emojiIndex = parseInt(hoverItem.getAttribute('data-emoji-index') ?? '0')
     selectedEmoji.value = emojiCategories.value[categoryIndex]?.emoji[emojiIndex]
+}
+
+let pointerDownEmojisTarget: HTMLElement | null
+let pointerDownEmojisItemX: number = 0
+let pointerDownEmojisItemY: number = 0
+let pointerDownEmojisTimestamp: number = 0
+
+function onPointerDownEmojis(event: PointerEvent) {
+    if (event.button === 0) {
+        pointerDownEmojisTarget = event.target as HTMLElement
+        pointerDownEmojisItemX = event.pageX
+        pointerDownEmojisItemY = event.pageY
+        pointerDownEmojisTimestamp = window.performance.now()
+    }
+}
+
+function onPointerUpEmojis(event: PointerEvent) {
+    // "Click" / "Tap" simulation. Need to do this because of the Safari "double tap with hover states" issue.
+    if (
+        event.button === 0
+        && event.target && event.target === pointerDownEmojisTarget
+        && window.performance.now() - pointerDownEmojisTimestamp <= settings.pointerClickTimeout
+        && Math.abs(event.pageX - pointerDownEmojisItemX) < settings.pointerMoveRadius
+        && Math.abs(event.pageY - pointerDownEmojisItemY) < settings.pointerMoveRadius
+    ) {
+        const emojiItem = (event.target as HTMLElement).closest<HTMLElement>('[data-category-index]')
+        if (!emojiItem) return
+        const categoryIndex = parseInt(emojiItem.getAttribute('data-category-index') ?? '0')
+        const emojiIndex = parseInt(emojiItem.getAttribute('data-emoji-index') ?? '0')
+        const emoji = emojiCategories.value[categoryIndex]?.emoji[emojiIndex]
+        if (emoji) {
+            emit('selectEmoji', emoji)
+        }
+    }
 }
 
 function clearSearchText() {
@@ -195,6 +238,7 @@ const onInputSearch = throttle(() => {
 }
 .emoji-picker__categories {
     width: 3rem;
+    flex-shrink: 0;
     background-color: var(--background-base-lower);
 }
 .emoji-picker__category-items {

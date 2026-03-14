@@ -75,7 +75,9 @@ const props = defineProps({
     position: relative;
     padding: 0 6.25rem;
     height: 2rem;
+    background: var(--background-base-lowest);
     color: var(--text-default);
+    z-index: 10;
 }
 .application__title-bar__trailing {
     display: flex;

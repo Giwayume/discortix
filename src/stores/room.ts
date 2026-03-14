@@ -232,10 +232,15 @@ function addJoinedOrLeftRoomTimelineEvent(
             }
             const reaction = room.reactions[relatedEventId][reactionIndex]
             if (reaction) {
+                const existingEventIndex = reaction.events.findIndex((otherEvent) => otherEvent.sender === event.sender)
+                if (existingEventIndex > -1) {
+                    reaction.events.splice(existingEventIndex, 1)
+                }
                 reaction.events.push({
                     eventId: event.eventId,
                     sender: event.sender,
                 })
+                console.log('add reaction event ', relatedEventId, event.sender, reactionKey)
                 if (event.originServerTs < reaction.ts) {
                     reaction.ts = event.originServerTs
                 }

@@ -113,7 +113,7 @@ const { floatingStyles, update: updateFloatingPosition } = useFloating(
             floatingOffset({ mainAxis: -12, crossAxis: -8 }),
         ]
     }
-);
+)
 
 const contextMenu = ref<InstanceType<typeof ContextMenu>>()
 const contextMenuItems = computed(() => {
@@ -123,8 +123,8 @@ const contextMenuItems = computed(() => {
             label: t('userProfilePopover.moreMenu.viewFullProfile'),
         },
         {
-            key: 'inviteToServer',
-            label: t('userProfilePopover.moreMenu.inviteToServer'),
+            key: 'inviteToSpace',
+            label: t('userProfilePopover.moreMenu.inviteToSpace'),
             items: [
                 {
                     key: 'server1',
@@ -198,12 +198,12 @@ defineExpose({
 
 <style lang="scss" scoped>
 .user-profile-popover-overlay {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 9;
+    z-index: 19;
 }
 .user-profile-popover {
     --custom-nickname-line-height: 1.5rem;
@@ -219,7 +219,7 @@ defineExpose({
     width: 18.75rem;
     max-width: calc(d100vw - 2rem);
     box-shadow: var(--shadow-border), var(--shadow-high);
-    z-index: 10;
+    z-index: 20;
 }
 
 .user-profile-popover__header {

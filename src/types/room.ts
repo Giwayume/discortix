@@ -59,8 +59,9 @@ export interface RoomReadReceipt {
 }
 
 export interface RoomEventReactionShortEvent {
-    eventId: string;
     sender: string;
+    eventId?: string;
+    txnId?: string;
 }
 
 export interface RoomEventReaction {

@@ -66,6 +66,7 @@
                 v-if="currentRoomPermissions.sendReaction"
                 v-tooltip.top="{ value: i18nText.addReaction }"
                 icon="pi pi-face-smile" :aria-label="i18nText.addReaction" severity="secondary" variant="text"
+                data-link-id="addReaction"
             />
             <Button
                 v-if="currentRoomPermissions.sendMessage && messageActionsTargetEventSender === sessionUserId"
@@ -150,6 +151,7 @@ import {
     type ApiV3SyncClientEventWithoutRoomId,
     type EventImageContent,
     type EventWithRenderInfo,
+    type EmojiPickerEmojiItem,
 } from '@/types'
 
 interface EventChunk {
@@ -181,6 +183,8 @@ const props = defineProps({
 const emit = defineEmits<{
     (e: 'update:anchoredToBottom', isAnchoredToBottom: boolean): void
     (e: 'retrySendMessage', eventId?: string): void
+    (e: 'selectEmoji', event: Event, referenceEventId: string): void
+    (e: 'toggleEmoji', emoji: EmojiPickerEmojiItem, referenceEventId: string): void
 }>()
 
 const componentUuid = uuidv4()
@@ -778,6 +782,7 @@ const messageActionsContainer = ref<HTMLDivElement>()
 const messageActionsTargetEventId = ref<string>()
 const messageActionsTargetEventSender = ref<string>()
 const messageActionsContextMenuTargetEventId = ref<string>()
+const keepMessageActionsContextMenuTargetEventId = ref<boolean>(false)
 const messageActionsContextMenuTargetEventSender = ref<string>()
 const messageActionsTargetElement = ref<HTMLElement>()
 const { floatingStyles: messageActionsFloatingStyles, update: updateMessageActionsFloating } = useFloating(
@@ -800,6 +805,7 @@ const moreMessageActionsContextMenuItems = computed(() => {
             key: 'addReaction',
             label: t('room.moreMessageActions.addReaction'),
             icon: 'pi pi-face-smile',
+            command: runMoreMessageActionsContextMenuCommand,
         })
         contextMenuItems.push({ separator: true })
     }
@@ -808,6 +814,7 @@ const moreMessageActionsContextMenuItems = computed(() => {
             key: 'editMessage',
             label: t('room.moreMessageActions.editMessage'),
             icon: 'pi pi-pencil',
+            command: runMoreMessageActionsContextMenuCommand,
         })
     }
     if (currentRoomPermissions.value.sendMessage) {
@@ -815,18 +822,21 @@ const moreMessageActionsContextMenuItems = computed(() => {
             key: 'reply',
             label: t('room.moreMessageActions.reply'),
             icon: 'pi pi-reply -scale-x-100',
+            command: runMoreMessageActionsContextMenuCommand,
         })
     }
     contextMenuItems.push({
         key: 'forward',
         label: t('room.moreMessageActions.forward'),
         icon: 'pi pi-reply',
+        command: runMoreMessageActionsContextMenuCommand,
     })
     if (currentRoomPermissions.value.sendMessage) {
         contextMenuItems.push({
             key: 'createThread',
             label: t('room.moreMessageActions.createThread'),
             icon: 'pi pi-receipt',
+            command: runMoreMessageActionsContextMenuCommand,
         })
     }
     contextMenuItems.push({ separator: true })
@@ -834,28 +844,33 @@ const moreMessageActionsContextMenuItems = computed(() => {
         key: 'copyText',
         label: t('room.moreMessageActions.copyText'),
         icon: 'pi pi-copy',
+        command: runMoreMessageActionsContextMenuCommand,
     })
     if (currentRoomPermissions.value.changePinnedEvents) {
         contextMenuItems.push({
             key: 'pinMessage',
             label: t('room.moreMessageActions.pinMessage'),
             icon: 'pi pi-thumbtack',
+            command: runMoreMessageActionsContextMenuCommand,
         })
     }
     contextMenuItems.push({
         key: 'markUnread',
         label: t('room.moreMessageActions.markUnread'),
         icon: 'pi pi-book',
+        command: runMoreMessageActionsContextMenuCommand,
     })
     contextMenuItems.push({
         key: 'copyMessageLink',
         label: t('room.moreMessageActions.copyMessageLink'),
         icon: 'pi pi-link',
+        command: runMoreMessageActionsContextMenuCommand,
     })
     contextMenuItems.push({
         key: 'speakMessage',
         label: t('room.moreMessageActions.speakMessage'),
         icon: 'pi pi-headphones',
+        command: runMoreMessageActionsContextMenuCommand,
     })
     contextMenuItems.push({ separator: true })
     if (
@@ -876,6 +891,7 @@ const moreMessageActionsContextMenuItems = computed(() => {
             key: 'copyMessageId',
             label: t('room.moreMessageActions.copyMessageId'),
             icon: 'pi pi-id-card',
+            command: runMoreMessageActionsContextMenuCommand,
         })
     }
     if (contextMenuItems[contextMenuItems.length - 1]?.separator) {
@@ -884,13 +900,18 @@ const moreMessageActionsContextMenuItems = computed(() => {
     return contextMenuItems
 })
 
-function runMoreMessageActionsContextMenuCommand(event: MenuItemCommandEvent) {
+async function runMoreMessageActionsContextMenuCommand(event: MenuItemCommandEvent) {
+    const eventId = messageActionsContextMenuTargetEventId.value || messageActionsTargetEventId.value
+    if (!eventId) return
     switch (event.item.key) {
+        case 'addReaction':
+            emit('selectEmoji', event.originalEvent, eventId)
+            messageActionsContextMenuTargetEventId.value = eventId
+            keepMessageActionsContextMenuTargetEventId.value = true
+            break
         case 'deleteMessage':
-            if (!messageActionsContextMenuTargetEventId.value) return
-
             if (isShiftKeyPressed.value) {
-                redactEvent(props.room.roomId, messageActionsContextMenuTargetEventId.value)
+                redactEvent(props.room.roomId, eventId)
             } else {
                 deleteMessageConfirmEventRenderInfo.value = undefined
 
@@ -907,7 +928,21 @@ function runMoreMessageActionsContextMenuCommand(event: MenuItemCommandEvent) {
                 deleteMessageConfirmVisible.value = true
             }
             break
+        case 'copyMessageId':
+            try {
+                if (!navigator.clipboard) throw new Error('Clipboard API missing.')
+                await navigator.clipboard.writeText(eventId)
+                toast.add({ severity: 'success', summary: t('room.copyMessageIdConfirm', { eventId }), life: 3000 })
+            } catch (error) {
+                toast.add({ severity: 'error', summary: t('room.clipboardApiNotSupported'), life: 4000 })
+            }
+            break
     }
+}
+
+function resetMessageActionsContextMenuTargetEventId() {
+    messageActionsContextMenuTargetEventId.value = undefined
+    keepMessageActionsContextMenuTargetEventId.value = false
 }
 
 function showMoreMessageActions(event: MouseEvent) {
@@ -932,7 +967,9 @@ function onWheelMessageActionsContainer(e: WheelEvent) {
 
 function onHideMoreMessageActionsContextMenu() {
     requestAnimationFrame(() => {
-        messageActionsContextMenuTargetEventId.value = undefined
+        if (!keepMessageActionsContextMenuTargetEventId.value) {
+            messageActionsContextMenuTargetEventId.value = undefined
+        }
     })
 }
 
@@ -983,9 +1020,9 @@ function onPointerUpTimeline(event: PointerEvent) {
     if (
         event.button === 0
         && event.target && event.target === pointerDownTimelineTarget
-        && window.performance.now() - pointerDownTimelineTimestamp <= 500
-        && Math.abs(event.pageX - pointerDownTimelineItemX) < 8
-        && Math.abs(event.pageY - pointerDownTimelineItemY) < 8
+        && window.performance.now() - pointerDownTimelineTimestamp <= settings.pointerClickTimeout
+        && Math.abs(event.pageX - pointerDownTimelineItemX) < settings.pointerMoveRadius
+        && Math.abs(event.pageY - pointerDownTimelineItemY) < settings.pointerMoveRadius
     ) {
         const link = (event.target as HTMLElement)?.closest('a[href],[data-link-id]')
         if (!link) return
@@ -1009,6 +1046,25 @@ function onPointerUpTimeline(event: PointerEvent) {
         const linkId = link.getAttribute('data-link-id')
         const eventId = link.closest('[data-event-id]')?.getAttribute('data-event-id') ?? undefined
         switch (linkId) {
+            case 'addReaction':
+                const reactionKey = link.getAttribute('data-reaction-key')
+                if (reactionKey) {
+                    if (!eventId) return
+                    emit('toggleEmoji', {
+                        emoji: reactionKey,
+                        description: '',
+                        codes: [],
+                    }, eventId)
+                } else {
+                    if (eventId) {
+                        messageActionsContextMenuTargetEventId.value = eventId
+                    }
+                    runMoreMessageActionsContextMenuCommand({
+                        originalEvent: event,
+                        item: { key: 'addReaction' },
+                    })
+                }
+                return
             case 'editGroup':
                 editGroupDialogVisible.value = true
                 return
@@ -1111,6 +1167,7 @@ async function jumpToMessage(eventId?: string) {
 \*--------------*/
 
 defineExpose({
+    resetMessageActionsContextMenuTargetEventId,
     scrollToBottom,
 })
 

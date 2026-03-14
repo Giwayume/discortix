@@ -43,6 +43,8 @@
             :room="props.room"
             @update:anchoredToBottom="isAnchoredToBottom = $event"
             @retrySendMessage="retrySendMessage($event)"
+            @selectEmoji="showExpressionPicker"
+            @toggleEmoji="onEmojiSelected"
         />
         <template #footer>
             <div v-if="typingDisplayNames.length > 0 && isAnchoredToBottom" class="relative">
@@ -68,6 +70,7 @@
                     />
                     <Textarea
                         v-model="message"
+                        ref="messageTextarea"
                         rows="1"
                         autoResize
                         class="p-textarea-transparent"
@@ -76,6 +79,7 @@
                         @input="onInputMessageTextarea"
                     />
                     <Button
+                        v-pointer="{ click: showExpressionPicker }"
                         icon="pi pi-face-smile"
                         severity="secondary"
                         variant="text"
@@ -93,7 +97,12 @@
             </form>
         </template>
     </MainBody>
-    <ExpressionPicker />
+    <ExpressionPicker
+        ref="expressionPicker"
+        :emojiOnly="expressionPickerEmojiOnly"
+        @selectEmoji="onEmojiSelected"
+        @hidden="onExpressionPickerHidden"
+    />
 </template>
 
 <script setup lang="ts">
@@ -102,13 +111,17 @@ import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 
+import { vPointer } from '@/directives/pointer'
+
 import { useApplication } from '@/composables/application'
+import { createLogger } from '@/composables/logger'
 import { useRooms }from '@/composables/rooms'
 
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
+import { HttpError, PendingNetworkRequestError } from '@/utils/error'
 import { isRoomPartOfSpace } from '@/utils/room'
 import { throttle } from '@/utils/timing'
 
@@ -124,16 +137,21 @@ import Avatar from 'primevue/avatar'
 import AvatarGroup from 'primevue/avatargroup'
 import Button from 'primevue/button'
 import Textarea from 'primevue/textarea'
+import { useToast } from 'primevue/usetoast'
 
 import {
     type JoinedRoom,
     type EventTextContent,
     type ApiV3SyncClientEventWithoutRoomId,
+    type EmojiPickerEmojiItem,
 } from '@/types'
 
+const log = createLogger(import.meta.url)
+
 const { t } = useI18n()
+const toast = useToast()
 const { isTouchEventsDetected } = useApplication()
-const { sendTypingNotification, sendMessageEvent } = useRooms()
+const { sendTypingNotification, sendMessageEvent, sendMessageReaction } = useRooms()
 
 const roomStore = useRoomStore()
 const {
@@ -152,8 +170,12 @@ const props = defineProps({
 })
 
 const timelineEvents = ref<InstanceType<typeof TimelineEvents>>()
+const expressionPicker = ref<InstanceType<typeof ExpressionPicker>>()
+const expressionPickerTriggerReferenceEventId = ref<string | undefined>()
+const expressionPickerEmojiOnly = ref<boolean>(false)
 const isAnchoredToBottom = ref<boolean>(false)
 const message = ref<string>('')
+const messageTextarea = ref<InstanceType<typeof Textarea>>()
 
 const roomName = computed<string | undefined>(() => {
     const roomNameEvent = props.room.stateEventsByType['m.room.name']?.[0]
@@ -204,6 +226,47 @@ const typingDisplayMessageKey = computed(() => {
         return 'room.typingIndicatorSeveral'
     }
 })
+
+function showExpressionPicker(event: Event, referenceEventId?: string) {
+    expressionPickerTriggerReferenceEventId.value = referenceEventId
+    expressionPickerEmojiOnly.value = !!referenceEventId
+    expressionPicker.value?.show(event)
+}
+
+async function onEmojiSelected(emoji: EmojiPickerEmojiItem, referenceEventId?: string) {
+    referenceEventId = referenceEventId ?? expressionPickerTriggerReferenceEventId.value
+    if (referenceEventId) {
+        try {
+            await sendMessageReaction(props.room.roomId, emoji.emoji, referenceEventId)
+        } catch (error) {
+            let messageText = t('errors.unexpected')
+            if (error instanceof PendingNetworkRequestError) {
+                messageText = t('errors.message.pendingReaction')
+            } else if (error instanceof HttpError) {
+                if (error.isMatrixGuestAccessForbidden()) {
+                    messageText = t('errors.message.guestReaction')
+                } else if (error.isMatrixForbidden()) {
+                    messageText = t('errors.message.forbidden')
+                }
+            }
+            toast.add({ severity: 'error', summary: messageText, life: 4000 })
+            log.error('Error sending reaction.', error)
+        }
+    } else if (messageTextarea.value) {
+        const textarea = (messageTextarea.value as any).$el as HTMLTextAreaElement
+        if (textarea.selectionStart > -1) {
+            const beforeText = message.value.slice(0, textarea.selectionStart)
+            const afterText = message.value.slice(textarea.selectionEnd)
+            message.value = beforeText + (beforeText.length > 0 && beforeText.charAt(beforeText.length - 1) !== ' ' ? ' ' : '')
+                + emoji.emoji + (afterText.length > 0 && afterText.charAt(0) !== '' ? ' ' : '') + afterText
+        }
+    }
+    expressionPicker.value?.hide()
+}
+
+async function onExpressionPickerHidden() {
+    timelineEvents.value?.resetMessageActionsContextMenuTargetEventId()
+}
 
 function onKeydownMessageTextarea(event: KeyboardEvent) {
     if (event.code === 'Enter' && !event.shiftKey && !isTouchEventsDetected.value) {

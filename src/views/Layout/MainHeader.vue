@@ -44,13 +44,13 @@ const isTouchScreen = window.matchMedia("(pointer: coarse)").matches
     top: 0;
     left: 0;
     right: 0;
-    background: transparent;
+    background: var(--background-base-lower);
     border-bottom: 1px solid var(--border-subtle);
     border-start-start-radius: var(--radius-md);
     padding: 0;
     margin: 0;
     height: 3rem;
-    z-index: 2;
+    z-index: 10;
 }
 .application__main__header-container {
     display: flex;

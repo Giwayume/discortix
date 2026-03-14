@@ -54,6 +54,7 @@
     "errors": {
         "rateLimited": "You are being rate limited. Please try again shortly.",
         "unexpected": "An unexpected error occurred. Please try again later.",
+        "clipboardApiNotSupported": "The clipboard API is not supported. If updating to the latest version of a modern web browser doesn't fix this issue, contact the server admin.",
         "crash": {
             "title": "Well, this is awkward",
             "subtitle": "Looks like we had a problem displaying this page.",
@@ -75,6 +76,11 @@
             "httpError": "A network error occurred; we cannot determine the state of the encryption keys. This could be a temporary error.",
             "serverDown": "The server is currently down. This could be a temporary error."
         },
+        "message": {
+            "pendingReaction": "This reaction is still being sent. Please wait.",
+            "guestReaction": "Guest reactions are not allowed.",
+            "forbidden": "You do not have permissions to react to this message."
+        },
         "profiles": {
             "missingSessionData": "This session is missing required data in order to load the user profile. We recommend logging in again in order to fix this issue."
         },
@@ -85,6 +91,7 @@
         }
     },
     "expressionPicker": {
+        "title": "Expression Picker",
         "gifs": "GIFs",
         "stickers": "Stickers",
         "emoji": "Emoji"
@@ -282,6 +289,7 @@
             "deleteMessage": "Delete Message",
             "copyMessageId": "Copy Message ID"
         },
+        "copyMessageIdConfirm": "Message ID {eventId} copied to the clipboard.",
         "messageAddButton": "Add image, poll, etc.",
         "messagePlaceholder": "Message {roomName}",
         "messageEmojiButton": "Insert emoji",
@@ -314,7 +322,7 @@
         "addFriendButton": "Add Friend",
         "moreMenu": {
             "viewFullProfile": "View Full Profile",
-            "inviteToServer": "Invite to Server",
+            "inviteToSpace": "Invite to Space",
             "ignore": "Ignore",
             "block": "Block",
             "reportUserProfile": "Report User Profile",
@@ -362,7 +370,10 @@
         },
         "advanced": {
             "developerMode": "Developer Mode",
-            "developerModeDescription": "Developer Mode exposes context menu items helpful for debugging this application."
+            "developerModeDescription": "Developer Mode exposes context menu items helpful for debugging this application.",
+            "storageManagementHeading": "Storage Management",
+            "storageManagementDescription": "Options for clearing different parts of storage for testing.",
+            "resyncRoomsButton": "Resync All Rooms"
         },
         "activityPrivacy": {
             "activitySharingHeading": "Activity Sharing",

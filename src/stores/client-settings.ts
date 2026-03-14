@@ -23,6 +23,9 @@ export const useClientSettingsStore = defineStore('clientSettings', () => {
 
     const settings = reactive<ClientSettings>({
         isDeveloperMode: false,
+        pointerClickTimeout: 500,
+        pointerMoveRadius: 8,
+        pointerPressTimeout: 1500,
         sendReadReceipts: true,
         sendTypingIndicators: true,
     })
@@ -32,7 +35,7 @@ export const useClientSettingsStore = defineStore('clientSettings', () => {
         loadSettingsPromises.push(
             loadDiscortixTableKey('clientSettings', key).then((value) => {
                 if (ClientSettingsSchema.shape[key as keyof typeof ClientSettingsSchema.shape]?.safeParse(value).success) {
-                    settings[key as keyof typeof settings] = value
+                    (settings as any)[key] = value
                 }
             })
         )
@@ -55,7 +58,7 @@ export const useClientSettingsStore = defineStore('clientSettings', () => {
             disableWatchers.value = true
             try {
                 if (ClientSettingsSchema.shape[message.data.key as keyof typeof ClientSettingsSchema.shape]?.parse(message.data.value)) {
-                    settings[message.data.key as keyof typeof settings] = message.data.value
+                    (settings as any)[message.data.key] = message.data.value
                 }
             } catch (error) {
                 log.error('Error updating client setting from other tab. Ignoring.', error)

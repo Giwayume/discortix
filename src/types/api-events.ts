@@ -96,6 +96,23 @@ export const EventImageContentSchema = z.object({
 })
 export type EventImageContent = z.infer<typeof EventImageContentSchema>
 
+export const EventImPoniesRoomEmotesContentSchema = z.object({
+    images: z.record(
+        z.string(), // Emote key
+        z.object({
+            info: z.object({
+                h: z.number().optional(),
+                mimetype: z.string().optional(),
+                size: z.number().optional(),
+                w: z.number().optional(),
+            }).optional(),
+            url: z.string().optional(),
+        }),
+    ).optional(),
+    pack: z.object({}).optional(),
+})
+export type EventImPoniesRoomEmotesContent = z.infer<typeof EventImPoniesRoomEmotesContentSchema>
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mlocation */
 export const EventLocationContentSchema = z.object({
     body: z.string(),
@@ -145,6 +162,16 @@ export const EventPushRulesContentSchema = z.object({
     }).optional(),
 })
 export type EventPushRulesContent = z.infer<typeof EventPushRulesContentSchema>
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#mreaction */
+export const EventReactionContentSchema = z.object({
+    'm.relates_to': z.object({
+        eventId: z.string().optional(),
+        key: z.string().optional(),
+        relType: z.enum(['m.annotation']).optional(),
+    }).optional(),
+})
+export type EventReactionContent = z.infer<typeof EventReactionContentSchema>
 
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mreceipt */
 export const EventReceiptContentSchema = z.record(z.string(), z.object({
@@ -214,6 +241,18 @@ export const EventRoomEncryptedContentSchema = z.object({
     sessionId: z.string().optional(),
 })
 export type EventRoomEncryptedContent = z.infer<typeof EventRoomEncryptedContentSchema>
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#mroomguest_access */
+export const EventRoomGuestAccessContentSchema = z.object({
+    guestAccess: z.enum(['can_join', 'forbidden']),
+})
+export type EventRoomGuestAccessContent = z.infer<typeof EventRoomGuestAccessContentSchema>
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#mroomhistory_visibility */
+export const EventRoomHistoryVisibilityContentSchema = z.object({
+    historyVisibility: z.enum(['invited', 'joined', 'shared', 'world_readable']),
+})
+export type EventRoomHistoryVisibilityContent = z.infer<typeof EventRoomHistoryVisibilityContentSchema>
 
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mroomjoin_rules */
 export const EventRoomJoinRulesContentSchema = z.object({
@@ -389,6 +428,7 @@ export const EventVideoContentSchema = z.object({
 export type EventVideoContent = z.infer<typeof EventVideoContentSchema>
 
 export const eventContentSchemaByType = {
+    'im.ponies.room_emotes': EventImPoniesRoomEmotesContentSchema,
     'm.audio': EventAudioContentSchema,
     'm.dummy': z.any(),
     'm.emote': EventEmoteContentSchema,
@@ -399,11 +439,14 @@ export const eventContentSchemaByType = {
     'm.notice': EventNoticeContentSchema,
     'm.presence': EventPresenceContentSchema,
     'm.push_rules': EventPushRulesContentSchema,
+    'm.reaction': EventReactionContentSchema,
     'm.receipt': EventReceiptContentSchema,
     'm.room.avatar': EventRoomAvatarContentSchema,
     'm.room.canonical_alias': EventRoomCanonicalAliasContentSchema,
     'm.room.create': EventRoomCreateContentSchema,
     'm.room.encrypted': EventRoomEncryptedContentSchema,
+    'm.room.guest_access': EventRoomGuestAccessContentSchema,
+    'm.room.history_visibility': EventRoomHistoryVisibilityContentSchema,
     'm.room.join_rules': EventRoomJoinRulesContentSchema,
     'm.room.member': EventRoomMemberContentSchema,
     'm.room.message': EventRoomMessageContentSchema,
@@ -422,6 +465,7 @@ export const eventContentSchemaByType = {
 } as const
 
 export interface EventContentByType {
+    'im.ponies.room_emotes': EventImPoniesRoomEmotesContent,
     'm.audio': EventAudioContent,
     'm.dummy': any,
     'm.emote': EventEmoteContent,
@@ -432,11 +476,14 @@ export interface EventContentByType {
     'm.notice': EventNoticeContent,
     'm.presence': EventPresenceContent,
     'm.push_rules': EventPushRulesContent,
+    'm.reaction': EventReactionContent,
     'm.receipt': EventReceiptContent,
     'm.room.avatar': EventRoomAvatarContent,
     'm.room.canonical_alias': EventRoomCanonicalAliasContent,
     'm.room.create': EventRoomCreateContent,
     'm.room.encrypted': EventRoomEncryptedContent,
+    'm.room.guest_access': EventRoomGuestAccessContent,
+    'm.room.history_visibility': EventRoomHistoryVisibilityContent,
     'm.room.join_rules': EventRoomJoinRulesContent,
     'm.room.member': EventRoomMemberContent,
     'm.room.message': EventRoomMessageContent,
