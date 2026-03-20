@@ -111,3 +111,23 @@ export const ApiV3RoomSendMessageEventResponseSchema = camelizeSchema(z.object({
     event_id: z.string(),
 }))
 export type ApiV3RoomSendMessageEventResponse = z.infer<typeof ApiV3RoomSendMessageEventResponseSchema>
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#post_matrixclientv3roomsroomidjoin */
+export interface ApiV3RoomJoinRequest {
+    reason?: string;
+    third_party_signed?: {
+        mxid: string;
+        sender: string;
+        signatures: Record<string, Record<string, string>>;
+        token: string;
+    };
+}
+export const ApiV3RoomJoinResponseSchema = camelizeSchema(z.object({
+    room_id: z.string(),
+}))
+export type ApiV3RoomJoinResponse = z.infer<typeof ApiV3RoomJoinResponseSchema>
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#post_matrixclientv3roomsroomidleave */
+export interface ApiV3RoomLeaveRequest {
+    reason?: string;
+}

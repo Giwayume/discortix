@@ -122,6 +122,12 @@ export const EventForwardedRoomKeyContentSchema = z.object({
 })
 export type EventForwardedRoomKeyContent = z.infer<typeof EventForwardedRoomKeyContentSchema>
 
+/** @see https://spec.matrix.org/v1.17/client-server-api/#mfully_read */
+export const EventFullyReadContentSchema = z.object({
+    eventId: z.string(),
+})
+export type EventFullyReadContent = z.infer<typeof EventFullyReadContentSchema>
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mimage */
 export const EventImageContentSchema = z.object({
     body: z.string(),
@@ -234,6 +240,12 @@ export const EventLocationContentSchema = z.object({
     msgtype: z.enum(['m.location']),
 })
 export type EventLocationContent = z.infer<typeof EventLocationContentSchema>
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#mmarked_unread */
+export const EventMarkedUnreadContentSchema = z.object({
+    unread: z.boolean(),
+})
+export type EventMarkedUnreadContent = z.infer<typeof EventMarkedUnreadContentSchema>
 
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mnotice */
 export const EventNoticeContentSchema = z.object({
@@ -477,6 +489,14 @@ export const EventRoomRedactionContentSchema = z.object({
 })
 export type EventRoomRedactionContent = z.infer<typeof EventRoomRedactionContentSchema>
 
+/** @see https://spec.matrix.org/v1.17/client-server-api/#mtag */
+export const EventTagContentSchema = z.object({
+    tags: z.record(z.string(), z.object({
+        order: z.number().optional(),
+    })).optional(),
+})
+export type EventTagContent = z.infer<typeof EventTagContentSchema>
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mroomtopic */
 export const EventRoomTopicContentSchema = z.object({
     'm.topic': z.object({
@@ -588,8 +608,10 @@ export const eventContentSchemaByType = {
     'm.emote': EventEmoteContentSchema,
     'm.file': EventFileContentSchema,
     'm.forwarded_room_key': EventForwardedRoomKeyContentSchema,
+    'm.fully_read': EventFullyReadContentSchema,
     'm.image': EventImageContentSchema,
     'm.location': EventLocationContentSchema,
+    'm.marked_unread': EventMarkedUnreadContentSchema,
     'm.notice': EventNoticeContentSchema,
     'm.presence': EventPresenceContentSchema,
     'm.push_rules': EventPushRulesContentSchema,
@@ -614,6 +636,7 @@ export const eventContentSchemaByType = {
     'm.room_key_request': EventRoomKeyRequestContentSchema,
     'm.space.child': EventSpaceChildContentSchema,
     'm.space.parent': EventSpaceParentContentSchema,
+    'm.tag': EventTagContentSchema,
     'm.text': EventTextContentSchema,
     'm.typing': EventTypingContentSchema,
     'm.video': EventVideoContentSchema,
@@ -627,8 +650,10 @@ export interface EventContentByType {
     'm.emote': EventEmoteContent,
     'm.file': EventFileContent,
     'm.forwarded_room_key': EventForwardedRoomKeyContent,
+    'm.fully_read': EventFullyReadContent,
     'm.image': EventImageContent,
     'm.location': EventLocationContent,
+    'm.marked_unread': EventMarkedUnreadContent,
     'm.notice': EventNoticeContent,
     'm.presence': EventPresenceContent,
     'm.push_rules': EventPushRulesContent,
@@ -653,6 +678,7 @@ export interface EventContentByType {
     'm.room_key_request': EventRoomKeyRequestContent,
     'm.space.child': EventSpaceChildContent,
     'm.space.parent': EventSpaceParentContent,
+    'm.tag': EventTagContent,
     'm.text': EventTextContent,
     'm.typing': EventTypingContent,
     'm.video': EventVideoContent,
@@ -782,12 +808,14 @@ export const ApiV3SyncLeftRoomSchema = camelizeSchemaWithoutTransform(z.object({
 export type ApiV3SyncLeftRoom = z.infer<typeof ApiV3SyncLeftRoomSchema>
 
 /** @see https://spec.matrix.org/v1.17/client-server-api/#extensions-to-sync */
-export const ApiV3SyncToDevice = camelizeSchemaWithoutTransform(z.object({
-    events: z.array(z.object({
-        content: z.any().optional(),
-        sender: z.string().optional(),
-        type: z.string().optional(),
-    })).optional(),
+export const ApiV3SyncToDeviceEventSchema = camelizeSchemaWithoutTransform(z.object({
+    content: z.any().optional(),
+    sender: z.string().optional(),
+    type: z.string().optional(),
+}))
+export type ApiV3SyncToDeviceEvent = z.infer<typeof ApiV3SyncToDeviceEventSchema>
+export const ApiV3SyncToDeviceSchema = camelizeSchemaWithoutTransform(z.object({
+    events: z.array(ApiV3SyncToDeviceEventSchema).optional(),
 }))
 
 /** @see https://spec.matrix.org/v1.17/client-server-api/#get_matrixclientv3sync */
@@ -822,6 +850,6 @@ export const ApiV3SyncResponseSchema = camelizeSchema(z.object({
         knock: z.record(z.string(), ApiV3SyncKnockedRoomSchema).optional(),
         leave: z.record(z.string(), ApiV3SyncLeftRoomSchema).optional(),
     }).optional(),
-    to_device: ApiV3SyncToDevice.optional(),
+    to_device: ApiV3SyncToDeviceSchema.optional(),
 }))
 export type ApiV3SyncResponse = z.infer<typeof ApiV3SyncResponseSchema>

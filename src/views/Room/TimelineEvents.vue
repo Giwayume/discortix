@@ -208,6 +208,7 @@ const i18nText = {
     joinedTheRoomPrefix: t('room.joinedTheRoomPrefix'),
     joinedTheRoomSuffix: t('room.joinedTheRoomSuffix'),
     leftTheRoom: t('room.leftTheRoom'),
+    rejectedAnInvite: t('room.rejectedAnInvite'),
     bannedFromTheRoom: t('room.bannedFromTheRoom'),
     changedGroupIcon: t('room.changedGroupIcon'),
     changedGroupNamePrefix: t('room.changedGroupNamePrefix'),

@@ -1,12 +1,14 @@
 import {
     type EventContentByType,
     type EventImPoniesImage,
+    type EventTagContent,
     type ApiV3SyncStrippedStateEvent,
     type ApiV3SyncClientEventWithoutRoomId,
     type ApiV3SyncRoomSummary,
 } from './api-events'
 
 export interface RoomSummary {
+    membershipType: 'joined' | 'invited',
     avatarUrl?: string;
     creator?: string;
     heroes: string[];
@@ -14,7 +16,9 @@ export interface RoomSummary {
     name: string;
     roomId: string;
     roomVersion?: string;
-    caategoryName?: string;
+    categoryName?: string;
+    lastMessageTs: number;
+    tags: EventTagContent['tags'];
 }
 
 export interface RoomSummaryCategory {
@@ -29,6 +33,7 @@ export interface SpaceSummary {
     name: string;
     roomId: string;
     roomVersion: string;
+    notificationCount?: number;
 }
 
 export type EventDataRecordFrom = {
@@ -79,6 +84,7 @@ export interface RoomEventReactionRender extends RoomEventReaction {
 export interface InvitedRoom {
     roomId: string;
     stateEventsByType: ApiV3SyncStrippedStateEventRecordFrom;
+    receivedTs: number;
 }
 
 export interface KnockedRoom {

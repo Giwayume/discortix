@@ -122,6 +122,10 @@
 .p-button-loading {
     position: relative;
 
+    .p-button-label {
+        visibility: hidden;
+    }
+
     &:has(.p-button-loading-dots) {
         &:before {
             content: '';

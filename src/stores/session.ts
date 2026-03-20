@@ -188,13 +188,13 @@ export const useSessionStore = defineStore('session', () => {
         userId.value = undefined
         isGuest.value = false
 
+        // DO NOT Delete tables: olm
         clearDiscortixTable('4s')
         clearDiscortixTable('accountData')
         clearDiscortixTable('authentication')
         clearDiscortixTable('profiles')
         clearDiscortixTable('rooms')
         clearDiscortixTable('roomKeys')
-        clearDiscortixTable('olm')
         clearDiscortixTable('pickleKey')
     }, { permanent: true })
 

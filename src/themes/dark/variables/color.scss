@@ -80,6 +80,8 @@
     --background-surface-higher: var(--neutral-76);
     --background-surface-highest: var(--neutral-73);
 
+    --badge-notification-background: var(--red-new-46);
+
     --border-muted: hsl(var(--opacity-4-hsl)/0.0392156862745098);
     --border-normal: hsl(var(--opacity-20-hsl)/0.2);
     --border-subtle: hsl(var(--opacity-12-hsl)/0.12156862745098039);
@@ -149,7 +151,8 @@
     --interactive-background-hover: hsl(var(--opacity-8-hsl)/0.0784313725490196);
     --interactive-background-selected: hsl(var(--opacity-20-hsl)/0.2);
     --interactive-text-default: var(--neutral-23);
-    --interactive-text-hover: var(--neutral-2)
+    --interactive-text-hover: var(--neutral-2);
+    --interactive-text-active: var(--neutral-1);
 
     --legacy-elevation-low: 0 1px 5px 0 var(--opacity-black-28);
     --legacy-elevation-high: 0 2px 10px 0 var(--opacity-black-20);

@@ -4,6 +4,8 @@ import { fetchJson } from '@/utils/fetch'
 import { HttpError, NetworkConnectionError } from '@/utils/error'
 import * as z from 'zod'
 
+import { useUserAgent } from './user-agent'
+
 import {
     ClientConfigSchema, type ClientConfig,
     SupportConfigSchema, type SupportConfig,
@@ -31,6 +33,7 @@ export interface ServerDiscovery {
 
 export function useServerDiscovery(scenario: 'login' | 'register') {
     const { t } = useI18n()
+    const { getDeviceName } = useUserAgent()
 
     const loading = ref(false)
 
@@ -143,7 +146,7 @@ export function useServerDiscovery(scenario: 'login' | 'register') {
                         {
                             method: 'POST',
                             body: JSON.stringify({
-                                initial_device_display_name: `${window.location.host}: ${window.navigator.userAgent}`,
+                                initial_device_display_name: getDeviceName(),
                             } satisfies ApiV3RegisterRequest),
                             signal: loadAbortController.signal,
                             skipErrorChecks: [401],
@@ -171,7 +174,7 @@ export function useServerDiscovery(scenario: 'login' | 'register') {
                         {
                             method: 'POST',
                             body: JSON.stringify({
-                                initial_device_display_name: `${window.location.host}: ${window.navigator.userAgent}`,
+                                initial_device_display_name: getDeviceName(),
                             } satisfies ApiV3RegisterRequest),
                             signal: loadAbortController.signal,
                             skipErrorChecks: [401],

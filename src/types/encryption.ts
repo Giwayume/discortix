@@ -1,3 +1,5 @@
+import type { Session } from 'vodozemac-wasm-bindings'
+
 import * as z from 'zod'
 
 /** @see https://spec.matrix.org/v1.17/client-server-api/#sending-encrypted-attachments */
@@ -22,3 +24,9 @@ export const EncryptedFileSchema = z.object({
     v: z.enum(['v2']),
 })
 export type EncryptedFile = z.infer<typeof EncryptedFileSchema>
+
+export interface OlmSessionWithUsage {
+    lastActivityTs: number;
+    isPreKey?: boolean;
+    session: Session;
+}

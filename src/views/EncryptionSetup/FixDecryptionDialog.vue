@@ -166,7 +166,7 @@ async function requestKeys() {
 
     if (event.value?.type !== 'm.room.encrypted') return
     let eventContent = event.value.content as EventRoomEncryptedContent
-    if (!eventContent?.sessionId) return
+    if (!eventContent?.sessionId || !eventContent?.senderKey) return
 
     try {
         const room = joinedRooms.value[props.roomId ?? -1]
@@ -184,7 +184,7 @@ async function requestKeys() {
             const userDeviceKeys = deviceKeys.value[userId]
             for (const deviceId in userDeviceKeys) {
                 if (deviceId !== 'CHIjNVrySd') continue // TODO - TESTING, remove
-                await requestRoomKey(room.roomId, eventContent.sessionId, userId, deviceId)
+                await requestRoomKey(room.roomId, eventContent.sessionId, eventContent.senderKey, userId, deviceId)
             }
         }
 

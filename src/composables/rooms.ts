@@ -22,6 +22,8 @@ import {
     ApiV3RoomSendMessageEventResponseSchema, type ApiV3RoomSendMessageEventResponse,
     type ApiV3SyncClientEventWithoutRoomId, ApiV3SyncClientEventWithoutRoomIdSchema,
     type ApiV3RoomRedactMessageRequest, ApiV3RoomRedactMessageResponseSchema,
+    type ApiV3RoomJoinRequest, type ApiV3RoomJoinResponse, ApiV3RoomJoinResponseSchema,
+    type ApiV3RoomLeaveRequest,
     type EventReactionContent,
 } from '@/types'
 
@@ -41,7 +43,10 @@ export function useRooms() {
     const { homeserverBaseUrl, userId: sessionUserId } = storeToRefs(useSessionStore())
     const roomStore = useRoomStore()
     const { joined, left } = storeToRefs(roomStore)
-    const { getTimelineEventIndexById, populateFromApiV3RoomMessagesResponse, updateJoinedRoomDatabase } = roomStore
+    const {
+        getTimelineEventIndexById, populateFromApiV3RoomMessagesResponse, updateJoinedRoomDatabase,
+        deleteInvitedRoom, deleteKnockedRoom, deleteJoinedRoom, deleteLeftRoom,
+    } = roomStore
     const spaceStore = useSpaceStore()
     const { spaceRoomSummaries, spaceLoadingRoomSummaries } = storeToRefs(spaceStore)
     const { populateFromApiV1RoomHierarchyResponse } = spaceStore
@@ -74,7 +79,7 @@ export function useRooms() {
                         to: room.timelineGapEndToken ?? '',
                     }
                     const result = await fetchJson<ApiV3RoomMessagesResponse>(
-                        `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${roomId}/messages?`
+                        `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/messages?`
                         + new URLSearchParams(request as never),
                         {
                             useAuthorization: true,
@@ -126,7 +131,7 @@ export function useRooms() {
                         suggested_only: false,
                     }
                     const result = await fetchJson<ApiV1RoomHierarchyResponse>(
-                        `${homeserverBaseUrl.value}/_matrix/client/v1/rooms/${roomId}/hierarchy?`
+                        `${homeserverBaseUrl.value}/_matrix/client/v1/rooms/${encodeURIComponent(roomId)}/hierarchy?`
                         + new URLSearchParams(request as never),
                         {
                             useAuthorization: true,
@@ -164,10 +169,61 @@ export function useRooms() {
         return fetchPromise
     }
 
+    async function joinRoom(roomId: string, reason?: string) {
+        const request: ApiV3RoomJoinRequest = {}
+        if (reason) {
+            request.reason = reason
+        }
+        const response = await fetchJson<ApiV3RoomJoinResponse>(
+            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/join`,
+            {
+                method: 'POST',
+                body: JSON.stringify(request),
+                useAuthorization: true,
+                jsonSchema: ApiV3RoomJoinResponseSchema,
+            }
+        )
+        deleteInvitedRoom(roomId)
+        return response
+    }
+
+    async function leaveRoom(roomId: string, reason?: string) {
+        const request: ApiV3RoomLeaveRequest = {}
+        if (reason) {
+            request.reason = reason
+        }
+        const response = await fetchJson(
+            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/leave`,
+            {
+                method: 'POST',
+                body: JSON.stringify(request),
+                useAuthorization: true,
+            }
+        )
+        deleteJoinedRoom(roomId)
+        return response
+    }
+
+    async function forgetRoom(roomId: string) {
+        const response = await fetchJson(
+            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/forget`,
+            {
+                method: 'POST',
+                body: '{}',
+                useAuthorization: true,
+            }
+        )
+        deleteInvitedRoom(roomId)
+        deleteKnockedRoom(roomId)
+        deleteJoinedRoom(roomId)
+        deleteLeftRoom(roomId)
+        return response
+    }
+
     async function sendTypingNotification(roomId: string, typing: boolean) {
         if (!settings.sendTypingIndicators) return
         await fetchJson(
-            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${roomId}/typing/${sessionUserId.value}`,
+            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/typing/${sessionUserId.value}`,
             {
                 method: 'PUT',
                 useAuthorization: true,
@@ -181,7 +237,7 @@ export function useRooms() {
 
     async function getMessageEvent(roomId: string, eventId: string): Promise<ApiV3SyncClientEventWithoutRoomId> {
         return await fetchJson(
-            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${roomId}/event/${eventId}`,
+            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/event/${encodeURIComponent(eventId)}`,
             {
                 method: 'GET',
                 useAuthorization: true,
@@ -197,7 +253,7 @@ export function useRooms() {
         eventContent: E
     ): Promise<ApiV3RoomSendMessageEventResponse> {
         return await fetchJson(
-            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${roomId}/send/${eventType}/${txnId}`,
+            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/send/${eventType}/${txnId}`,
             {
                 method: 'PUT',
                 useAuthorization: true,
@@ -318,7 +374,7 @@ export function useRooms() {
         if (redactUnsentEvent(roomId, eventId, true)) return
 
         await fetchJson(
-            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${roomId}/redact/${eventId}/${uuidv4()}`,
+            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/redact/${encodeURIComponent(eventId)}/${uuidv4()}`,
             {
                 method: 'PUT',
                 useAuthorization: true,
@@ -342,6 +398,9 @@ export function useRooms() {
         getJoinedRooms,
         getPreviousMessages,
         getRoomHierarchy,
+        joinRoom,
+        leaveRoom,
+        forgetRoom,
         sendTypingNotification,
         getMessageEvent,
         sendMessageEvent,

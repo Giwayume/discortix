@@ -21,7 +21,7 @@
         <nav class="application__title-bar__trailing">
             <Button
                 v-tooltip.bottom="{ value: isTouchEventsDetected ? undefined : t('layout.titleBarInbox') }"
-                icon="pi pi-envelope"
+                icon="pi pi-inbox"
                 variant="text"
                 severity="secondary"
                 :aria-label="t('layout.titleBarInbox')"

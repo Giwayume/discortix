@@ -528,6 +528,7 @@ export const useRoomStore = defineStore('room', () => {
                     invited.value[roomId] = {
                         roomId,
                         stateEventsByType: {},
+                        receivedTs: Date.now(),
                     }
                 }
 
@@ -878,64 +879,133 @@ export const useRoomStore = defineStore('room', () => {
         }
     }
 
-    async function updateJoinedRoomDatabase(roomId: string) {
+    async function updateInvitedRoomDatabase(roomId: string) {
         if (isLeader.value) {
             try {
-                await saveDiscortixTableKey('rooms', ['joined', roomId], toRaw(joined.value[roomId]))
+                if (invited.value[roomId]) {
+                    await saveDiscortixTableKey('rooms', ['invited', roomId], toRaw(invited.value[roomId]))
+                } else {
+                    await deleteDiscortixTableKey('rooms', ['invited', roomId])
+                }
             } catch (error) {
                 // Ignore - It is not critical that message history is updated. Can fetch again.
             }
         }
     }
-
-    // This includes one-on-one and group chats.
-    const directMessageRooms = computed(() => {
-        const rooms: RoomSummary[] = []
-        for (const roomId in joined.value) {
-            const room = joined.value[roomId]
-            if (!room) continue
-            const roomAvatarEvent = room.stateEventsByType['m.room.avatar']?.[0]
-            const roomCreateEvent = room.stateEventsByType['m.room.create']?.[0]
-            const roomNameEvent = room.stateEventsByType['m.room.name']?.[0]
-            const roomMemberEvents = room.stateEventsByType['m.room.member'] ?? []
-            const spaceParentEvent = room.stateEventsByType['m.space.parent']?.[0]
-
-            if (!roomCreateEvent) continue
-            if (roomCreateEvent?.content?.type === 'm.space') continue
-            if (spaceParentEvent) continue
-            const roomVersion = roomCreateEvent.content.roomVersion ?? '1'
-
-            let heroes: string[] = (room.summary?.['m.heroes'] ?? []).filter((userId) => userId !== sessionUserId.value)
-            let joinedMemberCount = room.summary?.['m.joined_member_count']
-            if (heroes.length === 0 || !joinedMemberCount) {
-                const memberEvents = roomMemberEvents.filter(
-                    (event) => event.stateKey && (event.content.membership === 'join' || event.content.membership === 'invite')
-                )
-                if (heroes.length === 0) {
-                    heroes = memberEvents.filter((event) => event.stateKey !== sessionUserId.value).map((event) => event.stateKey ?? '')
+    async function updateKnockedRoomDatabase(roomId: string) {
+        if (isLeader.value) {
+            try {
+                if (knocked.value[roomId]) {
+                    await saveDiscortixTableKey('rooms', ['knocked', roomId], toRaw(knocked.value[roomId]))
+                } else {
+                    await deleteDiscortixTableKey('rooms', ['knocked', roomId])
                 }
-                if (!joinedMemberCount) {
-                    joinedMemberCount = memberEvents.filter(
-                        (event) => event.content.membership === 'join'
-                    ).length
-                }
+            } catch (error) {
+                // Ignore - It is not critical that message history is updated. Can fetch again.
             }
-
-            rooms.push({
-                avatarUrl: roomAvatarEvent?.content?.info?.thumbnailUrl ?? roomAvatarEvent?.content?.url,
-                creator: (
-                    parseInt(roomVersion) >= 11
-                        ? roomCreateEvent.sender
-                        : roomCreateEvent.content.creator
-                ) ?? '',
-                heroes,
-                roomId,
-                joinedMemberCount,
-                name: roomNameEvent?.content.name ?? '',
-                roomVersion,
-            })
         }
+    }
+    async function updateJoinedRoomDatabase(roomId: string) {
+        if (isLeader.value) {
+            try {
+                if (joined.value[roomId]) {
+                    await saveDiscortixTableKey('rooms', ['joined', roomId], toRaw(joined.value[roomId]))
+                } else {
+                    await deleteDiscortixTableKey('rooms', ['joined', roomId])
+                }
+            } catch (error) {
+                // Ignore - It is not critical that message history is updated. Can fetch again.
+            }
+        }
+    }
+    async function updateLeftRoomDatabase(roomId: string) {
+        if (isLeader.value) {
+            try {
+                if (left.value[roomId]) {
+                    await saveDiscortixTableKey('rooms', ['left', roomId], toRaw(left.value[roomId]))
+                } else {
+                    await deleteDiscortixTableKey('rooms', ['left', roomId])
+                }
+            } catch (error) {
+                // Ignore - It is not critical that message history is updated. Can fetch again.
+            }
+        }
+    }
+    
+    // This includes one-on-one and group chats.
+    const allDirectMessageRooms = computed(() => {
+        const rooms: RoomSummary[] = []
+        let roomLists = [
+            ['invited', invited.value] as const,
+            ['joined', joined.value] as const,
+        ]
+        for (const [membershipType, roomList] of roomLists) {
+            for (const roomId in roomList) {
+                const room = roomList[roomId]
+                if (!room) continue
+                const roomAvatarEvent = room.stateEventsByType['m.room.avatar']?.[0]
+                const roomCreateEvent = room.stateEventsByType['m.room.create']?.[0]
+                const roomNameEvent = room.stateEventsByType['m.room.name']?.[0]
+                const roomMemberEvents = room.stateEventsByType['m.room.member'] ?? []
+                const spaceParentEvent = room.stateEventsByType['m.space.parent']?.[0]
+
+                if (!roomCreateEvent) continue
+                if (roomCreateEvent?.content?.type === 'm.space') continue
+                if (spaceParentEvent) continue
+                const roomVersion = roomCreateEvent.content.roomVersion ?? '1'
+
+                let heroes = new Set<string>(((room as JoinedRoom)?.summary?.['m.heroes'] ?? []).filter((userId) => userId !== sessionUserId.value))
+                let joinedMemberCount = (room as JoinedRoom)?.summary?.['m.joined_member_count']
+                if (heroes.size < 5 || !joinedMemberCount) {
+                    const memberEvents = roomMemberEvents.filter(
+                        (event) => event.stateKey && (event.content.membership === 'join' || event.content.membership === 'invite')
+                    )
+                    if (heroes.size < 5) {
+                        heroes = new Set(memberEvents.filter((event) => event.stateKey !== sessionUserId.value).map((event) => event.stateKey ?? ''))
+                    }
+                    if (!joinedMemberCount) {
+                        joinedMemberCount = memberEvents.filter(
+                            (event) => event.content.membership === 'join'
+                        ).length
+                    }
+                }
+
+                rooms.push({
+                    membershipType,
+                    avatarUrl: roomAvatarEvent?.content?.info?.thumbnailUrl ?? roomAvatarEvent?.content?.url,
+                    creator: (
+                        parseInt(roomVersion) >= 11
+                            ? roomCreateEvent.sender
+                            : roomCreateEvent.content.creator
+                    ) ?? '',
+                    heroes: Array.from(heroes),
+                    roomId,
+                    joinedMemberCount,
+                    name: (roomNameEvent?.content.name ?? '').trim(),
+                    roomVersion,
+                    lastMessageTs: (room as InvitedRoom)?.receivedTs ?? (room as JoinedRoom).visibleTimeline?.[(room as JoinedRoom).visibleTimeline?.length - 1]?.originServerTs ?? 0,
+                    tags: (room as JoinedRoom).accountData?.['m.tag']?.tags,
+                })
+            }
+        }
+        rooms.sort((a, b) => a.lastMessageTs > b.lastMessageTs ? -1 : 1)
         return rooms
+    })
+
+    const invitedDirectMessageRooms = computed(() => {
+        return allDirectMessageRooms.value.filter((room) => room.membershipType === 'invited')
+    })
+
+    const joinedDirectMessageRooms = computed(() => {
+        return allDirectMessageRooms.value.filter((room) => {
+            return room.membershipType === 'joined' && !room.tags?.['m.server_notice']
+        })
+    })
+
+    const serverNoticeRooms = computed(() => {
+        return allDirectMessageRooms.value.filter((room) => {
+            return room.membershipType === 'joined' && !!room.tags?.['m.server_notice']
+        })
     })
 
     const currentRoomEncryptionEnabledTimestamp = computed(() => {
@@ -1004,6 +1074,23 @@ export const useRoomStore = defineStore('room', () => {
         }
     })
 
+    function deleteInvitedRoom(roomId: string) {
+        delete invited.value[roomId]
+        updateInvitedRoomDatabase(roomId)
+    }
+    function deleteKnockedRoom(roomId: string) {
+        delete knocked.value[roomId]
+        updateKnockedRoomDatabase(roomId)
+    }
+    function deleteJoinedRoom(roomId: string) {
+        delete joined.value[roomId]
+        updateJoinedRoomDatabase(roomId)
+    }
+    function deleteLeftRoom(roomId: string) {
+        delete left.value[roomId]
+        updateLeftRoomDatabase(roomId)
+    }
+
     return {
         roomsLoading,
         roomsLoadError,
@@ -1011,10 +1098,16 @@ export const useRoomStore = defineStore('room', () => {
         knocked: computed(() => knocked.value),
         joined: computed(() => joined.value),
         left: computed(() => left.value),
+        deleteInvitedRoom,
+        deleteKnockedRoom,
+        deleteJoinedRoom,
+        deleteLeftRoom,
         currentRoomEncryptionEnabledTimestamp,
         currentRoomPermissions,
         decryptedRoomEvents,
-        directMessageRooms,
+        invitedDirectMessageRooms,
+        joinedDirectMessageRooms,
+        serverNoticeRooms,
         getTimelineEventIndexById,
         getTimelineEventById,
         associateTransactionIdWithEventId,

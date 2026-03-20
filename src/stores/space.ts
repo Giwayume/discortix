@@ -117,7 +117,7 @@ export const useSpaceStore = defineStore('space', () => {
         const categories: RoomSummaryCategory[] = []
         const encounteredCategoryNames = new Set<string>()
         for (const roomSummary of roomSummaries) {
-            const categoryName = roomSummary.caategoryName ?? ''
+            const categoryName = roomSummary.categoryName ?? ''
             if (!encounteredCategoryNames.has(categoryName)) {
                 categories.push({
                     name: categoryName,

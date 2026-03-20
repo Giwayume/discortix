@@ -29,8 +29,8 @@
             {{ t('deleteMessageConfirm.deletionError') }}
         </Message>
         <template #footer>
-            <Button :label="t('deleteMessageConfirm.cancelButton')" class="grow-1" severity="secondary" @click="emit('update:visible', false)" autofocus />
-            <Button :loading="isDeleting" class="grow-1" severity="danger" @click="deleteEventConfirm()">
+            <Button :label="t('deleteMessageConfirm.cancelButton')" class="grow-1 basis-1" severity="secondary" @click="emit('update:visible', false)" autofocus />
+            <Button :loading="isDeleting" class="grow-1 basis-1" severity="danger" @click="deleteEventConfirm()">
                 <div class="p-button-label">{{ t('deleteMessageConfirm.deleteButton') }}</div>
                 <div class="p-button-loading-dots" />
             </Button>

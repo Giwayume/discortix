@@ -1,4 +1,3 @@
-import { defineAsyncComponent } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
@@ -28,6 +27,11 @@ const router = createRouter({
             name: 'home',
             path: '/home',
             component: () => import('@/views/Home.vue'),
+        },
+        {
+            name: 'message-requests',
+            path: '/message-requests',
+            component: () => import('@/views/MessageRequests.vue'),
         },
         {
             name: 'room',

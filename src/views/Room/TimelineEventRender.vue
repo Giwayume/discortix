@@ -220,7 +220,12 @@
                 <strong class="mr-1">
                     <span class="link" data-link-id="viewUserProfile" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
                 </strong>
-                <span v-if="e.event.content.membership === 'leave'">{{ i18nText.leftTheRoom }}</span>
+                <span v-if="e.event.content.membership === 'leave'">
+                    <template v-if="e.event.unsigned?.prevContent?.membership === 'invite'">
+                        {{ i18nText.rejectedAnInvite }}
+                    </template>
+                    <template v-else>{{ i18nText.leftTheRoom }}</template>
+                </span>
                 <span v-if="e.event.content.membership === 'ban'">{{ i18nText.bannedFromTheRoom }}</span>
             </template>
             <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>

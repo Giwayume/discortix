@@ -1,9 +1,10 @@
-import { computed, getCurrentInstance, onUnmounted, ref, watch } from 'vue'
+import { computed, getCurrentInstance, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n, type ComposerTranslation } from 'vue-i18n'
 
 import { useBroadcast } from '@/composables/broadcast'
 import { useCryptoKeys } from '@/composables/crypto-keys'
+import { useOlm } from '@/composables/olm'
 import { createLogger } from '@/composables/logger'
 
 import { useAccountDataStore } from '@/stores/account-data'
@@ -41,6 +42,7 @@ export function useSync() {
     const { t } = useI18n()
     const { isLeader, onFollowerMessage, broadcastMessageFromLeader } = useBroadcast()
     const { manageCryptoKeysFromApiV3SyncResponse } = useCryptoKeys()
+    const { manageDeviceMessagesFromApiV3SyncResponse } = useOlm()
     const accountDataStore = useAccountDataStore()
     const { accountDataLoading, accountDataLoadError } = storeToRefs(accountDataStore)
     const { populateFromApiV3SyncResponse: populateAccountDataFromApiV3SyncResponse } = accountDataStore
@@ -64,7 +66,7 @@ export function useSync() {
         }
     })
 
-    function populateAllFromApiSyncResponse(syncResponse: ApiV3SyncResponse) {
+    async function populateAllFromApiSyncResponse(syncResponse: ApiV3SyncResponse) {
         try {
             populateAccountDataFromApiV3SyncResponse(syncResponse)
         } catch (error) {
@@ -84,6 +86,11 @@ export function useSync() {
             manageCryptoKeysFromApiV3SyncResponse(syncResponse)
         } catch (error) {
             log.error('Error when managing crypto keys from sync.', error)
+        }
+        try {
+            await manageDeviceMessagesFromApiV3SyncResponse(syncResponse)
+        } catch (error) {
+            log.error('Error when managing device messages from sync.', error)
         }
     }
 
@@ -124,7 +131,7 @@ export function useSync() {
                         signal: syncAbortController.signal,
                     }
                 )
-                populateAllFromApiSyncResponse(syncResponse)
+                await populateAllFromApiSyncResponse(syncResponse)
                 broadcastMessageFromLeader({ type: 'apiV3Sync', data: syncResponse })
                 setNextBatch(syncResponse.nextBatch)
 
@@ -172,6 +179,11 @@ export function useSync() {
     }
 
     if (getCurrentInstance()) {
+        onMounted(() => {
+            if (syncInitialized.value && isLeader.value) {
+                startSyncing()
+            }
+        })
         onUnmounted(() => {
             stopSyncing()
         })

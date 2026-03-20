@@ -2,14 +2,14 @@
     <Dialog
         :visible="visible"
         modal
-        :header="t('importRoomKeys.title')"
+        :header="t('importRoomKeysDialog.title')"
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
         @update:visible="(visible) => emit('update:visible', visible)"
     >
-        <p class="text-(--text-muted)">{{ t('importRoomKeys.subtitle') }}</p>
+        <p class="text-(--text-muted)">{{ t('importRoomKeysDialog.subtitle') }}</p>
         <form id="import-room-keys-dialog-form" novalidate @submit.prevent="submit">
             <div class="flex gap-4 items-center mt-5">
-                <Button severity="secondary" class="shrink-1 text-nowrap" @click="selectBackupFile">{{ t('importRoomKeys.backupFile') }}</Button>
+                <Button severity="secondary" class="shrink-1 text-nowrap" @click="selectBackupFile">{{ t('importRoomKeysDialog.backupFile') }}</Button>
                 <p v-if="formData.backupFile" class="grow-1 overflow-hidden text-ellipsis">{{ formData.backupFile.name }}</p>
             </div>
             <Message v-if="(v$.backupFile.$invalid && v$.$dirty)" severity="error" size="small" variant="simple" class="mt-2">
@@ -17,14 +17,14 @@
                     <span class="pi pi-exclamation-circle !text-xs !leading-3 -mt-[1px]" aria-hidden="true" />
                 </template>
                 <template v-if="v$.backupFile.required.$invalid">
-                    {{ t('importRoomKeys.backupFileRequired') }}
+                    {{ t('importRoomKeysDialog.backupFileRequired') }}
                 </template>
                 <template v-else>
-                    {{ t('importRoomKeys.backupFileInvalid') }}
+                    {{ t('importRoomKeysDialog.backupFileInvalid') }}
                 </template>
             </Message>
             <div class="p-staticlabel grow-1 flex flex-col gap-2 mt-5 mb-5">
-                <label for="room-keys-backup-passphrase-entry" class="text-(--text-strong)">{{ t('importRoomKeys.passphrase') }}</label>
+                <label for="room-keys-backup-passphrase-entry" class="text-(--text-strong)">{{ t('importRoomKeysDialog.passphrase') }}</label>
                 <InputText
                     id="room-keys-backup-passphrase-entry"
                     v-model.trim="formData.passphrase"
@@ -39,18 +39,18 @@
                         <span class="pi pi-exclamation-circle !text-xs !leading-3 -mt-[1px]" aria-hidden="true" />
                     </template>
                     <template v-if="v$.passphrase.required.$invalid">
-                        {{ t('importRoomKeys.passphraseRequired') }}
+                        {{ t('importRoomKeysDialog.passphraseRequired') }}
                     </template>
                     <template v-else>
-                        {{ t('importRoomKeys.passphraseInvalid') }}
+                        {{ t('importRoomKeysDialog.passphraseInvalid') }}
                     </template>
                 </Message>
             </div>
         </form>
         <template #footer>
-            <Button severity="secondary" @click="emit('update:visible', false)">{{ t('importRoomKeys.cancelButton') }}</Button>
+            <Button severity="secondary" @click="emit('update:visible', false)">{{ t('importRoomKeysDialog.cancelButton') }}</Button>
             <Button form="import-room-keys-dialog-form" type="submit" :loading="parsingFile">
-                {{ t('importRoomKeys.importButton') }}
+                {{ t('importRoomKeysDialog.importButton') }}
                 <div class="p-button-loading-dots" />
             </Button>
         </template>
@@ -157,7 +157,7 @@ async function submit() {
         return
     }
 
-    toast.add({ severity: 'success', summary: t('importRoomKeys.importSuccessToast'), life: 3000 })
+    toast.add({ severity: 'success', summary: t('importRoomKeysDialog.importSuccessToast'), life: 3000 })
 
     emit('update:visible', false)
     emit('success')

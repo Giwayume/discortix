@@ -144,8 +144,14 @@ const roomName = computed<string | undefined>(() => {
 })
 
 const otherMembers = computed(() => {
+    const seen = new Set<string>()
     return (props.room as JoinedRoom).stateEventsByType['m.room.member']?.filter((member) => {
-        return (member.content.membership === 'join' || member.content.membership === 'invite') && member.stateKey && member.stateKey != userId.value
+        const shouldShow = (member.content.membership === 'join' || member.content.membership === 'invite') && member.stateKey && member.stateKey != userId.value
+        let isDuplicate = seen.has(member.sender)
+        if (shouldShow) {
+            seen.add(member.sender)
+        }
+        return shouldShow && !isDuplicate
     }).map((member) => {
         const userId = member.stateKey!
         return {

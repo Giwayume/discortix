@@ -4,6 +4,8 @@ import { createLogger } from '@/composables/logger'
 import { fetchJson } from '@/utils/fetch'
 import * as z from 'zod'
 
+import { useUserAgent } from './user-agent'
+
 import { useSessionStore } from '@/stores/session'
 import { useSyncStore } from '@/stores/sync'
 
@@ -23,10 +25,11 @@ export interface LoginFormData {
 export function useLogin(options: {
     serverDiscovery: Ref<ServerDiscovery>
 }) {
+    const { getDeviceName } = useUserAgent()
+
     const { serverDiscovery } = options
 
     const loading = ref(false)
-
     const error = ref<Error | null>(null)
 
     const sessionId = ref<string | undefined>(undefined)
@@ -82,6 +85,7 @@ export function useLogin(options: {
                         body: JSON.stringify({
                             type: 'm.login.password',
                             identifier,
+                            initial_device_display_name: getDeviceName(),
                             password: formData.password,
                             device_id: deviceId.value,
                             session: sessionId.value,

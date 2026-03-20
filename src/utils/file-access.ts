@@ -61,3 +61,18 @@ export function pickFile(options: PickFileOptions = {}): any {
         input.click()
     });
 }
+
+export function downloadFile(blob: Blob, filename: string) {
+    const objectUrl = URL.createObjectURL(blob)
+
+    const a = document.createElement('a')
+    a.href = objectUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+
+    setTimeout(() => {
+        URL.revokeObjectURL(objectUrl)
+        a.remove()
+    }, 100)
+}

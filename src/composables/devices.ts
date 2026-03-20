@@ -13,7 +13,7 @@ let cachedDevicesResponse: ApiV3DevicesResponse | undefined = undefined
 let lastDevicesFetchTs: number = 0
 
 export function useDevices() {
-    const { userId: sessionUserId, deviceId: sessionDeviceId, homeserverBaseUrl } = storeToRefs(useSessionStore())
+    const { homeserverBaseUrl } = storeToRefs(useSessionStore())
     
     async function getCurrentUserDevices() {
         if (Date.now() - lastDevicesFetchTs < 300000 && cachedDevicesResponse) return cachedDevicesResponse

@@ -21,6 +21,7 @@ export interface ApiV3LoginIdentifierPhone {
 export interface ApiV3LoginRequestPassword {
     type: 'm.login.password';
     identifier: ApiV3LoginIdentifierUser | ApiV3LoginIdentifierThirdParty | ApiV3LoginIdentifierPhone,
+    initial_device_display_name?: string;
     password: string;
     device_id?: string;
     session?: string;

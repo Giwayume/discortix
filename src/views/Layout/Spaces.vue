@@ -15,7 +15,38 @@
                     <div class="application__space__icon">
                         <span class="pi pi-comments" aria-hidden="true" />
                     </div>
+                    <div v-if="dmNotificationCount > 0" class="application__space__notify-count">
+                        {{ dmNotificationCount }}
+                    </div>
                 </button>
+                <template v-for="dmChat of dmChats">
+                    <button
+                        v-tooltip.right="{ value: isTouchEventsDetected ? undefined : dmChat.name }"
+                        class="application__space application__space--dm-notify application__space--notify"
+                        :aria-label="dmChat.name"
+                        @contextmenu.prevent
+                    >
+                        <div class="application__space__icon">
+                            <AuthenticatedImage
+                                v-if="dmChat.avatarUrl"
+                                :mxcUri="dmChat.avatarUrl"
+                                type="thumbnail"
+                                :width="48"
+                                :height="48"
+                                method="scale"
+                            >
+                                <template v-slot="{ src }">
+                                    <img :src="src" :alt="t('layout.spaceAvatarAlt')">
+                                </template>
+                                <template #error>
+                                    <span class="pi pi-user" aria-hidden="true" />
+                                </template>
+                            </AuthenticatedImage>
+                            <template v-else><span class="pi pi-user" aria-hidden="true" /></template>
+                        </div>
+                        <div class="application__space__notify-count">{{ dmChat.notificationCount }}</div>
+                    </button>
+                </template>
                 <hr>
                 <template v-for="space of joinedSpaces">
                     <button
@@ -84,11 +115,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { computed, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useApplication } from '@/composables/application'
+import { useRoomStore } from '@/stores/room'
 import { useSpaceStore } from '@/stores/space'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
@@ -102,7 +134,35 @@ import type { SpaceSummary } from '@/types'
 const { t } = useI18n()
 const router = useRouter()
 const { isTouchEventsDetected } = useApplication()
+const { invitedDirectMessageRooms } = storeToRefs(useRoomStore())
 const { currentTopLevelSpaceId, joinedSpaces } = storeToRefs(useSpaceStore())
+
+/*--------------------*\
+|                      |
+|   DM Notifications   |
+|                      |
+\*--------------------*/
+
+const dmNotificationCount = computed(() => {
+    return Math.min(99, invitedDirectMessageRooms.value.length)
+})
+
+const dmChats = ref<SpaceSummary[]>([
+    // {
+    //     avatarUrl: undefined,
+    //     creator: '@user:matrix.org',
+    //     name: 'Username',
+    //     roomId: '',
+    //     roomVersion: '1',
+    //     notificationCount: 2,
+    // }
+])
+
+/*----------------*\
+|                  |
+|   Context Menu   |
+|                  |
+\*----------------*/
 
 const contextMenu = ref<InstanceType<typeof ContextMenu>>()
 const contextMenuSelectedSpace = ref<SpaceSummary>()
@@ -250,6 +310,12 @@ const contextMenuItems = ref([
     },
 ])
 
+/*-----------*\
+|             |
+|   Methods   |
+|             |
+\*-----------*/
+
 function createAcronym(spaceName: string) {
     const wordSplit = spaceName.toUpperCase().split(' ')
     return wordSplit.length >= 2
@@ -335,6 +401,13 @@ function showSpaceContextMenu(event: MouseEvent, space: SpaceSummary) {
             background: var(--control-primary-background-default);
         }
     }
+
+    &.application__space--notify {
+        &:before {
+            height: 0.5rem !important;
+            width: 0.5rem;
+        }
+    }
 }
 
 .application__space__icon {
@@ -355,9 +428,38 @@ function showSpaceContextMenu(event: MouseEvent, space: SpaceSummary) {
     white-space: nowrap;
 }
 
+.application__space__notify-count {
+    position: absolute;
+    right: 0.25rem;
+    bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    min-width: 1rem;
+    height: 1rem;
+    outline: 0.125rem solid var(--background-base-lowest);
+    background: var(--badge-notification-background);
+    color: var(--white);
+    border-radius: var(--radius-round);
+    z-index: 2;
+}
+
 .application__space--dm {
     .application__space__icon {
         color: var(--text-strong);
+    }
+}
+
+.application__space--dm-notify {
+    .application__space__icon {
+        mask: none;
+        border-radius: 50%;
+        margin: 0.25rem;
+        width: calc(100% - 0.5rem);
+        height: calc(100% - 0.5rem);
     }
 }
 </style>

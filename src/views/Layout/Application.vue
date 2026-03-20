@@ -65,6 +65,7 @@
     </div>
     <UserSettings v-model:visible="userSettingsVisible" />
     <IdentityVerificationDialog v-if="identityVerificationFlowStarted" v-model:visible="identityVerificationVisible" />
+    <OlmAccountMissingDialog v-if="deviceDeletionFlowStarted" v-model:visible="deviceDeletionVisible" />
 </template>
 
 <script setup lang="ts">
@@ -89,6 +90,7 @@ import TitleBar from './TitleBar.vue'
 import UserStatusSettings from './UserStatusSettings.vue'
 const UserSettings = defineAsyncComponent(() => import('@/views/UserSettings.vue'))
 const IdentityVerificationDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/IdentityVerificationDialog.vue'))
+const OlmAccountMissingDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/OlmAccountMissingDialog.vue'))
 
 import ProgressBar from 'primevue/progressbar'
 import Splitter from 'primevue/splitter'
@@ -129,6 +131,7 @@ const {
 } = storeToRefs(spaceStore)
 const {
     identityVerificationRequired,
+    deviceNeedsDeletion,
 } = storeToRefs(useCryptoKeysStore())
 
 const props = defineProps({
@@ -154,6 +157,8 @@ const userSettingsVisible = ref<boolean>(false)
 
 const identityVerificationFlowStarted = ref<boolean>(false)
 const identityVerificationVisible = ref<boolean>(false)
+const deviceDeletionFlowStarted = ref<boolean>(false)
+const deviceDeletionVisible = ref<boolean>(false)
 
 const initializeErrorMessage = ref<string | null>(null)
 
@@ -177,6 +182,11 @@ async function initialize() {
             identityVerificationFlowStarted.value = true
             identityVerificationVisible.value = true
             await until(() => !identityVerificationVisible.value)
+        }
+        if (deviceNeedsDeletion.value) {
+            deviceDeletionFlowStarted.value = true
+            deviceDeletionVisible.value = true
+            await until(() => !deviceDeletionVisible.value)
         }
     }
 

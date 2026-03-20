@@ -94,6 +94,16 @@
             "serverDown": "The server is not responding to sync requests. This could be a temporary error."
         }
     },
+    "exportRoomKeysDialog": {
+        "title": "Export Room Keys",
+        "subtitle": "Your keys will be encrypted with a passphrase that you create. This passphrase can be anything, but **you must remember it** for when you need to import the room keys into another client.",
+        "passphrase": "Create a Passphrase",
+        "passphraseRequired": "Passphrase is required.",
+        "passphraseInvalid": "This passphrase is invalid.",
+        "cancelButton": "Cancel",
+        "exportButton": "Export",
+        "backupFilename": "megolm-room-keys-backup-{userId}.txt"
+    },
     "expressionPicker": {
         "title": "Expression Picker",
         "gifs": "GIFs",
@@ -116,11 +126,14 @@
         "title": "Friends",
         "findStartConversationButton": "Find or start a conversation",
         "topMenu": {
-            "friends": "Friends"
+            "friends": "Friends",
+            "messageRequests": "Message Requests"
         },
         "directMessages": "Direct Messages",
         "createMessage": "Create Message",
+        "systemAlerts": "System Alerts",
         "leaveRoom": "Leave Room",
+        "errorLeaveRoomToast": "An error occurred when trying to leave the room. Please try again later.",
         "friendFilters": {
             "online": "Online",
             "all": "All",
@@ -141,7 +154,7 @@
         "lostRecoveryMethods": "Forgotten or lost all recovery methods?",
         "resetIdentityLink": "Reset your identity"
     },
-    "importRoomKeys": {
+    "importRoomKeysDialog": {
         "title": "Import Room Keys",
         "subtitle": "You can import room encryption keys that you have previously exported from another Matrix client. You will then be able to decrypt any messages that the other client could decrypt.",
         "passphrasePrompt": "The export file will be protected with a passphrase that you created when you previously exported the keys.",
@@ -184,6 +197,15 @@
         "userSettings": "User Settings",
         "enterFullscreen": "Enter Fullscreen"
     },
+    "leaveGroupConfirmDialog": {
+        "title": "Leave '{displayname}'",
+        "duplicateChatTitle": "Leave DM with {displayname}",
+        "subtitle": "Are you sure you want to leave **{displayname}**? You won't be able to rejoin this group unless you are re-invited.",
+        "duplicateChatSubtitle": "You appear to have multiple DM rooms with **{displayname}**. Do you want to leave this specific DM room for good? You won't be able to rejoin this room unless you are re-invited.\n\nYou will still be able to chat in the other DM room you are already in.",
+        "cancelButton": "Cancel",
+        "leaveGroupButton": "Leave Group",
+        "leaveRoomButton": "Leave DM"
+    },
     "login": {
         "title": "Welcome back!",
         "subtitle": "We're so excited to see you again!",
@@ -215,6 +237,27 @@
         "title": "Message Preview",
         "closeButton": "Close",
         "unableToView": "Either you don't have access to view this message, or it no longer exists."
+    },
+    "messageRequests": {
+        "title": "Message Requests",
+        "acceptDmButton": "Accept DM",
+        "ignoreButton": "Ignore",
+        "dmJoinReason": "Accepted DM invitation.",
+        "joinRoomErrorToast": "An error occurred when trying to join the room. You can ignore the DM request if this issue persists.",
+        "rejectInviteErrorToast": "An error occurred when rejecting the invite. Please try again later."
+    },
+    "olmAccountMissingDialog": {
+        "title": "Device Needs Reset",
+        "description": "This device previously had encryption keys which are now missing. In order to use encrypted rooms, this device profile needs to be deleted, which will log you out. You can then log back in and create a fresh session.",
+        "beforeResetWarning": "Before you reset your device, take note:",
+        "identityRecoveryKeyHeading": "Identity Recovery Key",
+        "identityRecoveryKeyWarning": "Make sure you have access to a previously downloaded identity recovery key, or another device that you can use to verify your new session after you log in.",
+        "roomKeysHeading": "Room Keys",
+        "roomKeysBackupWarning": "You may want to download backups of your room keys so you don't lose access to your previous encrypted messages.",
+        "exportRoomKeysButton": "Export Room Keys",
+        "doNotResetButton": "Don't Use Encryption",
+        "resetButton": "Reset Device",
+        "continueResetButton": "I'm Ready"
     },
     "photoViewer": {
         "closeButton": "Close",
@@ -267,6 +310,8 @@
         "directMessageHistoryBeginning": "This is the beginning of your direct message history with {displayname}.",
         "groupMessageHistoryBeginning": "Welcome to the beginning of the {users} group.",
         "untitledRoom": "Untitled Room",
+        "unknownRoom": "Unknown Room",
+        "unknownRoomDescription": "You have been redirected to a chat room this client does not know anything about. Or maybe it's still loading, in which case you are free to wait here.",
         "spaceMessageHistoryBeginningTitle": "Welcome to #{roomName}",
         "spaceMessageHistoryBeginningSubtitle": "This is the start of the #{roomName} room.",
         "removeFriendButton": "Remove Friend",
@@ -321,6 +366,7 @@
         "joinedTheRoomPrefix": "Everyone welcome ",
         "joinedTheRoomSuffix": "!",
         "leftTheRoom": "left the room. They will be missed 😭.",
+        "rejectedAnInvite": "rejected an invite to the room.",
         "bannedFromTheRoom": "was banned from the room.",
         "replyToNoMessagePreview": "Click to see message",
         "replyToNoAttachmentPreview": "Click to see attachment",
@@ -392,6 +438,15 @@
             "identityVerificationRequired": "You have identity keys in your account, but this device cannot access them.",
             "verifyIdentityButton": "Verify Your Identity",
             "changeIdentityRecoveryKeyButton": "Change Identity Recovery Key",
+            "deviceKeysHeading": "Device Keys",
+            "deviceKeysDescription": "Encryption keys are generated for this device, which are used to exchange room keys.",
+            "deviceKeysNeedsIdentityVerification": "You must verify your identity in order to create device keys. Please follow the instructions at the top of this page.",
+            "deviceHasKeys": "Device keys have been set up. You do not need to take any action on this.",
+            "generateDeviceKeysButton": "Generate Device Keys",
+            "generateDeviceKeysError": "An error occurred when generating your device keys. Please try again later.",
+            "unableToGenerateDeviceKeys": "This application is unable to generate device keys at this time, because the library we use to generate device keys did not load.",
+            "deviceKeyNeedsReset": "This device needs to be reset in order to generate new device keys.",
+            "resetDeviceButton": "Reset Device",
             "roomKeysHeading": "Room Keys",
             "roomKeysDescription": "Room keys are used to encrypt your messages in chats. If you lose these keys, you will not be able to read old encrypted chat messages.",
             "exportRoomKeysButton": "Export Keys",

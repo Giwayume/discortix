@@ -20,12 +20,11 @@ import {
     generateSecretKeyId, createSecretKeyDescription, validateSecretKeyDescription,
     generateSecretKey, pickleKeyToAesKey,
 } from '@/utils/secret-storage'
-import { until } from '@/utils/vue'
-import { snakeCaseApiRequest } from '@/utils/zod'
 import * as z from 'zod'
 
 import { useAccountData } from './account-data'
 import { useBroadcast } from './broadcast'
+import { useOlm } from './olm'
 
 import { getAllTableKeys as getAllDiscortixTableKeys, loadTableKey as loadDiscortixTableKey, saveTableKey as saveDiscortixTableKey } from '@/stores/database/discortix'
 import { useAccountDataStore } from '@/stores/account-data'
@@ -36,17 +35,12 @@ import {
     type AesHmacSha2EncryptedData,
     type AesHmacSha2KeyDescription, AesHmacSha2KeyDescriptionSchema,
     type SecretStorageAccountData, SecretStorageAccountDataSchema,
-    type ApiV3KeysClaimRequest, type ApiV3KeysClaimResponse, ApiV3KeysClaimResponseSchema,
     type ApiV3KeysQueryRequest, type ApiV3KeysQueryResponse, ApiV3KeysQueryResponseSchema,
     type ApiV3KeysUploadRequest, type ApiV3KeysUploadResponse, ApiV3KeysUploadResponseSchema,
     type ApiV3KeysDeviceSigningUploadRequest,
     type ApiV3SyncResponse,
     type EventForwardedRoomKeyContent,
-    type ApiV3SendEventToDeviceRequest,
     type EventRoomKeyRequestContent,
-    type EventRoomEncryptedContent,
-    type ApiV3SyncClientEventWithoutRoomId,
-    type OlmPayload,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
@@ -71,10 +65,11 @@ export function useCryptoKeys() {
     const route = useRoute()
     const { getAccountDataByType, setAccountDataByType } = useAccountData()
     const { isLeader, forceClaimLeadership } = useBroadcast()
+    const { sendMessageToDevice } = useOlm()
     const {
         homeserverBaseUrl,
         userId: sessionUserId,
-        deviceId,
+        deviceId: sessionDeviceId,
         accessToken,
         decryptedAccessToken,
         refreshToken,
@@ -90,22 +85,23 @@ export function useCryptoKeys() {
         secretKeyIdsMissing,
         vodozemacInitFailed,
         deviceKeyUploadFailed,
+        deviceNeedsDeletion,
         userDevicePickleKey,
         crossSigningMasterKey,
         crossSigningUserSigningKey,
         crossSigningSelfSigningKey,
         olmAccount,
-        deviceKeys,
-        userSigningKeys,
-        outboundOlmSessions,
-        inboundOlmSessions,
-        inboundDeviceEncryptedMessages,
     } = storeToRefs(cryptoKeysStore)
-    const { addRoomKeyInMemory, populateKeysFromApiV3KeysQueryResponse } = cryptoKeysStore
+    const {
+        addRoomKeyInMemory,
+        populateKeysFromApiV3KeysQueryResponse,
+        loadAllOutboundSessions,
+        loadAllInboundSessions,
+    } = cryptoKeysStore
 
     watch(() => isLeader.value, async (isLeader, wasLeader) => {
-        if (isLeader && !wasLeader && userDevicePickleKey.value) {
-            const accountPickle: string | undefined = (await loadDiscortixTableKey('olm', 'account')) ?? undefined
+        if (isLeader && !wasLeader && userDevicePickleKey.value && sessionDeviceId.value) {
+            const accountPickle: string | undefined = (await loadDiscortixTableKey('olm', ['account', sessionDeviceId.value])) ?? undefined
             if (accountPickle) {
                 try {
                     olmAccount.value = Account.from_pickle(accountPickle, userDevicePickleKey.value)
@@ -207,44 +203,44 @@ export function useCryptoKeys() {
         olmAccount: Account,
         crossSigningSelfSigningKey: Uint8Array,
     ) {
-        if (!sessionUserId.value || !deviceId.value /*|| !isLeader.value*/) return
+        if (!sessionUserId.value || !sessionDeviceId.value /*|| !isLeader.value*/) return
         let deviceKeys: ApiV3KeysUploadRequest['device_keys'] | undefined = undefined
         let fallbackKeys: ApiV3KeysUploadRequest['fallback_keys'] | undefined = undefined
         let oneTimeKeys: ApiV3KeysUploadRequest['one_time_keys'] | undefined = undefined
 
+        const uploadedEd25519Key = uploadedKeys.deviceKeys?.[sessionUserId.value]?.[sessionDeviceId.value]?.keys[`ed25519:${sessionDeviceId.value}`]
+        const uploadedCurve25519Key = uploadedKeys.deviceKeys?.[sessionUserId.value]?.[sessionDeviceId.value]?.keys[`curve25519:${sessionDeviceId.value}`]
+
         if (
-            uploadedKeys.deviceKeys?.[sessionUserId.value]?.[deviceId.value]?.keys[`ed25519:${deviceId.value}`] !== olmAccount.ed25519_key
-            || uploadedKeys.deviceKeys?.[sessionUserId.value]?.[deviceId.value]?.keys[`curve25519:${deviceId.value}`] !== olmAccount.curve25519_key
+            (uploadedEd25519Key && uploadedEd25519Key !== olmAccount.ed25519_key)
+            || (uploadedCurve25519Key && uploadedCurve25519Key !== olmAccount.curve25519_key)
         ) {
-            console.log('Device needs to be deleted!')
-        } else if (
-            !uploadedKeys.deviceKeys?.[sessionUserId.value]?.[deviceId.value]?.keys[`ed25519:${deviceId.value}`]
-            && !uploadedKeys.deviceKeys?.[sessionUserId.value]?.[deviceId.value]?.keys[`curve25519:${deviceId.value}`]
-        ) {
+            deviceNeedsDeletion.value = true
+            return
+        } else if (!uploadedEd25519Key && !uploadedCurve25519Key) {
             deviceKeys = {
                 user_id: sessionUserId.value,
-                device_id: deviceId.value,
+                device_id: sessionDeviceId.value,
                 algorithms: [
                     'm.olm.v1.curve25519-aes-sha2',
                     'm.megolm.v1.aes-sha2'
                 ],
                 keys: {
-                    [`ed25519:${deviceId.value}`]: olmAccount.ed25519_key,
-                    [`curve25519:${deviceId.value}`]: olmAccount.curve25519_key,
+                    [`ed25519:${sessionDeviceId.value}`]: olmAccount.ed25519_key,
+                    [`curve25519:${sessionDeviceId.value}`]: olmAccount.curve25519_key,
                 },
                 signatures: {
                     [sessionUserId.value]: {},
                 },
             }
             const deviceKeysMessage = canonicalJsonStringify(deviceKeys, ['signatures', 'unsigned'])
-            deviceKeys.signatures[sessionUserId.value]![`ed25519:${deviceId.value}`] = olmAccount.sign(deviceKeysMessage)
-            console.log(deviceKeysMessage)
+            deviceKeys.signatures[sessionUserId.value]![`ed25519:${sessionDeviceId.value}`] = olmAccount.sign(deviceKeysMessage)
 
             try {
                 verifyAccountSignature(
-                    deviceKeys.keys[`ed25519:${deviceId.value}`]!,
+                    deviceKeys.keys[`ed25519:${sessionDeviceId.value}`]!,
                     new TextEncoder().encode(deviceKeysMessage),
-                    deviceKeys.signatures[sessionUserId.value]![`ed25519:${deviceId.value}`]!
+                    deviceKeys.signatures[sessionUserId.value]![`ed25519:${sessionDeviceId.value}`]!
                 )
             } catch (error) {
                 throw new Error('Device key signature verification failed.')
@@ -259,21 +255,21 @@ export function useCryptoKeys() {
                 key: fallbackPublicKey,
                 signatures: {
                     [sessionUserId.value]: {
-                        [`ed25519:${deviceId.value}`]: '',
+                        [`ed25519:${sessionDeviceId.value}`]: '',
                     },
                 },
             }
             const fallbackKeysMessage = canonicalJsonStringify(fallbackKeyToSign, ['signatures', 'unsigned'])
-            fallbackKeyToSign.signatures[sessionUserId.value]![`ed25519:${deviceId.value}`] = olmAccount.sign(fallbackKeysMessage)
+            fallbackKeyToSign.signatures[sessionUserId.value]![`ed25519:${sessionDeviceId.value}`] = olmAccount.sign(fallbackKeysMessage)
             fallbackKeys = {
                 [`signed_curve25519:${keyId}`]: fallbackKeyToSign,
             }
 
             try {
                 verifyAccountSignature(
-                    deviceKeys.keys[`ed25519:${deviceId.value}`]!,
+                    deviceKeys.keys[`ed25519:${sessionDeviceId.value}`]!,
                     new TextEncoder().encode(fallbackKeysMessage),
-                    fallbackKeyToSign.signatures[sessionUserId.value]![`ed25519:${deviceId.value}`]!
+                    fallbackKeyToSign.signatures[sessionUserId.value]![`ed25519:${sessionDeviceId.value}`]!
                 )
             } catch (error) {
                 throw new Error('Fallback key signature verification failed.')
@@ -287,19 +283,19 @@ export function useCryptoKeys() {
                     key: oneTimeKey,
                     signatures: {
                         [sessionUserId.value]: {
-                            [`ed25519:${deviceId.value}`]: '',
+                            [`ed25519:${sessionDeviceId.value}`]: '',
                         },
                     },
                 }
                 const oneTimeKeyMessage = canonicalJsonStringify(oneTimeKeyToSign, ['signatures', 'unsigned'])
-                oneTimeKeyToSign.signatures[sessionUserId.value]![`ed25519:${deviceId.value}`] = olmAccount.sign(oneTimeKeyMessage)
+                oneTimeKeyToSign.signatures[sessionUserId.value]![`ed25519:${sessionDeviceId.value}`] = olmAccount.sign(oneTimeKeyMessage)
                 oneTimeKeys[`signed_curve25519:${keyId}`] = oneTimeKeyToSign
 
                 try {
                     verifyAccountSignature(
-                        deviceKeys.keys[`ed25519:${deviceId.value}`]!,
+                        deviceKeys.keys[`ed25519:${sessionDeviceId.value}`]!,
                         new TextEncoder().encode(oneTimeKeyMessage),
-                        oneTimeKeyToSign.signatures[sessionUserId.value]![`ed25519:${deviceId.value}`]!
+                        oneTimeKeyToSign.signatures[sessionUserId.value]![`ed25519:${sessionDeviceId.value}`]!
                     )
                 } catch (error) {
                     throw new Error('One-time key signature verification failed.')
@@ -323,58 +319,71 @@ export function useCryptoKeys() {
 
         olmAccount.mark_keys_as_published()
         if (userDevicePickleKey.value) {
-            await saveDiscortixTableKey('olm', 'account', olmAccount.pickle(userDevicePickleKey.value))
+            await saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.pickle(userDevicePickleKey.value))
         }
 
         if (response.oneTimeKeyCounts?.signedCurve25519 != null && response.oneTimeKeyCounts.signedCurve25519 < 50) {
-            olmAccount.generate_one_time_keys(50)
-            oneTimeKeys = {}
-            for (const [keyId, oneTimeKey] of olmAccount.one_time_keys) {
-                const oneTimeKeyToSign = {
-                    key: oneTimeKey,
-                    signatures: {
-                        [sessionUserId.value]: {
-                            [`ed25519:${deviceId.value}`]: '',
-                        },
-                    },
-                }
-                oneTimeKeyToSign.signatures[sessionUserId.value]![`ed25519:${deviceId.value}`] = await createSigningJson(
-                    oneTimeKeyToSign, crossSigningSelfSigningKey,
-                )
-                oneTimeKeys[`signed_curve25519:${keyId}`] = oneTimeKeyToSign
-            }
-
-            await fetchJson<ApiV3KeysUploadResponse>(
-                `${homeserverBaseUrl.value}/_matrix/client/v3/keys/upload`,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        one_time_keys: oneTimeKeys,
-                    } satisfies ApiV3KeysUploadRequest),
-                    jsonSchema: ApiV3KeysUploadResponseSchema,
-                    useAuthorization: true,
-                },
+            uploadAuthenticatedUserDeviceOneTimeKeys(
+                olmAccount,
+                crossSigningSelfSigningKey,
+                50 - response.oneTimeKeyCounts.signedCurve25519
             )
+        }
+    }
 
-            olmAccount.mark_keys_as_published()
-            if (userDevicePickleKey.value) {
-                await saveDiscortixTableKey('olm', 'account', olmAccount.pickle(userDevicePickleKey.value))
+    async function uploadAuthenticatedUserDeviceOneTimeKeys(
+        olmAccount: Account,
+        crossSigningSelfSigningKey: Uint8Array,
+        keyCount: number,
+    ) {
+        if (!sessionUserId.value || !sessionDeviceId.value) return
+
+        const oneTimeKeys: ApiV3KeysUploadRequest['one_time_keys'] = {}
+        olmAccount.generate_one_time_keys(keyCount)
+        for (const [keyId, oneTimeKey] of olmAccount.one_time_keys) {
+            const oneTimeKeyToSign = {
+                key: oneTimeKey,
+                signatures: {
+                    [sessionUserId.value]: {
+                        [`ed25519:${sessionDeviceId.value}`]: '',
+                    },
+                },
             }
+            oneTimeKeyToSign.signatures[sessionUserId.value]![`ed25519:${sessionDeviceId.value}`] = await createSigningJson(
+                oneTimeKeyToSign, crossSigningSelfSigningKey,
+            )
+            oneTimeKeys[`signed_curve25519:${keyId}`] = oneTimeKeyToSign
         }
 
+        await fetchJson<ApiV3KeysUploadResponse>(
+            `${homeserverBaseUrl.value}/_matrix/client/v3/keys/upload`,
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    one_time_keys: oneTimeKeys,
+                } satisfies ApiV3KeysUploadRequest),
+                jsonSchema: ApiV3KeysUploadResponseSchema,
+                useAuthorization: true,
+            },
+        )
+
+        olmAccount.mark_keys_as_published()
+        if (userDevicePickleKey.value) {
+            await saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.pickle(userDevicePickleKey.value))
+        }
     }
 
     async function initialize() {
-        if (!sessionUserId.value || !deviceId.value) throw new DOMException('User ID or Device ID not found. Cannot proceed.', 'NotFoundError')
+        if (!sessionUserId.value || !sessionDeviceId.value) throw new DOMException('User ID or Device ID not found. Cannot proceed.', 'NotFoundError')
             
         // Retrieve or generate a pickle key for secret storage.
         let pickleKeyString: string | null = null
         try {
-            pickleKeyString = await getPickleKey(sessionUserId.value, deviceId.value)
+            pickleKeyString = await getPickleKey(sessionUserId.value, sessionDeviceId.value)
         } catch (error) { /* Ignore - will generate a new one. */ }
         if (!pickleKeyString) {
             try {
-                pickleKeyString = await createPickleKey(sessionUserId.value, deviceId.value)
+                pickleKeyString = await createPickleKey(sessionUserId.value, sessionDeviceId.value)
             } catch (error) {
                 log.error('Error when generating pickle key.', error)
                 encryptionNotSupported.value = true
@@ -426,6 +435,11 @@ export function useCryptoKeys() {
             vodozemacInitFailed.value = true
             log.error('Vodozemac initialization failed.', error)
         }
+
+        await Promise.allSettled([
+            loadAllOutboundSessions(),
+            loadAllInboundSessions(),
+        ])
 
         // Fetch room keys from storage.
         try {
@@ -687,19 +701,18 @@ export function useCryptoKeys() {
         }
         secretKeyIdsMissing.value = Array.from(missingKeyIdSet)
 
-        generateDeviceKeys(uploadedKeys)
+        await generateDeviceKeys(uploadedKeys)
     }
 
     async function generateDeviceKeys(uploadedKeys?: ApiV3KeysQueryResponse) {
-        console.log('GENERATE KEYS!!!!')
-        if (!userDevicePickleKey.value) return
+        if (!userDevicePickleKey.value || !sessionDeviceId.value) return
 
         if (!uploadedKeys) {
             uploadedKeys = await queryAuthenticatedUserKeys()
         }
 
         // Generate Curve25519 identity key for OLM message encryption.
-        const accountPickle: string | undefined = (await loadDiscortixTableKey('olm', 'account')) ?? undefined
+        const accountPickle: string | undefined = (await loadDiscortixTableKey('olm', ['account', sessionDeviceId.value])) ?? undefined
         if (accountPickle) {
             try {
                 olmAccount.value = Account.from_pickle(accountPickle, userDevicePickleKey.value)
@@ -709,7 +722,7 @@ export function useCryptoKeys() {
         }
         if (!olmAccount.value) {
             olmAccount.value = new Account()
-            saveDiscortixTableKey('olm', 'account', olmAccount.value.pickle(userDevicePickleKey.value))
+            saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.value.pickle(userDevicePickleKey.value))
         }
 
         // Upload OLM device keys.
@@ -853,139 +866,29 @@ export function useCryptoKeys() {
 
     
 
-    async function requestRoomKey(roomId: string, sessionId: string, otherUserId: string, otherDeviceId: string) {
-        if (!deviceId.value) throw new Error('Somehow this device doesn\'t have an ID.')
+    async function requestRoomKey(roomId: string, sessionId: string, senderKey: string, otherUserId: string, otherDeviceId: string) {
         forceClaimLeadership()
         await nextTick()
-        if (!isLeader.value) throw new Error('Failed to become leader.')
-        if (!olmAccount.value) throw new Error('Missing OLM account.')
-        if (!sessionUserId.value) throw new Error('No session user ID.')
 
-        const olmAlgorithm = 'm.olm.v1.curve25519-aes-sha2'
-
-        const myDeviceEd25519Key = deviceKeys.value[sessionUserId.value]?.[deviceId.value]?.keys[`ed25519:${deviceId.value}`] ?? ''
-        const otherDeviceCurveKey = deviceKeys.value[otherUserId]?.[otherDeviceId]?.keys[`curve25519:${otherDeviceId}`] ?? ''
-        const otherDeviceEd25519Key = deviceKeys.value[otherUserId]?.[otherDeviceId]?.keys[`ed25519:${otherDeviceId}`] ?? ''
-        let outboundOlmSession = outboundOlmSessions.value[`${otherUserId}:${otherDeviceCurveKey}:${olmAlgorithm}`]
-
-        // const mySelfSigningKeys = userSigningKeys.value[sessionUserId.value]?.selfSigningKeys?.keys ?? {}
-        // let mySelfSigningEd25519Key: string | undefined = undefined
-        // for (const key in mySelfSigningKeys) {
-        //     if (key.startsWith('ed25519')) {
-        //         mySelfSigningEd25519Key = mySelfSigningKeys[key]
-        //     }
-        // }
-        // if (!mySelfSigningEd25519Key) throw new Error('Missing own self-signing ed25519 key')
-
-        // const otherSelfSigningKeys = deviceKeys.value[otherUserId][otherDeviceId]
-        // let otherDeviceSigningEd25519Key: string | undefined = undefined
-        // for (const key in otherSelfSigningKeys) {
-        //     if (key.startsWith('ed25519')) {
-        //         otherDeviceSigningEd25519Key = otherSelfSigningKeys[key]
-        //     }
-        // }
-        // if (!otherDeviceSigningEd25519Key) throw new Error('Missing other user\'s self-signing ed25519 key')
-
-        let isPreKey = false
-        if (!outboundOlmSession) {
-            const oneTimeKeysResponse = await fetchJson<ApiV3KeysClaimResponse>(
-                `${homeserverBaseUrl.value}/_matrix/client/v3/keys/claim`,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        one_time_keys: {
-                            [otherUserId]: {
-                                [otherDeviceId]: 'signed_curve25519',
-                            },
-                        },
-                        timeout: 10000,
-                    } satisfies ApiV3KeysClaimRequest),
-                    useAuthorization: true,
-                    jsonSchema: ApiV3KeysClaimResponseSchema,
-                },
-            )
-
-            const oneTimeKeys = oneTimeKeysResponse.oneTimeKeys[otherUserId]?.[otherDeviceId] ?? {}
-            const oneTimeKeyOrString = oneTimeKeys[Object.keys(oneTimeKeys)[0]!]
-            const oneTimeKey: string
-                = (Object.prototype.toString.call(oneTimeKeyOrString) === '[object Object]')
-                    ? (oneTimeKeyOrString as any).key
-                    : oneTimeKeyOrString as any
-
-            
-            outboundOlmSession = olmAccount.value.create_outbound_session(otherDeviceCurveKey, oneTimeKey)
-            if (outboundOlmSession) {
-                outboundOlmSessions.value[`${otherUserId}:${otherDeviceCurveKey}:${olmAlgorithm}`] = outboundOlmSession
-            }
-            isPreKey = true
-        }
-        if (!outboundOlmSession) throw new Error('Failed to create outbound session.')
-        
-        if (olmAccount.value && userDevicePickleKey.value) {
-            saveDiscortixTableKey('olm', 'account', olmAccount.value.pickle(userDevicePickleKey.value))
-        }
-
-        const keyRequestEventContent: OlmPayload<EventRoomKeyRequestContent> = {
-            type: 'm.room_key_request',
-            content: {
-                action: 'request',
-                body: {
-                    algorithm: 'm.megolm.v1.aes-sha2',
-                    roomId,
-                    sessionId,
-                    senderKey: olmAccount.value?.curve25519_key,
-                },
-                requestId: uuidv4(),
-                requestingDeviceId: deviceId.value,
+        await sendMessageToDevice<EventRoomKeyRequestContent>(otherUserId, otherDeviceId, 'm.room_key_request', {
+            action: 'request',
+            body: {
+                algorithm: 'm.megolm.v1.aes-sha2',
+                roomId,
+                sessionId,
+                senderKey,
             },
-            keys: {
-                ed25519: myDeviceEd25519Key,
-            },
-            recipient: otherUserId,
-            recipientKeys: {
-                ed25519: otherDeviceEd25519Key,
-            },
-            sender: sessionUserId.value,
-        }
-        console.log(keyRequestEventContent)
-        const encryptedResult = outboundOlmSession.encrypt(
-            new TextEncoder().encode(
-                JSON.stringify(snakeCaseApiRequest(keyRequestEventContent))
-            )
-        )
-        const encryptedEventContent = {
-            algorithm: olmAlgorithm,
-            sender_key: olmAccount.value?.curve25519_key,
-            ciphertext: {
-                [otherDeviceCurveKey]: {
-                    type: isPreKey ? 0 : 1,
-                    body: encryptedResult.ciphertext,
-                }
-            }
-        }
-
-        await fetchJson(
-            `${homeserverBaseUrl.value}/_matrix/client/v3/sendToDevice/m.room.encrypted/${uuidv4()}`,
-            {
-                method: 'PUT',
-                body: JSON.stringify({
-                    messages: {
-                        [otherUserId]: {
-                            [otherDeviceId]: encryptedEventContent,
-                        },
-                    },
-                } satisfies ApiV3SendEventToDeviceRequest),
-                useAuthorization: true,
-            },
-        )
-
-        const inboundMessageSessionKey = `${otherUserId}:${otherDeviceCurveKey}:${olmAlgorithm}`
-
-        await until(() => {
-            return (inboundDeviceEncryptedMessages.value[inboundMessageSessionKey]?.length ?? 0) > 0
+            requestId: uuidv4(),
+            requestingDeviceId: sessionDeviceId.value!,
         })
 
-        console.log('HERE!!!', inboundDeviceEncryptedMessages.value[inboundMessageSessionKey])
+        // const inboundMessageSessionKey = `${otherUserId}:${otherDeviceCurveKey}:${olmAlgorithm}`
+
+        // await until(() => {
+        //     return (inboundDeviceEncryptedMessages.value[inboundMessageSessionKey]?.length ?? 0) > 0
+        // })
+
+        // console.log('HERE!!!', inboundDeviceEncryptedMessages.value[inboundMessageSessionKey])
 
         // const firstEncryptedMessage = inboundDeviceEncryptedMessages.value[inboundMessageSessionKey]![0]!
 
@@ -1038,17 +941,18 @@ export function useCryptoKeys() {
             }
             fetchUserKeys(userIds)
         }
-        if (syncResponse.toDevice?.events) {
-            console.log('Received toDevice events', syncResponse.toDevice.events)
-            for (const event of syncResponse.toDevice.events) {
-                if (event.type === 'm.room.encrypted') {
-                    const messageSessionKey = `${event.sender}:${event.content.senderKey}:${event.content.algorithm}`
-                    if (!inboundDeviceEncryptedMessages.value[messageSessionKey]) {
-                        inboundDeviceEncryptedMessages.value[messageSessionKey] = []
-                    }
-                    inboundDeviceEncryptedMessages.value[messageSessionKey].push(event as never)
-                }
-            }
+        if (
+            syncResponse.deviceOneTimeKeysCount?.signedCurve25519 != null
+            && syncResponse.deviceOneTimeKeysCount.signedCurve25519 < 50
+            && olmAccount.value
+            && crossSigningSelfSigningKey.value
+            && isLeader.value
+        ) {
+            uploadAuthenticatedUserDeviceOneTimeKeys(
+                olmAccount.value,
+                crossSigningSelfSigningKey.value,
+                50 - syncResponse.deviceOneTimeKeysCount.signedCurve25519,
+            )
         }
     }
 
@@ -1059,5 +963,6 @@ export function useCryptoKeys() {
         fetchUserKeys,
         manageCryptoKeysFromApiV3SyncResponse,
         requestRoomKey,
+        generateDeviceKeys,
     }
 }
