@@ -317,6 +317,7 @@
         "removeFriendButton": "Remove Friend",
         "blockButton": "Block",
         "roomEncryptionEnabled": "Chat room encryption is enabled.",
+        "noticeTag": "Notice",
         "messageUnencryptedWarning": "This message is not encrypted.",
         "messageUnencryptedWarningLearnMoreLink": "Why is this a problem?",
         "editGroupIconButton": "Edit Group Icon",

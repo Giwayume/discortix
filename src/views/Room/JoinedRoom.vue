@@ -127,6 +127,7 @@ import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import { micromark } from 'micromark'
+import linkifyHtml from 'linkify-html'
 
 import { vPointer } from '@/directives/pointer'
 
@@ -436,6 +437,7 @@ function formatMessage() {
         }
     });
     const messageContainsSpoilers = message.value.includes('||')
+    html = linkifyHtml(html, { ignoreTags: ['script', 'style'] })
     return {
         body: messageContainsSpoilers ? replaceSpoilers(message.value, t('room.spoilerRedacted')) : message.value,
         unredactedBody: messageContainsSpoilers ? message.value : undefined,
@@ -453,8 +455,8 @@ async function onSubmitMessageForm() {
 
     const eventContent: EventTextContent = {
         body,
-        format: formattedBody !== body ? 'org.matrix.custom.html' : undefined,
-        formattedBody: formattedBody !== body ? formattedBody : undefined,
+        format: formattedBody != body ? 'org.matrix.custom.html' : undefined,
+        formattedBody: formattedBody != body ? formattedBody : undefined,
         msgtype: 'm.text',
     }
 

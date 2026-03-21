@@ -200,6 +200,7 @@ const componentUuid = uuidv4()
 
 // Caching i18n here, calculating in template for each item is extremely slow.
 const i18nText = {
+    noticeTag: t('room.noticeTag'),
     roomEncryptionEnabled: t('room.roomEncryptionEnabled'),
     unableToDecryptMessage: t('room.unableToDecryptMessage'),
     messageUnencryptedWarning: t('room.messageUnencryptedWarning'),
@@ -1089,9 +1090,9 @@ function onPointerUpTimeline(event: PointerEvent) {
                 } else {
                     // TODO - handle event redirect click
                 }
-            } else if (href.startsWith('https://matrix.to/#/@')) {
+            } else if (href.startsWith('https://matrix.to/#/@') || href.startsWith('https://matrix.to/#/%40')) {
                 const userId = href.replace('https://matrix.to/#/', '')
-                showUserProfile(event, userId)
+                showUserProfile(event, userId.startsWith('%40') ? decodeURIComponent(userId) : userId)
             } else {
                 window.open(href, '_blank')
             }

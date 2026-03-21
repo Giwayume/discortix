@@ -307,6 +307,29 @@
     }
 }
 
+.p-chattimeline-notice-tag {
+    align-items: center;
+    display: inline-flex;
+    flex-shrink: 0;
+    font-size: .8rem;
+    font-weight: 600;
+    line-height: .9375rem;
+    text-indent: 0;
+    text-transform: uppercase;
+    vertical-align: top;
+    background: var(--background-brand);
+    color: var(--white);
+    position: relative;
+    top: 0.1rem;
+    margin-inline-start: 0.25rem;
+    border-radius: 0.25rem;
+    height: 0.9375rem;
+    margin-top: 0.2em;
+    padding: 0 0.275rem;
+
+    --p-icon-size: 0.625rem;
+}
+
 .p-chattimeline-event-content {
     display: flex;
     flex-wrap: wrap;
@@ -315,6 +338,10 @@
     min-height: 1.375rem;
     overflow: hidden;
     white-space: break-spaces;
+
+    .p-chattimeline-event-content-formatted {
+        white-space: normal;
+    }
 
     img[data-mx-emoticon] {
         display: inline;
@@ -398,6 +425,22 @@
             border-radius: 0.25rem;
             width: 0.25rem;
         }
+    }
+
+    code {
+        margin: 0.375rem 0 0 0;
+        background: var(--background-code);
+        border: 1px solid var(--border-normal);
+        color: var(--text-default);
+        font-size: 0.875rem;
+        line-height: 1.125rem;
+        text-indent: 0;
+        white-space: pre-wrap;
+        border-radius: 4px;
+        display: block;
+        overflow-x: auto;
+        padding: 0.5em;
+        text-size-adjust: none;
     }
 
     .p-chattimeline-event-jumbo-emoji {

@@ -47,6 +47,10 @@
         <template v-if="e.displayHeader">
             <h3 class="p-chattimeline-event-header">
                 <span class="link" data-link-id="viewUserProfile" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
+                <span v-if="e.event.content?.msgtype === 'm.notice'" class="p-chattimeline-notice-tag">
+                    <span class="pi pi-megaphone" aria-hidden="true" />
+                    {{ i18nText.noticeTag }}
+                </span>
                 <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
             </h3>
             <div class="p-avatar p-avatar-circle p-avatar-chat">
@@ -93,10 +97,14 @@
                     </template>
                 </AuthenticatedImage>
             </template>
-            <template v-else-if="e.event.content.msgtype === 'm.text'">
+            <template v-else-if="e.event.content.msgtype === 'm.text' || e.event.content.msgtype === 'm.notice'">
                 <!-- Text -->
                 <div class="p-chattimeline-event-content">
-                    <div v-if="formattedBody" class="p-chattimeline-event-content-formatted" v-dompurify-html="formattedBody" />
+                    <div
+                        v-if="formattedBody"
+                        :class="props.e.event.content.format === 'org.matrix.custom.html' ? 'p-chattimeline-event-content-formatted' : ''"
+                        v-dompurify-html="formattedBody"
+                    />
                     <template v-else>{{ e.event.content.body }}</template>
                     <span v-if="e.replacementEvent" v-tooltip.top="{ value: isTouchEventsDetected ? undefined : e.replacementDate }" class="p-chattimeline-edited">{{ i18nText.messageEditedIndicator }}</span>
                 </div>
@@ -262,6 +270,8 @@
 import { computed, type PropType } from 'vue'
 import linkifyHtml from 'linkify-html'
 
+import '@/utils/linkify'
+
 import { useApplication } from '@/composables/application'
 import { useEmoji } from '@/composables/emoji'
 
@@ -316,11 +326,20 @@ const emit = defineEmits<{
 }>()
 
 const formattedBody = computed<string | undefined>(() => {
-    if (props.e.event.type === 'm.room.message' && props.e.event.content?.msgtype === 'm.text') {
+    if (
+        props.e.event.type === 'm.room.message'
+        && (
+            props.e.event.content?.msgtype === 'm.text'
+            || props.e.event.content?.msgtype === 'm.notice'
+        )
+    ) {
         if (props.e.event.content.format === 'org.matrix.custom.html') {
             return props.e.event.content.formattedBody
         } else if (props.e.event.content?.body) {
-            return linkifyHtml(props.e.event.content.body)
+            return linkifyHtml(
+                props.e.event.content.body.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&/g, '&amp;'),
+                // linkifyMatrixIdentifierOptions,
+            )
         }
     }
 })
