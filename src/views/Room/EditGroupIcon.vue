@@ -37,14 +37,11 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
-    roomId: {
-        type: String,
-        required: true,
-    }
 })
 
 const emit = defineEmits<{
     (e: 'update:visible', visible: boolean): void
+    (e: 'iconSelected', imageObjectUrl: string): void
 }>()
 
 const { t } = useI18n()
@@ -61,7 +58,8 @@ function selectFile() {
     })
 }
 
-function apply() {
+function apply(imageObjectUrl: string) {
+    emit('iconSelected', imageObjectUrl)
     emit('update:visible', false)
 }
 

@@ -540,12 +540,12 @@ export type EventSpaceParentContent = z.infer<typeof EventSpaceParentContentSche
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mtext */
 export const EventTextContentSchema = z.object({
     body: z.string(),
-    'com.reeksite.discortix.unredacted_body': z.string().optional(),
+    'invalid.discortix.unredacted_body': z.string().optional(),
     format: z.string().optional(),
     formattedBody: z.string().optional(),
     'm.new_content': z.object({
         body: z.string(),
-        'com.reeksite.discortix.unredacted_body': z.string().optional(),
+        'invalid.discortix.unredacted_body': z.string().optional(),
         format: z.string().optional(),
         formattedBody: z.string().optional(),
         msgtype: z.enum(['m.text']),
@@ -614,7 +614,7 @@ export const EventVideoContentSchema = z.object({
 export type EventVideoContent = z.infer<typeof EventVideoContentSchema>
 
 export const eventContentSchemaByType = {
-    'com.reeksite.discortix.hidden_rooms': EventComReeksiteDiscortixHiddenRoomsContentSchema,
+    'invalid.discortix.hidden_rooms': EventComReeksiteDiscortixHiddenRoomsContentSchema,
     'im.ponies.room_emotes': EventImPoniesRoomEmotesContentSchema,
     'im.ponies.user_emotes': EventImPoniesUserEmotesContentSchema,
     'm.audio': EventAudioContentSchema,
@@ -657,7 +657,7 @@ export const eventContentSchemaByType = {
 } as const
 
 export interface EventContentByType {
-    'com.reeksite.discortix.hidden_rooms': EventComReeksiteDiscortixHiddenRoomsContent,
+    'invalid.discortix.hidden_rooms': EventComReeksiteDiscortixHiddenRoomsContent,
     'im.ponies.room_emotes': EventImPoniesRoomEmotesContent,
     'im.ponies.user_emotes': EventImPoniesUserEmotesContent,
     'm.audio': EventAudioContent,

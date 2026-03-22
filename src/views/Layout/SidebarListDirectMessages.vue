@@ -268,6 +268,9 @@ function onPointerUpChat(event: PointerEvent, item: MenuItem) {
                 leaveRoomMenuItem.value = item
                 leaveRoomDialogVisible.value = true
             } else {
+                if (item.key === route.params?.roomId) {
+                    router.push({ name: 'home' })
+                }
                 toggleRoomVisibility(item.key!, false)
             }
         } else {

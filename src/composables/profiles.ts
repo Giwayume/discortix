@@ -51,7 +51,7 @@ export function useProfiles() {
                 jsonSchema: ApiV3UserDirectorySearchResponseSchema,
             }
         )
-        // populateFromUserSearchResponse(response)
+        populateFromUserSearchResponse(response)
         return response
     }
 

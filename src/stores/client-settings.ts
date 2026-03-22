@@ -26,6 +26,7 @@ export const useClientSettingsStore = defineStore('clientSettings', () => {
         pointerClickTimeout: 500,
         pointerMoveRadius: 8,
         pointerPressTimeout: 1500,
+        prefersEnableEncryption: false,
         sendReadReceipts: true,
         sendTypingIndicators: true,
         warnUnencryptedMessageInEncryptedRoom: true,

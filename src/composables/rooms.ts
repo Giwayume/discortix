@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { useAccountData } from './account-data'
 import { useBroadcast } from '@/composables/broadcast'
 import { createLogger } from '@/composables/logger'
+import { useServerCapabilities } from '@/composables/server-capabilities'
 
 import { useAccountDataStore } from '@/stores/account-data'
 import { useClientSettingsStore } from '@/stores/client-settings'
@@ -27,6 +28,7 @@ import {
     type ApiV3RoomJoinRequest, type ApiV3RoomJoinResponse, ApiV3RoomJoinResponseSchema,
     type ApiV3RoomLeaveRequest,
     type EventReactionContent,
+    ApiV3CapabilitiesResponseSchema, type ApiV3CapabilitiesResponse,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
@@ -42,6 +44,8 @@ const hierarcyFetchFrequency = 1.8e+6 // 30 minutes
 export function useRooms() {
     const { onTabMessage, broadcastMessageFromTab } = useBroadcast()
     const { toggleRoomVisibility } = useAccountData()
+    const { getCapabilities } = useServerCapabilities()
+
     const { settings } = useClientSettingsStore()
     const { hiddenRooms } = storeToRefs(useAccountDataStore())
     const { homeserverBaseUrl, userId: sessionUserId } = storeToRefs(useSessionStore())
@@ -171,6 +175,13 @@ export function useRooms() {
         })
         retrievingRoomHierarchyPromises.value[roomId] = fetchPromise
         return fetchPromise
+    }
+
+    async function createRoom() {
+        const capabilities = await getCapabilities()
+        console.log(capabilities)
+        // serverDiscovery.value.versions = versions.versions
+        // serverDiscovery.value.unstableFeatures = versions.unstableFeatures
     }
 
     async function joinRoom(roomId: string, reason?: string) {
@@ -405,6 +416,7 @@ export function useRooms() {
         getJoinedRooms,
         getPreviousMessages,
         getRoomHierarchy,
+        createRoom,
         joinRoom,
         leaveRoom,
         forgetRoom,

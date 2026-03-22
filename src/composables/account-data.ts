@@ -54,7 +54,7 @@ export function useAccountData() {
     }
 
     async function toggleRoomVisibility(roomId: string, visible: boolean) {
-        const eventContent: EventComReeksiteDiscortixHiddenRoomsContent = accountData.value['com.reeksite.discortix.hidden_rooms'] ?? {}
+        const eventContent: EventComReeksiteDiscortixHiddenRoomsContent = accountData.value['invalid.discortix.hidden_rooms'] ?? {}
         if (!eventContent.hiddenRooms) {
             eventContent.hiddenRooms = {}
         }
@@ -65,8 +65,8 @@ export function useAccountData() {
                 hiddenAt: Date.now(),
             }
         }
-        populateAccountDataByType('com.reeksite.discortix.hidden_rooms', eventContent)
-        setAccountDataByType('com.reeksite.discortix.hidden_rooms', snakeCaseApiRequest(eventContent))
+        populateAccountDataByType('invalid.discortix.hidden_rooms', eventContent)
+        setAccountDataByType('invalid.discortix.hidden_rooms', snakeCaseApiRequest(eventContent))
     }
 
     return {

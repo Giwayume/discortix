@@ -18,6 +18,7 @@ import {
 
 import {
     type RoomSummary,
+    type DraftRoom,
     type InvitedRoom,
     type KnockedRoom,
     type JoinedRoom,
@@ -456,6 +457,7 @@ export const useRoomStore = defineStore('room', () => {
     const roomsLoading = ref<boolean>(true)
     const roomsLoadError = ref<Error | null>(null)
 
+    const draft = ref<DraftRoom | undefined>(undefined)
     const invited = ref<Record<string, InvitedRoom>>({})
     const knocked = ref<Record<string, KnockedRoom>>({})
     const joined = ref<Record<string, JoinedRoom>>({})
@@ -1101,6 +1103,7 @@ export const useRoomStore = defineStore('room', () => {
     return {
         roomsLoading,
         roomsLoadError,
+        draft,
         invited: computed(() => invited.value),
         knocked: computed(() => knocked.value),
         joined: computed(() => joined.value),

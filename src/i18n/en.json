@@ -1,4 +1,10 @@
 {
+    "createRoom": {
+        "title": "Create Chat Room",
+        "inputPlaceholder": "Send your first message",
+        "sendFirstMessage": "Other users will be invited to chat after you send your first message.",
+        "enableEncryption": "Enable encryption"
+    },
     "cropImageDialog": {
         "title": "Edit Image",
         "imageAlt": "Image Preview",
@@ -6,7 +12,8 @@
         "cancelButton": "Cancel",
         "applyButton": "Apply",
         "zoomLevel": "Zoom Level",
-        "rotate": "Rotate"
+        "rotate": "Rotate",
+        "imageEditErrorToast": "An error occurred when trying to crop your image. You can try upgrading to a modern web browser in order to avoid this issue."
     },
     "deleteMessageConfirm": {
         "title": "Delete Message",
@@ -251,8 +258,8 @@
         "addCountLimit": "You can add {count} more people.",
         "searchPlaceholder": "Search for people",
         "searchingDirectory": "Searching for more people...",
-        "noUsersFound": "No results found.\n\nIf you are searching for someone you have not chatted with before, be sure to enter their **full username**.\n\nIf you know they are on a different homeserver, include the homeserver domain in your search, example: **@username:matrix.org**",
-        "someUsersFound": "If you are searching for someone you have not chatted with before, be sure to enter their **full username**.\n\nIf you know they are on a different homeserver, include the homeserver domain in your search, example: **@username:matrix.org**",
+        "noUsersFound": "No results found.\n\nIf you are searching for someone you have not chatted with before, be sure to enter their **full username**.\n\nIf you know they are on a different homeserver, include the homeserver domain in your search, example: **{'@'}username:{defaultUserIdHomeserver}**",
+        "someUsersFound": "If you are searching for someone you have not chatted with before, be sure to enter their **full username**.\n\nIf you know they are on a different homeserver, include the homeserver domain in your search, example: **{'@'}username:{defaultUserIdHomeserver}**",
         "cancelButton": "Cancel",
         "groupNameLabel": "Group Name (optional)",
         "createMessageButton": "Create Message",
@@ -324,6 +331,11 @@
         "untitledRoom": "Untitled Room",
         "unknownRoom": "Unknown Room",
         "unknownRoomDescription": "You have been redirected to a chat room this client does not know anything about. Or maybe it's still loading, in which case you are free to wait here.",
+        "invitedRoomTitle": "Chat Invite",
+        "invitedRoomDescription": "**{displayname}** has invited you to join a chat.",
+        "invitedRoomDescriptionWithUserId": "**{displayname}** *{userId}* has invited you to join a chat.",
+        "acceptInviteButton": "Accept Invite",
+        "ignoreInviteButton": "Ignore",
         "spaceMessageHistoryBeginningTitle": "Welcome to #{roomName}",
         "spaceMessageHistoryBeginningSubtitle": "This is the start of the #{roomName} room.",
         "removeFriendButton": "Remove Friend",

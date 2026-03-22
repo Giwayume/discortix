@@ -22,4 +22,3 @@ import MainHeader from '@/views/Layout/MainHeader.vue'
 
 const { t } = useI18n()
 </script>
-

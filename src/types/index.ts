@@ -1,3 +1,4 @@
+export * from './api-capabilities'
 export * from './api-device-management'
 export * from './api-events'
 export * from './api-key-management'

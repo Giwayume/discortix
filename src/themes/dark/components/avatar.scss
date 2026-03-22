@@ -18,6 +18,10 @@
     --p-avatar-xl-icon-size: 1.75rem;
 }
 
+.p-avatar img {
+    object-fit: cover;
+}
+
 .p-avatar-full {
     --p-avatar-width: 100%;
     --p-avatar-height: 100%;

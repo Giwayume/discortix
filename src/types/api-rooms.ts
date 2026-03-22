@@ -1,6 +1,8 @@
 import * as z from 'zod'
 import { camelizeSchema, camelizeSchemaWithoutTransform } from '@/utils/zod'
 
+import type { EventRoomPowerLevelsContent } from '@/types/api-events'
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#get_matrixclientv3roomsroomidmessages_response-200_clientevent */
 export const ApiV3RoomClientEventWithoutUnsignedSchema = camelizeSchemaWithoutTransform(z.object({
     content: z.any(), // The body of this event, as created by the client which sent it.
@@ -131,3 +133,33 @@ export type ApiV3RoomJoinResponse = z.infer<typeof ApiV3RoomJoinResponseSchema>
 export interface ApiV3RoomLeaveRequest {
     reason?: string;
 }
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#post_matrixclientv3createroom */
+export interface ApiV3RoomCreateStateEvent {
+    content: any;
+    state_key?: string;
+    type: string;
+}
+export interface ApiV3RoomCreateInvite3pid {
+    address: string;
+    id_access_token: string;
+    id_server: string;
+    medium: string;
+}
+export interface ApiV3RoomCreateRequest {
+    creation_content?: {};
+    initial_state?: ApiV3RoomCreateStateEvent[];
+    invite?: string[];
+    invite_3pid?: ApiV3RoomCreateInvite3pid[];
+    is_direct?: boolean;
+    name?: string;
+    power_level_content_override?: EventRoomPowerLevelsContent;
+    preset?: 'private_chat' | 'public_chat' | 'trusted_private_chat';
+    room_alias_name?: string;
+    room_version?: string;
+    topic?: string;
+    visibility?: 'public' | 'private';
+}
+export const ApiV3RoomCreateResponseSchema = camelizeSchema(z.object({
+    room_id: z.string(),
+}))

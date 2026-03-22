@@ -22,11 +22,12 @@
                     </AuthenticatedImage>
                     <div class="grow-1">
                         <div>
-                            <span class="text-(--text-strong)">{{ room.displayname }}</span>
+                            <span class="text-(--text-strong)">{{ room.name ?? room.displayname }}</span>
                             <time class="text-xs text-(--text-muted) ml-2" :datetime="room.datetime">
                                 {{ room.displayTime }}
                             </time>
                         </div>
+                        <div class="text-xs text-(--text-muted)">{{ room.heroes.join(', ') }}</div>
                     </div>
                     <Button severity="primary" size="small" :loading="room.loadingJoinRoom" :disabled="room.loadingIgnoreRoom" @click="tryJoinRoom(room.roomId)">
                         <div class="p-button-label">{{ i18nText.acceptDmButton }}</div>
@@ -71,7 +72,7 @@ const { joinRoom, leaveRoom, forgetRoom } = useRooms()
 
 const { profiles } = storeToRefs(useProfileStore())
 const roomStore = useRoomStore()
-const { invitedDirectMessageRooms, invited: invitedRooms } = storeToRefs(roomStore)
+const { invitedDirectMessageRooms } = storeToRefs(roomStore)
 const { deleteInvitedRoom } = roomStore
 
 const i18nText = {

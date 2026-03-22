@@ -347,7 +347,7 @@ function onUpdateEditEventId(eventId: string | undefined) {
     editEventId.value = eventId
     const event = props.room.replacements[eventId ?? '']?.[0] ?? getTimelineEventById(props.room.visibleTimeline, eventId)
     if (event) {
-        message.value = event.content?.['com.reeksite.discortix.unredacted_body']
+        message.value = event.content?.['invalid.discortix.unredacted_body']
             ?? event.content?.body ?? ''
     }
     if (eventId) {
@@ -461,7 +461,7 @@ async function onSubmitMessageForm() {
     }
 
     if (unredactedBody) {
-        eventContent['com.reeksite.discortix.unredacted_body'] = unredactedBody
+        eventContent['invalid.discortix.unredacted_body'] = unredactedBody
     }
 
     if (replyToEventId.value) {

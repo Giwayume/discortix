@@ -81,6 +81,13 @@ export interface RoomEventReactionRender extends RoomEventReaction {
     displaynames: string[];
 }
 
+export interface DraftRoom {
+    invited: string[];
+    groupName?: string;
+    groupAvatar?: string; // Object URL
+    spaceRoomId?: string;
+}
+
 export interface InvitedRoom {
     roomId: string;
     stateEventsByType: ApiV3SyncStrippedStateEventRecordFrom;

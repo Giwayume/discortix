@@ -27,7 +27,7 @@ export const useAccountDataStore = defineStore('accountData', () => {
     const accountData = ref<Record<string, any>>({})
 
     const hiddenRooms = computed<EventComReeksiteDiscortixHiddenRoomsContent['hiddenRooms']>(() => {
-        return (accountData.value['com.reeksite.discortix.hidden_rooms'] as EventComReeksiteDiscortixHiddenRoomsContent)?.hiddenRooms ?? {}
+        return (accountData.value['invalid.discortix.hidden_rooms'] as EventComReeksiteDiscortixHiddenRoomsContent)?.hiddenRooms ?? {}
     })
 
     async function initialize() {

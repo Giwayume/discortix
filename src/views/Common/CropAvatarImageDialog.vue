@@ -7,8 +7,16 @@
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
         @update:visible="(visible) => emit('update:visible', visible)"
     >
-        <div class="crop-image-dialog__image-preview max-h-88 w-full">
-            <img src="" :alt="t('cropImageDialog.imageAlt')">
+        <div
+            class="crop-image-dialog__image-preview max-h-88 w-full"
+            :style="{
+                '--translate-x': previewTranslateX + 'px',
+                '--translate-y': previewTranslateY + 'px',
+                '--rotate-deg': previewRotate + 'deg',
+                '--scale': zoomLevel,
+            }"
+        >
+            <img :src="previewObjectUrl" :alt="t('cropImageDialog.imageAlt')">
             <div class="crop-image-dialog__image-preview-overlay"></div>
         </div>
 
@@ -18,15 +26,23 @@
                 <Slider v-model="zoomLevel" :aria-label="t('cropImageDialog.zoomLevel')" :min="1" :max="2" :step="0.01" class="w-30 mx-4" />
                 <span class="pi pi-image" :style="{ '--p-icon-size': '1.25rem' }" aria-hidden="true" />
             </div>
-            <Button v-tooltip.top="{ value: isTouchEventsDetected ? undefined : t('cropImageDialog.rotate') }" icon="pi pi-refresh" severity="secondary" variant="text" :aria-label="t('cropImageDialog.rotate')" />
+            <Button
+                v-tooltip.top="{ value: isTouchEventsDetected ? undefined : t('cropImageDialog.rotate') }"
+                icon="pi pi-refresh"
+                severity="secondary"
+                variant="text"
+                class="!w-8 !h-8"
+                :aria-label="t('cropImageDialog.rotate')"
+                @click="rotatePreview()"
+            />
         </div>
 
         <template #footer>
-            <a href="javascript:void" class="self-center">{{ t('cropImageDialog.resetLink') }}</a>
+            <button class="link self-center" role="button" tabindex="0" @click="resetPreview()">{{ t('cropImageDialog.resetLink') }}</button>
             <Button severity="secondary" class="ml-auto" @click="emit('update:visible', visible)">
                 {{ t('cropImageDialog.cancelButton') }}
             </Button>
-            <Button severity="primary" @click="apply">
+            <Button severity="primary" @click="apply()">
                 {{ t('cropImageDialog.applyButton') }}
             </Button>
         </template>
@@ -34,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useApplication } from '@/composables/application'
@@ -43,7 +59,9 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Slider from 'primevue/slider'
 import vTooltip from 'primevue/tooltip'
+import { useToast } from 'primevue/usetoast'
 
+const toast = useToast()
 const { isTouchEventsDetected } = useApplication()
 
 const props = defineProps({
@@ -59,15 +77,107 @@ const props = defineProps({
 
 const emit = defineEmits<{
     (e: 'update:visible', visible: boolean): void
-    (e: 'apply'): void
+    (e: 'apply', imageObjectUrl: string): void
 }>()
 
 const { t } = useI18n()
 
 const zoomLevel = ref<number>(1)
+const previewTranslateX = ref<number>(0)
+const previewTranslateY = ref<number>(0)
+const previewRotate = ref<number>(0)
 
-function apply() {
-    emit('apply')
+const previewObjectUrl = ref<string | undefined>()
+
+watch(() => props.file, (file) => {
+    if (previewObjectUrl.value) {
+        URL.revokeObjectURL(previewObjectUrl.value)
+        previewObjectUrl.value = undefined
+    }
+    if (file) {
+        previewObjectUrl.value = URL.createObjectURL(new Blob([file]))
+    } else {
+        previewObjectUrl.value = undefined
+    }
+}, { immediate: true })
+
+watch(() => props.visible, (visible, wasVisible) => {
+    if (visible && !wasVisible) {
+        resetPreview()
+    }
+})
+
+function rotatePreview() {
+    previewRotate.value += 90
+    if (previewRotate.value >= 360) previewRotate.value -= 360
+}
+
+function resetPreview() {
+    previewTranslateX.value = 0
+    previewTranslateY.value = 0
+    previewRotate.value = 0
+    zoomLevel.value = 1
+}
+
+async function apply() {
+    if (props.file && zoomLevel.value === 1 && previewTranslateX.value === 0 && previewTranslateY.value === 0 && previewRotate.value === 0) {
+        emit('apply', URL.createObjectURL(new Blob([props.file])))
+    } else {
+        try {
+            const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const image = new Image()
+                image.onload = () => {
+                    resolve(image)
+                }
+                image.onerror = reject
+                image.src = previewObjectUrl.value!
+            })
+
+            const canvas = document.createElement('canvas')
+            const minSizeDimension = Math.min(image.width, image.height)
+            canvas.width = minSizeDimension
+            canvas.height = minSizeDimension
+
+            const ctx = canvas.getContext('2d')
+            if (!ctx) throw new Error('Could not create a HTML canvas context.')
+
+            ctx.translate(Math.floor(minSizeDimension / 2), Math.floor(minSizeDimension / 2))
+            ctx.rotate(previewRotate.value * Math.PI / 180)
+            ctx.scale(zoomLevel.value, zoomLevel.value)
+
+            const sx = Math.floor((image.width - minSizeDimension) / 2)
+            const sy = Math.floor((image.height - minSizeDimension) / 2)
+
+            ctx.drawImage(
+                image,
+                sx, sy, minSizeDimension, minSizeDimension,
+                Math.floor(-minSizeDimension / 2), Math.floor(-minSizeDimension / 2),
+                minSizeDimension, minSizeDimension
+            )
+
+            const blob = await new Promise<Blob>((resolve, reject) => {
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(blob)
+                    } else {
+                        reject()
+                    }
+                })
+            })
+
+            const croppedImageUrl = URL.createObjectURL(blob)
+
+            emit('apply', croppedImageUrl)
+        } catch (error) {
+            toast.add({ severity: 'error', summary: t('cropImageDialog.imageEditErrorToast'), life: 5000 })
+        }
+    }
+
+    if (previewObjectUrl.value) {
+        URL.revokeObjectURL(previewObjectUrl.value)
+        previewObjectUrl.value = undefined
+    }
+
     emit('update:visible', false)
 }
 
@@ -79,6 +189,21 @@ function apply() {
     position: relative;
     overflow: hidden;
     aspect-ratio: 1;
+    user-select: none;
+    pointer-events: none;
+
+    --translate-x: 0;
+    --translate-y: 0;
+    --rotate-deg: 0deg;
+    --scale: 0;
+
+    img {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: translate(var(--translate-x), var(--translate-y)) rotate(var(--rotate-deg)) scale(var(--scale));
+    }
 }
 .crop-image-dialog__image-preview-overlay {
     border: 5px solid var(--white);

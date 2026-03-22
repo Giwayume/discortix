@@ -3,14 +3,14 @@
         :visible="visible"
         modal
         :header="t('newMessageDialog.title')"
-        :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem', height: 'calc(100dvh - 6rem)' }"
+        :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem', height: 'calc(100dvh - 6rem)', minHeight: '27rem' }"
         :pt="{
             content: { class: 'flex flex-col' },
             footer: { class: 'border-t border-(--border-subtle)' }
         }"
         @update:visible="(visible) => emit('update:visible', visible)"
     >
-        <p class="text-(--text-subtle)">{{ t('newMessageDialog.addCountLimit', { count: remainingSelectionCount }) }}</p>
+        <p :class="{ 'text-(--text-subtle)': remainingSelectionCount > 0, 'text-(--text-feedback-critical)': remainingSelectionCount === 0 }">{{ t('newMessageDialog.addCountLimit', { count: remainingSelectionCount }) }}</p>
         <div class="p-inputtext flex flex-wrap items-center w-full !px-1 !py-1 !gap-1 mt-6 mb-3">
             <Chip
                 v-for="userId of selectedUserIds"
@@ -34,7 +34,7 @@
         </div>
         <ScrollPanel>
             <label
-                v-for="(user, userIndex) of allPeopleList"
+                v-for="(user, userIndex) of filteredContactList"
                 :key="user.userId"
                 class="user-checkbox-list__item"
                 :class="{ 'user-checkbox-list__item--selected': userSearchSelectionIndex === userIndex }"
@@ -63,32 +63,27 @@
                 {{ t('newMessageDialog.searchingDirectory') }}
             </div>
             <div
-                v-else-if="allPeopleList.length === 0"
-                v-html="micromark(t('newMessageDialog.noUsersFound'))"
+                v-else-if="filteredContactList.length === 0"
+                v-html="micromark(t('newMessageDialog.noUsersFound', { defaultUserIdHomeserver }))"
                 class="mx-10 my-4 text-(--text-muted) text-sm text-center" />
             <div
                 v-else-if="userSearchText"
-                v-html="micromark(t('newMessageDialog.someUsersFound'))"
+                v-html="micromark(t('newMessageDialog.someUsersFound', { defaultUserIdHomeserver }))"
                 class="mx-10 mt-8 mb-4 text-(--text-muted) text-sm text-center" />
         </ScrollPanel>
         <template #footer>
             <div class="flex flex-col w-full">
                 <div v-if="selectedUserIds.length > 1" class="flex w-full mb-8 gap-4 items-center">
                     <div class="edit-group__edit-avatar-button" tabindex="0" role="button" :aria-label="t('editGroup.editRoomAvatar')" @click="pickGroupIcon">
-                        <AuthenticatedImage :mxcUri="groupAvatarUrl" type="thumbnail" :width="96" :height="96" method="scale">
-                            <template v-slot="{ src }">
-                                <Avatar :image="src" shape="circle" class="p-avatar-full" :aria-label="t('editGroup.roomAvatar')" />
-                            </template>
-                            <template #error>
-                                <Avatar
-                                    icon="pi pi-users"
-                                    shape="circle"
-                                    class="p-avatar-full"
-                                    :style="{ '--p-avatar-icon-size': '3rem', '--p-avatar-background': 'var(--background-surface-highest)', '--p-avatar-color': 'var(--background-mod-normal)' }"
-                                    :aria-label="t('layout.userAvatarImage')"
-                                />
-                            </template>
-                        </AuthenticatedImage>
+                        <Avatar v-if="groupAvatarObjectUrl" :image="groupAvatarObjectUrl" shape="circle" class="p-avatar-full" :aria-label="t('editGroup.roomAvatar')" />
+                        <Avatar
+                            v-else
+                            icon="pi pi-users"
+                            shape="circle"
+                            class="p-avatar-full"
+                            :style="{ '--p-avatar-icon-size': '3rem', '--p-avatar-background': 'var(--background-surface-highest)', '--p-avatar-color': 'var(--background-mod-normal)' }"
+                            :aria-label="t('layout.userAvatarImage')"
+                        />
                         <div class="flex items-center justify-center absolute -top-[0.25rem] -right-[0.25rem] w-8 h-8 bg-(--background-mod-subtle) rounded-full border-4 border-(--background-surface-high)">
                             <span class="pi pi-pencil !text-xs" aria-hidden="true" />
                         </div>
@@ -108,20 +103,27 @@
             </div>
         </template>
     </Dialog>
+    <EditGroupIcon v-model:visible="editGroupIconDialogVisible" @iconSelected="onGroupIconSelected" />
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { micromark } from 'micromark'
 
+import { useAccountData } from '@/composables/account-data'
+import { useApplication } from '@/composables/application'
 import { useProfiles } from '@/composables/profiles'
 
+import { useAccountDataStore } from '@/stores/account-data'
 import { useProfileStore } from '@/stores/profile'
+import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
+const EditGroupIcon = defineAsyncComponent(() => import('@/views/Room/EditGroupIcon.vue'))
 import OverlayStatus from '@/views/Common/OverlayStatus.vue'
 
 import Avatar from 'primevue/avatar'
@@ -135,9 +137,15 @@ import ScrollPanel from 'primevue/scrollpanel'
 import { type UserProfile } from '@/types'
 
 const { t } = useI18n()
+const router = useRouter()
 
+const { toggleRoomVisibility } = useAccountData()
+const { toggleApplicationSidebar } = useApplication()
 const { getProfile, searchUserDirectory } = useProfiles()
+
+const { hiddenRooms } = storeToRefs(useAccountDataStore())
 const { profiles } = storeToRefs(useProfileStore())
+const { draft: draftRoom, invited: invitedRooms, joined: joinedRooms } = storeToRefs(useRoomStore())
 const { userId: sessionUserId, defaultUserIdHomeserver } = storeToRefs(useSessionStore())
 
 const props = defineProps({
@@ -156,7 +164,8 @@ const userSearchSelectionIndex = ref<number>(-1)
 const selectedUserIds = ref<string[]>([])
 const orderedContactList = ref<UserProfile[]>([])
 const groupName = ref<string>('')
-const groupAvatarUrl = ref<string | undefined>(undefined)
+const groupAvatarObjectUrl = ref<string | undefined>(undefined)
+const editGroupIconDialogVisible = ref<boolean>(false)
 
 const isSearchingForMoreUsers = ref<boolean>(false)
 const isCreatingRoom = ref<boolean>(false)
@@ -165,14 +174,21 @@ const remainingSelectionCount = computed(() => {
     return Math.max(0, 9 - selectedUserIds.value.length)
 })
 
-const allPeopleList = computed(() => {
-    const searchTerms = userSearchText.value.toLowerCase().trim().split(/\s+/)
+const filteredContactList = computed(() => {
+    const preparedSearchTerms = userSearchText.value.toLowerCase().trim().split(/\s+/).map((searchTerm) => {
+        return {
+            searchTerm,
+            searchTermIsFullId: searchTerm.includes(':'),
+            usernameOnlyTerm: searchTerm.replace(/^@/, ''),
+        }
+    })
     return orderedContactList.value.filter((contact) => {
         let allSearchTermsFound = true
-        for (const searchTerm of searchTerms) {
+        for (const { searchTerm, searchTermIsFullId, usernameOnlyTerm } of preparedSearchTerms) {
             if (!(
                 contact.displayname?.toLowerCase().includes(searchTerm)
-                || contact.userId.split(':')[0]?.slice(1).includes(searchTerm)
+                || (!searchTermIsFullId && contact.userId.split(':')[0]?.slice(1).includes(usernameOnlyTerm))
+                || (searchTermIsFullId && contact.userId.includes(searchTerm))
             )) {
                 allSearchTermsFound = false
                 break
@@ -211,23 +227,24 @@ function onKeydownUserSearch(event: KeyboardEvent) {
     } else if (event.key === 'ArrowDown') {
         event.preventDefault()
         userSearchSelectionIndex.value++
-        if (userSearchSelectionIndex.value >= allPeopleList.value.length) {
+        if (userSearchSelectionIndex.value >= filteredContactList.value.length) {
             userSearchSelectionIndex.value = 0
         }
     } else if (event.key === 'ArrowUp') {
         event.preventDefault()
         userSearchSelectionIndex.value--
         if (userSearchSelectionIndex.value < 0) {
-            userSearchSelectionIndex.value =  allPeopleList.value.length - 1
+            userSearchSelectionIndex.value =  filteredContactList.value.length - 1
         }
     } else if (event.key === 'Enter') {
         event.preventDefault()
-        const person = allPeopleList.value[Math.max(0, Math.min(allPeopleList.value.length - 1, userSearchSelectionIndex.value))]!
+        const person = filteredContactList.value[Math.max(0, Math.min(filteredContactList.value.length - 1, userSearchSelectionIndex.value))]!
         if (selectedUserIds.value.includes(person.userId)) {
             const userIdIndex = selectedUserIds.value.indexOf(person.userId)
             selectedUserIds.value.splice(userIdIndex, 1)
         } else {
             selectedUserIds.value.push(person.userId)
+            currentlyRunningUserDirectorySearchTerm = ''
             userSearchText.value = ''
         }
     }
@@ -245,6 +262,7 @@ watch(() => userSearchText.value, (newText, oldText) => {
 
 watch(() => selectedUserIds.value, (newSelection, oldSelection) => {
     if (newSelection.length > oldSelection.length) {
+        currentlyRunningUserDirectorySearchTerm = ''
         userSearchText.value = ''
     }
 })
@@ -332,12 +350,93 @@ function removeSelectedUser(userId: string) {
 }
 
 function pickGroupIcon() {
+    editGroupIconDialogVisible.value = true
+}
 
+function onGroupIconSelected(imageObjectUrl: string) {
+    if (groupAvatarObjectUrl.value) {
+        URL.revokeObjectURL(groupAvatarObjectUrl.value)
+    }
+    groupAvatarObjectUrl.value = imageObjectUrl
 }
 
 function createRoomConfirm() {
+    const selectedUserIdSet = new Set<string>(selectedUserIds.value)
 
+    // See if there is an existing joined room and navigate to it.
+    findJoinedRoom:
+    for (const roomId in joinedRooms.value) {
+        const room = joinedRooms.value[roomId]
+        if (!room) continue
+        if (room.accountData['m.tag']?.tags?.['m.server_notice']) continue
+        const roomUserIds = new Set<string>((room.stateEventsByType['m.room.member'] ?? [])
+            .filter((memberEvent) => (
+                (memberEvent.content.membership === 'join' && memberEvent.sender !== sessionUserId.value)
+                || (memberEvent.content.membership === 'invite') && memberEvent.stateKey !== sessionUserId.value))
+            .map((memberEvent) => memberEvent.content.membership === 'invite' ? memberEvent.stateKey ?? memberEvent.sender : memberEvent.sender))
+        if (selectedUserIdSet.size !== roomUserIds.size) continue
+        for (const userId of roomUserIds) {
+            if (!selectedUserIdSet.has(userId)) {
+                continue findJoinedRoom
+            }
+        }
+        if (hiddenRooms.value[roomId]) {
+            toggleRoomVisibility(roomId, true)
+        }
+        router.push({
+            name: 'room',
+            params: { roomId },
+        })
+        emit('update:visible', false)
+        toggleApplicationSidebar(false)
+        return
+    }
+
+    // See if there is an existing invited room and navigate to it.
+    findInvitedRoom:
+    for (const roomId in invitedRooms.value) {
+        const room = invitedRooms.value[roomId]
+        if (!room) continue
+        const roomUserIds = new Set<string>((room.stateEventsByType['m.room.member'] ?? [])
+            .filter((memberEvent) => (
+                (memberEvent.content.membership === 'join' && memberEvent.sender !== sessionUserId.value)
+                || (memberEvent.content.membership === 'invite') && memberEvent.stateKey !== sessionUserId.value))
+            .map((memberEvent) => memberEvent.content.membership === 'invite' ? memberEvent.stateKey ?? memberEvent.sender : memberEvent.sender))
+        if (selectedUserIdSet.size !== roomUserIds.size) continue
+        for (const userId of roomUserIds) {
+            if (!selectedUserIdSet.has(userId)) {
+                continue findInvitedRoom
+            }
+        }
+        if (hiddenRooms.value[roomId]) {
+            toggleRoomVisibility(roomId, true)
+        }
+        router.push({
+            name: 'room',
+            params: { roomId },
+        })
+        emit('update:visible', false)
+        toggleApplicationSidebar(false)
+        return
+    }
+
+    if (draftRoom.value?.groupAvatar) {
+        URL.revokeObjectURL(draftRoom.value.groupAvatar)
+    }
+    draftRoom.value = {
+        invited: Array.from(selectedUserIdSet),
+    }
+    if (groupName.value) {
+        draftRoom.value.groupName = groupName.value
+    }
+    if (groupAvatarObjectUrl.value) {
+        draftRoom.value.groupAvatar = groupAvatarObjectUrl.value
+    }
+    router.push({
+        name: 'create-room',
+    })
     emit('update:visible', false)
+    toggleApplicationSidebar(false)
 }
 
 watch(() => props.visible, (visible, wasVisible) => {
@@ -345,11 +444,16 @@ watch(() => props.visible, (visible, wasVisible) => {
         currentlyRunningUserDirectorySearchTerm = ''
         userSearchText.value = ''
         groupName.value = ''
+        groupAvatarObjectUrl.value = undefined
         selectedUserIds.value = []
         populateContactList()
     } else if (!visible && wasVisible) {
         clearTimeout(userDirectorySearchTimeoutHandle)
         userDirectorySearchAbortController?.abort()
+        if (groupAvatarObjectUrl.value) {
+            URL.revokeObjectURL(groupAvatarObjectUrl.value)
+            groupAvatarObjectUrl.value = undefined
+        }
     }
 }, { immediate: true })
 

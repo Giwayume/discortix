@@ -72,20 +72,25 @@ export const useProfileStore = defineStore('profile', () => {
         let touchedUserIds = new Set<string>()
         if (sync.rooms?.join) {
             for (const roomId in sync.rooms.join) {
-                for (const memberEvent of sync.rooms.join[roomId]?.state?.events ?? []) {
-                    if (memberEvent.type === 'm.room.member') {
+                if (!sync.rooms.join[roomId]?.state?.events) continue
+                for (const memberEvent of sync.rooms.join[roomId].state.events) {
+                    const { sender, type, stateKey } = memberEvent
+                    if (type === 'm.room.member') {
                         const eventContentParse = eventContentSchemaByType['m.room.member'].safeParse(memberEvent.content)
                         if (!eventContentParse.success) continue
-                        if (!profiles.value[memberEvent.sender]) {
-                            profiles.value[memberEvent.sender] = {
-                                userId: memberEvent.sender,
+                        const userId = `${(eventContentParse.data.membership === 'join'
+                            ? sender
+                            : eventContentParse.data.membership === 'invite' ? stateKey : undefined)}`
+                        if (!profiles.value[userId ?? '']) {
+                            profiles.value[userId ?? ''] = {
+                                userId: userId,
                                 currentlyActive: false,
                                 presence: 'offline',
                             }
                         }
-                        const profile = profiles.value[memberEvent.sender]
+                        const profile = profiles.value[userId ?? '']
                         if (!profile) continue
-                        touchedUserIds.add(memberEvent.sender)
+                        touchedUserIds.add(userId)
                         if (eventContentParse.data.avatarUrl != null) {
                             profile.avatarUrl = eventContentParse.data.avatarUrl
                         }

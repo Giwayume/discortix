@@ -5,6 +5,7 @@ export const ClientSettingsSchema = z.object({
     pointerClickTimeout: z.number(),
     pointerMoveRadius: z.number(),
     pointerPressTimeout: z.number(),
+    prefersEnableEncryption: z.boolean(),
     sendReadReceipts: z.boolean(),
     sendTypingIndicators: z.boolean(),
     warnUnencryptedMessageInEncryptedRoom: z.boolean(),

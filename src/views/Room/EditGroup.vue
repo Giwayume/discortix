@@ -41,7 +41,7 @@
             </template>
         </template>
     </Dialog>
-    <EditGroupIcon v-model:visible="editGroupIconVisible" :roomId="props.roomId"></EditGroupIcon>
+    <EditGroupIcon v-model:visible="editGroupIconVisible" />
 </template>
 
 <script setup lang="ts">

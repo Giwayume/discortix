@@ -51,14 +51,18 @@
         </template>
         <template v-else-if="otherMembersDisplayed.length > 1">
             <div
-                v-tooltip.bottom="{ value: isTouchEventsDetected ? undefined : t('room.editGroupIconButton') }"
-                class="message-beginning__edit-group-icon-button w-20 h-20"
+                v-tooltip.bottom="{ value: !room.roomId || isTouchEventsDetected ? undefined : t('room.editGroupIconButton') }"
+                class="w-20 h-20"
+                :class="{ 'message-beginning__edit-group-icon-button': room.roomId }"
                 role="button"
                 tabindex="0"
                 :aria-label="t('room.editGroupIconButton')"
-                @click="editGroupIconDialogVisible = true"
+                @click="room.roomId && (editGroupIconDialogVisible = true)"
             >
-                <AuthenticatedImage :mxcUri="roomAvatarUrl" type="thumbnail" :width="96" :height="96" method="scale">
+                <template v-if="roomAvatarPreviewObjectUrl">
+                    <Avatar :image="roomAvatarPreviewObjectUrl" shape="circle" class="p-avatar-full" :aria-label="t('layout.userAvatarImage')" />
+                </template>
+                <AuthenticatedImage v-else :mxcUri="roomAvatarUrl" type="thumbnail" :width="96" :height="96" method="scale">
                     <template v-slot="{ src }">
                         <Avatar :image="src" shape="circle" class="p-avatar-full" :aria-label="t('layout.userAvatarImage')" />
                     </template>
@@ -66,7 +70,7 @@
                         <Avatar icon="pi pi-users" shape="circle" class="p-avatar-full" :style="{ '--p-avatar-icon-size': '3rem', '--p-avatar-background': 'var(--background-base-low)' }" :aria-label="t('layout.userAvatarImage')" />
                     </template>
                 </AuthenticatedImage>
-                <div class="message-beginning__edit-group-icon-button-overlay">
+                <div v-if="room.roomId" class="message-beginning__edit-group-icon-button-overlay">
                     <span class="pi pi-pencil" aria-hidden="true" />
                 </div>
             </div>
@@ -90,12 +94,21 @@
                     </strong>
                 </template>
             </I18nT>
-            <div class="flex flex-wrap gap-2 mt-4">
+            <div v-if="room.roomId" class="flex flex-wrap gap-2 mt-4">
                 <Button severity="primary"><span class="pi pi-user-plus" aria-hidden="true" /> {{ t('room.inviteFriendsButton') }}</Button>
                 <Button severity="secondary" @click="editGroupDialogVisible = true"><span class="pi pi-pencil" aria-hidden="true" /> {{ t('room.editGroupButton') }}</Button>
             </div>
+            <template v-if="!room.roomId">
+                <div class="text-(--channels-default) my-4 text-sm">
+                    {{ t('createRoom.sendFirstMessage') }}
+                </div>
+                <div class="flex items-center gap-2 mb-6">
+                    <label for="message-beginning-enable-encryption-toggle">{{ t('createRoom.enableEncryption') }}</label>
+                    <ToggleSwitch v-model="settings.prefersEnableEncryption" inputId="message-beginning-enable-encryption-toggle" />
+                </div>
+            </template>
             <EditGroup v-model:visible="editGroupDialogVisible" :roomId="props.room.roomId" />
-            <EditGroupIcon v-model:visible="editGroupIconDialogVisible" :roomId="props.room.roomId" />
+            <EditGroupIcon v-model:visible="editGroupIconDialogVisible" />
         </template>
     </div>
 </template>
@@ -108,6 +121,7 @@ import { storeToRefs } from 'pinia'
 import { isRoomPartOfSpace } from '@/utils/room'
 import { useApplication } from '@/composables/application'
 
+import { useClientSettingsStore } from '@/stores/client-settings'
 import { useProfileStore } from '@/stores/profile'
 import { useSessionStore } from '@/stores/session'
 
@@ -117,19 +131,26 @@ const EditGroupIcon = defineAsyncComponent(() => import('@/views/Room/EditGroupI
 
 import Avatar from 'primevue/avatar'
 import Button from 'primevue/button'
+import ToggleSwitch from 'primevue/toggleswitch'
 import vTooltip from 'primevue/tooltip'
 
 import type { JoinedRoom } from '@/types'
 
 const { t } = useI18n()
 const { isTouchEventsDetected } = useApplication()
+
+const { settings } = useClientSettingsStore()
 const { profiles } = storeToRefs(useProfileStore())
-const { userId } = storeToRefs(useSessionStore())
+const { userId: sessionUserId } = storeToRefs(useSessionStore())
 
 const props = defineProps({
     room: {
         type: Object as PropType<JoinedRoom>,
         required: true,
+    },
+    roomAvatarPreviewObjectUrl: {
+        type: String,
+        default: undefined,
     }
 })
 
@@ -146,10 +167,11 @@ const roomName = computed<string | undefined>(() => {
 const otherMembers = computed(() => {
     const seen = new Set<string>()
     return (props.room as JoinedRoom).stateEventsByType['m.room.member']?.filter((member) => {
-        const shouldShow = (member.content.membership === 'join' || member.content.membership === 'invite') && member.stateKey && member.stateKey != userId.value
-        let isDuplicate = seen.has(member.sender)
+        const userId = member.content.membership === 'join' ? member.sender : member.content.membership === 'invite' ? member.stateKey : undefined
+        const shouldShow = userId && userId != sessionUserId.value
+        let isDuplicate = seen.has(userId!)
         if (shouldShow) {
-            seen.add(member.sender)
+            seen.add(userId)
         }
         return shouldShow && !isDuplicate
     }).map((member) => {

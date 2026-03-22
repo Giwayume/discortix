@@ -10,6 +10,7 @@
             <SidebarListDirectMessages v-else />
         </template>
         <JoinedRoomView v-if="roomInfo.type === 'joined'" :room="roomInfo.room" />
+        <InvitedRoomView v-else-if="roomInfo.type === 'invited'" :room="roomInfo.room" />
         <UnknownRoomView v-else />
     </Application>
 </template>
@@ -23,11 +24,12 @@ import { isRoomPartOfSpace } from '@/utils/room'
 import { useRoomStore } from '@/stores/room'
 import { useSpaceStore } from '@/stores/space'
 
-import Application from './Layout/Application.vue'
-import JoinedRoomView from './Room/JoinedRoom.vue'
-import SidebarListDirectMessages from './Layout/SidebarListDirectMessages.vue'
-import SidebarListSpaceRooms from './Layout/SidebarListSpaceRooms.vue'
-import UnknownRoomView from './Room/UnknownRoom.vue'
+import Application from '@/views/Layout/Application.vue'
+import InvitedRoomView from '@/views/Room/InvitedRoom.vue'
+import JoinedRoomView from '@/views/Room/JoinedRoom.vue'
+import SidebarListDirectMessages from '@/views/Layout/SidebarListDirectMessages.vue'
+import SidebarListSpaceRooms from '@/views/Layout/SidebarListSpaceRooms.vue'
+import UnknownRoomView from '@/views/Room/UnknownRoom.vue'
 
 import {
     type InvitedRoom,

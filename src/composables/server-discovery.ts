@@ -31,7 +31,7 @@ export interface ServerDiscovery {
     guestRegisterResponse?: ApiV3RegisterResponse;
 }
 
-export function useServerDiscovery(scenario: 'login' | 'register') {
+export function useServerDiscovery(scenario: 'login' | 'register' | 'info') {
     const { t } = useI18n()
     const { getDeviceName } = useUserAgent()
 
