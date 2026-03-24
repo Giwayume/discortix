@@ -32,7 +32,7 @@
                 </div>
             </div>
             <form :id="'edit-group-form-' + uuid" class="pt-6 pb-2" @submit.prevent="save">
-                <InputText v-model="newRoomName" :placeholder="roomNamePlaceholder" :aria-label="t('editGroup.groupName')" class="w-full" />
+                <InputText v-model="newRoomName" :placeholder="roomNamePlaceholder" :disabled="isSaving" :aria-label="t('editGroup.groupName')" class="w-full" />
             </form>
         </template>
         <template #footer>
@@ -146,6 +146,7 @@ watch(() => props.visible, (visible, wasVisible) => {
 const editGroupIconVisible = ref<boolean>(false)
 
 function editGroupIcon() {
+    if (isSaving.value) return
     editGroupIconVisible.value = true
 }
 

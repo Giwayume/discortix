@@ -36,6 +36,7 @@ export function useLogin(options: {
 
     async function login(formData?: LoginFormData) {
         loading.value = true
+        error.value = null
 
         const matrixBaseUrl = serverDiscovery.value.homeserverBaseUrl ?? ''
 

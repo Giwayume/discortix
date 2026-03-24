@@ -8,8 +8,8 @@
             <div class="p-staticlabel flex flex-col gap-2 mt-5">
                 <label for="login-homeserver" class="text-(--text-strong)">{{ t('login.homeserverLabel') }}</label>
                 <div class="flex gap-2">
-                    <span>{{ selectedServerHomeserverName }}</span>
-                    <a href="#" @click.prevent="homeserverSelectionDialogVisible = true">Edit</a>
+                    <span id="login-selected-homeserver-name">{{ selectedServerHomeserverName }}</span>
+                    <a id="login-edit-homeserver" href="#" @click.prevent="homeserverSelectionDialogVisible = true">Edit</a>
                 </div>
             </div>
             <HomeserverSelectionDialog
@@ -39,7 +39,7 @@
                     </div>
                 </Message>
                 <div class="text-center mt-6">
-                    <Button @click="retryDiscoverServer">{{ t('login.retryButton') }}</Button>
+                    <Button id="login-server-discovery-retry-button" @click="retryDiscoverServer">{{ t('login.retryButton') }}</Button>
                 </div>
             </template>
             <!-- Login Steps -->

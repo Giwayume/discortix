@@ -30,7 +30,7 @@
         </Message>
     </div>
     <RouterLink :to="{ name: 'forgot-password' }" class="text-sm mt-1">{{ t('login.forgotPasswordLink') }}</RouterLink>
-    <Button type="submit" :loading="props.loading" class="w-full mt-5">
+    <Button id="login-submit-button" type="submit" :loading="props.loading" class="w-full mt-5">
         {{ t('login.loginButton') }}
         <div class="p-button-loading-dots" />
     </Button>
