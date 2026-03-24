@@ -16,7 +16,13 @@
             </div>
         </template>
         <div class="delete-message-confirm__message-preview">
-            <TimelineEventRender v-if="eventRenderInfoWithHeader" :room="props.room" :e="eventRenderInfoWithHeader" :i18nText="i18nText" />
+            <TimelineEventRender
+                v-if="eventRenderInfoWithHeader"
+                :room="props.room"
+                :e="eventRenderInfoWithHeader"
+                :i18nText="i18nText"
+                :currentRoomCustomEmojiByCode="currentRoomCustomEmojiByCode"
+            />
         </div>
         <template v-if="!isTouchEventsDetected">
             <h3 class="text-(--text-feedback-positive) text-sm uppercase font-bold leading-4">{{ t('deleteMessageConfirm.protipTitle') }}</h3>
@@ -44,6 +50,7 @@ import { useI18n } from 'vue-i18n'
 import { micromark } from 'micromark'
 
 import { useApplication } from '@/composables/application'
+import { useEmoji } from '@/composables/emoji'
 import { useRooms } from '@/composables/rooms'
 
 import TimelineEventRender from './TimelineEventRender.vue'
@@ -59,6 +66,7 @@ import {
 
 const { t } = useI18n()
 const { isTouchEventsDetected } = useApplication()
+const { currentRoomCustomEmojiByCode } = useEmoji()
 const { redactEvent } = useRooms()
 
 const props = defineProps({

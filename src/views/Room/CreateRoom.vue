@@ -106,7 +106,7 @@ const toast = useToast()
 
 const { isTouchEventsDetected } = useApplication()
 const { currentRoomCustomEmojiByCode } = useEmoji()
-const { createRoom, sendMessageEvent } = useRooms()
+const { createRoom, sendMessageEvent, sendStateEvent } = useRooms()
 
 const { draft, joined: joinedRooms } = storeToRefs(useRoomStore())
 const { userId: sessionUserId } = storeToRefs(useSessionStore())
@@ -291,7 +291,6 @@ async function onSubmitMessageForm() {
         let avatarUpload: ReturnType<typeof createLazyMediaUpload> | undefined = undefined
         let mediaInfo: MediaInfo | undefined = undefined
 
-
         uploadGroupAvatar:
         if (draft.value?.groupAvatar) {
             avatarUpload = createLazyMediaUpload()
@@ -311,14 +310,19 @@ async function onSubmitMessageForm() {
             })
         }
 
-        ({ roomId: createdRoomId } = await createRoom(createRoomRequest))
+        try {
+            ({ roomId: createdRoomId } = await createRoom(createRoomRequest))
+        } catch (error) {
+            avatarUpload?.discard()
+            throw error
+        }
 
         try {
             // A new MXC URI can be assigned if waited too long to upload.
             const newAvatarMxcUri = await avatarUpload?.upload()
             if (newAvatarMxcUri) {
-                await sendMessageEvent<EventRoomAvatarContent>(
-                    createdRoomId, 'm.room.avatar', uuidv4(), {
+                await sendStateEvent<EventRoomAvatarContent>(
+                    createdRoomId, 'm.room.avatar', '', {
                         url: newAvatarMxcUri,
                         info: mediaInfo?.type === 'image' ? mediaInfo.info : undefined,
                     }

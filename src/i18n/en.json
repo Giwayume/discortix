@@ -36,11 +36,14 @@
         "editRoomAvatar": "Edit Room Avatar",
         "groupNotFound": "Group not found. Did you leave the group?",
         "cancelButton": "Cancel",
-        "saveButton": "Save"
+        "saveButton": "Save",
+        "saveErrorToast": "An error occurred while attempting to update the group. Please try again later."
     },
     "editGroupIcon": {
         "title": "Change Icon",
-        "uploadImage": "Upload Image"
+        "uploadImage": "Upload Image",
+        "unrecognizedImageTypeToast": "Uploaded media is not a recognized image type. Please convert it to a common format like jpeg or png.",
+        "mediaUploadErrorToast": "An error occurred while attempting to upload the new avatar. Please try again later."
     },
     "emojiPicker": {
         "addEmojiButton": "Add Emoji",
@@ -349,6 +352,7 @@
         "editGroupIconButton": "Edit Group Icon",
         "changedGroupIcon": "changed the group icon.",
         "changedGroupNamePrefix": "changed the group name: ",
+        "removedGroupName": "removed the group name.",
         "changedGroupNameSuffix": ".",
         "messageEditedIndicator": "(edited)",
         "inviteFriendsButton": "Invite Friends",

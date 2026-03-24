@@ -239,6 +239,11 @@ export function createLazyMediaUpload() {
         return contentUri
     }
 
+    async function discard() {
+        // Matrix protocol does not provide a way to "cancel" asynchronous uploads.
+        // Leaving this method in place for potential future implementations.
+    }
+
     /** @returns A new contentUri is only returned if it changed from the initial request */
     async function upload(): Promise<string | undefined> {
         if (isUploaded || !queuedBlob) return
@@ -278,6 +283,7 @@ export function createLazyMediaUpload() {
     return {
         useObjectUrl,
         useBlob,
+        discard,
         upload,
     }
 

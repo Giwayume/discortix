@@ -39,7 +39,7 @@
 
         <template #footer>
             <button class="link self-center" role="button" tabindex="0" @click="resetPreview()">{{ t('cropImageDialog.resetLink') }}</button>
-            <Button severity="secondary" class="ml-auto" @click="emit('update:visible', visible)">
+            <Button severity="secondary" class="ml-auto" @click="emit('update:visible', false)">
                 {{ t('cropImageDialog.cancelButton') }}
             </Button>
             <Button severity="primary" @click="apply()">

@@ -53,11 +53,11 @@
             <div
                 v-tooltip.bottom="{ value: !room.roomId || isTouchEventsDetected ? undefined : t('room.editGroupIconButton') }"
                 class="w-20 h-20"
-                :class="{ 'message-beginning__edit-group-icon-button': room.roomId }"
+                :class="{ 'message-beginning__edit-group-icon-button': currentRoomPermissions.changeRoomAvatar }"
                 role="button"
                 tabindex="0"
                 :aria-label="t('room.editGroupIconButton')"
-                @click="room.roomId && (editGroupIconDialogVisible = true)"
+                @click="currentRoomPermissions.changeRoomAvatar && (editGroupIconDialogVisible = true)"
             >
                 <template v-if="roomAvatarPreviewObjectUrl">
                     <Avatar :image="roomAvatarPreviewObjectUrl" shape="circle" class="p-avatar-full" :aria-label="t('layout.userAvatarImage')" />
@@ -95,8 +95,14 @@
                 </template>
             </I18nT>
             <div v-if="room.roomId" class="flex flex-wrap gap-2 mt-4">
-                <Button severity="primary"><span class="pi pi-user-plus" aria-hidden="true" /> {{ t('room.inviteFriendsButton') }}</Button>
-                <Button severity="secondary" @click="editGroupDialogVisible = true"><span class="pi pi-pencil" aria-hidden="true" /> {{ t('room.editGroupButton') }}</Button>
+                <Button severity="primary">
+                    <span class="pi pi-user-plus" aria-hidden="true" />
+                    <span class="p-button-label">{{ t('room.inviteFriendsButton') }}</span>
+                </Button>
+                <Button v-if="currentRoomPermissions.changeRoomAvatar || currentRoomPermissions.changeRoomName" severity="secondary" @click="editGroupDialogVisible = true">
+                    <span class="pi pi-pencil" aria-hidden="true" />
+                    <span class="p-button-label">{{ t('room.editGroupButton') }}</span>
+                </Button>
             </div>
             <template v-if="!room.roomId">
                 <div class="text-(--channels-default) my-4 text-sm">
@@ -108,7 +114,7 @@
                 </div>
             </template>
             <EditGroup v-model:visible="editGroupDialogVisible" :roomId="props.room.roomId" />
-            <EditGroupIcon v-model:visible="editGroupIconDialogVisible" />
+            <EditGroupIcon v-model:visible="editGroupIconDialogVisible" :roomId="props.room.roomId" />
         </template>
     </div>
 </template>
@@ -123,6 +129,7 @@ import { useApplication } from '@/composables/application'
 
 import { useClientSettingsStore } from '@/stores/client-settings'
 import { useProfileStore } from '@/stores/profile'
+import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
@@ -141,6 +148,7 @@ const { isTouchEventsDetected } = useApplication()
 
 const { settings } = useClientSettingsStore()
 const { profiles } = storeToRefs(useProfileStore())
+const { currentRoomPermissions } = storeToRefs(useRoomStore())
 const { userId: sessionUserId } = storeToRefs(useSessionStore())
 
 const props = defineProps({

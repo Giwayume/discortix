@@ -1023,8 +1023,6 @@ export const useRoomStore = defineStore('room', () => {
         return roomEncryptionEvent?.originServerTs
     })
 
-    // event.event.type === 'm.room.encrypted'
-
     // Permissions in the current chat room for the current user
     const currentRoomPermissions = computed(() => {
         const currentRoomId = route.name === 'room' ? `${route.params?.roomId}` : ''

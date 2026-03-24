@@ -38,6 +38,7 @@
                                 :messageActionsContextMenuTargetEventId="messageActionsContextMenuTargetEventId"
                                 :highlightEventId="highlightEventId"
                                 :referenceEventId="referenceEventId"
+                                :currentRoomCustomEmojiByCode="currentRoomCustomEmojiByCode"
                                 @viewPhoto="viewPhoto($event)"
                             />
                         </template>
@@ -123,6 +124,7 @@ import { decryptMegolmEvent } from '@/utils/crypto'
 import { throttle } from '@/utils/timing'
 
 import { useApplication } from '@/composables/application'
+import { useEmoji } from '@/composables/emoji'
 import { useKeyboard } from '@/composables/keyboard'
 import { useRooms } from '@/composables/rooms'
 import { attachmentEventMessageTypes, messageEventTypes, settingsEventTypes } from '@/composables/event-timeline'
@@ -165,11 +167,14 @@ interface EventChunk {
 
 const { t } = useI18n()
 const toast = useToast()
+
 const { settings } = useClientSettingsStore()
-const { profiles } = storeToRefs(useProfileStore())
 const { isTouchEventsDetected } = useApplication()
+const { currentRoomCustomEmojiByCode } = useEmoji()
 const { isShiftKeyPressed } = useKeyboard()
 const { getMessageEvent, getPreviousMessages, redactEvent } = useRooms()
+
+const { profiles } = storeToRefs(useProfileStore())
 const roomStore = useRoomStore()
 const { currentRoomEncryptionEnabledTimestamp, currentRoomPermissions, decryptedRoomEvents } = storeToRefs(roomStore)
 const { getTimelineEventById, getTimelineEventIndexById } = useRoomStore()
@@ -214,6 +219,7 @@ const i18nText = {
     changedGroupIcon: t('room.changedGroupIcon'),
     changedGroupNamePrefix: t('room.changedGroupNamePrefix'),
     changedGroupNameSuffix: t('room.changedGroupNameSuffix'),
+    removedGroupName: t('room.removedGroupName'),
     editGroupButton: t('room.editGroupButton'),
     addReaction: t('room.addReaction'),
     messageEditedIndicator: t('room.messageEditedIndicator'),

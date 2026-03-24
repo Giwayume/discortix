@@ -214,8 +214,11 @@
             <strong>
                 <span class="link" data-link-id="viewUserProfile" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
             </strong>
-            {{ i18nText.changedGroupIcon }}
-            <span data-link-id="editGroup" class="link" role="button" tabindex="0">{{ i18nText.editGroupButton }}</span>
+            {{ ' ' + i18nText.changedGroupIcon + ' ' }}
+            <span
+                v-if="currentRoomPermissions.changeRoomAvatar || currentRoomPermissions.changeRoomName"
+                data-link-id="editGroup" class="link" role="button" tabindex="0"
+            >{{ i18nText.editGroupButton }}</span>
             <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
         </template>
         <template v-else-if="e.event.type === 'm.room.member' && e.event.content">
@@ -244,8 +247,16 @@
             <strong>
                 <span class="link" data-link-id="viewUserProfile" :data-user-id="e.event.sender" role="button" tabindex="0">{{ e.displayname }}</span>
             </strong>
-            {{ i18nText.changedGroupNamePrefix }}<strong>{{ e.event.content.name }}</strong>{{ i18nText.changedGroupNameSuffix }}
-            <span data-link-id="editGroup" class="link" role="button" tabindex="0">{{ i18nText.editGroupButton }}</span>
+            {{ ' ' }}
+            <template v-if="e.event.content.name">
+                {{ i18nText.changedGroupNamePrefix }}<strong>{{ e.event.content.name }}</strong>{{ i18nText.changedGroupNameSuffix }}
+            </template>
+            <template v-else>{{ i18nText.removedGroupName }}</template>
+            {{ ' ' }}
+            <span
+                v-if="currentRoomPermissions.changeRoomAvatar || currentRoomPermissions.changeRoomName"
+                data-link-id="editGroup" class="link" role="button" tabindex="0"
+            >{{ i18nText.editGroupButton }}</span>
             <time :datetime="e.isoTimestamp">{{ e.headerTime }}</time>
         </template>
         <template v-else-if="e.event.type === 'm.room.encryption'">
@@ -268,13 +279,14 @@
 
 <script setup lang="ts">
 import { computed, type PropType } from 'vue'
-import { find } from 'linkifyjs'
+import 'linkifyjs'
 import linkifyHtml from 'linkify-html'
 
 import '@/utils/linkify'
 
 import { useApplication } from '@/composables/application'
-import { useEmoji } from '@/composables/emoji'
+
+import { useRoomStore } from '@/stores/room'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 import MessageBeginning from './MessageBeginning.vue'
@@ -286,11 +298,14 @@ import {
     type ApiV3SyncClientEventWithoutRoomId,
     type JoinedRoom,
     type EventWithRenderInfo,
+    type EmojiPickerEmojiItem,
 } from '@/types'
 
 const { isTouchEventsDetected } = useApplication()
-const { currentRoomCustomEmojiByCode } = useEmoji()
+const { currentRoomPermissions } = useRoomStore()
 
+// This component intentionally relies on the parent component to populate a lot of data,
+// because it needs to set up and render as quickly as possible in order to avoid main thread freeze.
 const props = defineProps({
     room: {
         type: Object as PropType<JoinedRoom>,
@@ -320,6 +335,10 @@ const props = defineProps({
         type: String,
         default: undefined,
     },
+    currentRoomCustomEmojiByCode: {
+        type: Object as PropType<Record<string, EmojiPickerEmojiItem>>,
+        default: () => {},
+    }
 })
 
 const emit = defineEmits<{

@@ -23,6 +23,7 @@ import {
     type ApiV3RoomMessagesRequest, ApiV3RoomMessagesResponseSchema, type ApiV3RoomMessagesResponse,
     type ApiV3RoomTypingRequest,
     ApiV3RoomSendMessageEventResponseSchema, type ApiV3RoomSendMessageEventResponse,
+    ApiV3RoomSendStateEventResponseSchema, type ApiV3RoomSendStateEventResponse,
     type ApiV3SyncClientEventWithoutRoomId, ApiV3SyncClientEventWithoutRoomIdSchema,
     type ApiV3RoomRedactMessageRequest, ApiV3RoomRedactMessageResponseSchema,
     type ApiV3RoomJoinRequest, type ApiV3RoomJoinResponse, ApiV3RoomJoinResponseSchema,
@@ -289,6 +290,25 @@ export function useRooms() {
         )
     }
 
+    async function sendStateEvent<E = any>(
+        roomId: string,
+        eventType: string,
+        stateKey: string,
+        eventContent: E
+    ): Promise<ApiV3RoomSendStateEventResponse> {
+        return await fetchJson(
+            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/state/${eventType}/${stateKey}`,
+            {
+                method: 'PUT',
+                useAuthorization: true,
+                body: JSON.stringify(
+                    snakeCaseApiRequest(eventContent)
+                ),
+                jsonSchema: ApiV3RoomSendStateEventResponseSchema,
+            }
+        )
+    }
+
     function removeOwnLocalMessageReaction(
         roomId: string,
         key: string,
@@ -430,6 +450,7 @@ export function useRooms() {
         getMessageEvent,
         sendMessageEvent,
         sendMessageReaction,
+        sendStateEvent,
         redactEvent,
     }
 }

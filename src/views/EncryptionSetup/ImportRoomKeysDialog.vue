@@ -48,9 +48,9 @@
             </div>
         </form>
         <template #footer>
-            <Button severity="secondary" @click="emit('update:visible', false)">{{ t('importRoomKeysDialog.cancelButton') }}</Button>
+            <Button :label="t('importRoomKeysDialog.cancelButton')" severity="secondary" @click="emit('update:visible', false)" />
             <Button form="import-room-keys-dialog-form" type="submit" :loading="parsingFile">
-                {{ t('importRoomKeysDialog.importButton') }}
+                <span class="p-button-label">{{ t('importRoomKeysDialog.importButton') }}</span>
                 <div class="p-button-loading-dots" />
             </Button>
         </template>

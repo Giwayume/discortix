@@ -13,7 +13,13 @@
             <div class="p-dialog-title">{{ t('messagePreviewDialog.title') }}</div>
         </template>
         <div class="message-preview-dialog__message-preview">
-            <TimelineEventRender v-if="eventRenderInfo" :room="props.room" :e="eventRenderInfo" :i18nText="i18nText" />
+            <TimelineEventRender
+                v-if="eventRenderInfo"
+                :room="props.room"
+                :e="eventRenderInfo"
+                :i18nText="i18nText"
+                :currentRoomCustomEmojiByCode="currentRoomCustomEmojiByCode"
+            />
         </div>
         
         <template #footer>
@@ -30,6 +36,7 @@ import { storeToRefs } from 'pinia'
 import { decryptMegolmEvent } from '@/utils/crypto'
 
 import { messageEventTypes, settingsEventTypes } from '@/composables/event-timeline'
+import { useEmoji } from '@/composables/emoji'
 
 import { useClientSettingsStore } from '@/stores/client-settings'
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
@@ -50,7 +57,9 @@ import {
 } from '@/types'
 
 const { t } = useI18n()
+const { currentRoomCustomEmojiByCode } = useEmoji()
 const { settings } = useClientSettingsStore()
+
 const { roomKeys } = storeToRefs(useCryptoKeysStore())
 const { profiles } = storeToRefs(useProfileStore())
 const { currentRoomEncryptionEnabledTimestamp, decryptedRoomEvents } = storeToRefs(useRoomStore())

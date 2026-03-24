@@ -164,3 +164,9 @@ export const ApiV3RoomCreateResponseSchema = camelizeSchema(z.object({
     room_id: z.string(),
 }))
 export type ApiV3RoomCreateResponse = z.infer<typeof ApiV3RoomCreateResponseSchema>
+
+/** @see https://spec.matrix.org/v1.17/client-server-api/#put_matrixclientv3roomsroomidstateeventtypestatekey */
+export const ApiV3RoomSendStateEventResponseSchema = camelizeSchema(z.object({
+    event_id: z.string(),
+}))
+export type ApiV3RoomSendStateEventResponse = z.infer<typeof ApiV3RoomSendStateEventResponseSchema>
