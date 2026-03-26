@@ -599,6 +599,11 @@ export function useCryptoKeys() {
                 ))
             } catch (error) {
                 log.error('Error when uploading newly generated signing keys.', error)
+
+                crossSigningMaster = undefined
+                crossSigningUserSigning = undefined
+                crossSigningSelfSigning = undefined
+
                 signingKeysUploadFailed.value = true
             }
         }
@@ -678,22 +683,22 @@ export function useCryptoKeys() {
 
         // Determine which secret keys are missing if failed to retrieve any of the private signing keys.
         const missingKeyIdSet = new Set<string>()
-        if (!crossSigningMasterKey.value) {
-            for (const keyId in crossSigningMaster?.encrypted) {
+        if (!crossSigningMasterKey.value && crossSigningMaster?.encrypted) {
+            for (const keyId in crossSigningMaster.encrypted) {
                 if (!ownedSecretKeyIds.includes(keyId)) {
                     missingKeyIdSet.add(keyId)
                 }
             }
         }
-        if (!crossSigningUserSigningKey.value) {
-            for (const keyId in crossSigningUserSigning?.encrypted) {
+        if (!crossSigningUserSigningKey.value && crossSigningUserSigning?.encrypted) {
+            for (const keyId in crossSigningUserSigning.encrypted) {
                 if (!ownedSecretKeyIds.includes(keyId)) {
                     missingKeyIdSet.add(keyId)
                 }
             }
         }
-        if (!crossSigningSelfSigningKey.value) {
-            for (const keyId in crossSigningSelfSigning?.encrypted) {
+        if (!crossSigningSelfSigningKey.value && crossSigningSelfSigning?.encrypted) {
+            for (const keyId in crossSigningSelfSigning.encrypted) {
                 if (!ownedSecretKeyIds.includes(keyId)) {
                     missingKeyIdSet.add(keyId)
                 }

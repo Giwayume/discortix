@@ -1,8 +1,8 @@
 /// <reference types="cypress" />
 
-let homeserverBaseUrl = ''
-
 describe('login/with-password', () => {
+    let homeserverBaseUrl = ''
+
     before(() => {
         cy.task('readJson', '/config.json')
             .then((appConfig: any) => {
@@ -89,7 +89,7 @@ describe('login/with-password', () => {
         cy.get('#login-edit-homeserver')
             .click()
 
-        cy.get('.p-dialog-close-button').should('be.focused');
+        cy.get('.p-dialog-close-button').should('be.focused')
 
         // Server does not respond
 

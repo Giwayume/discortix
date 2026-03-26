@@ -6,7 +6,7 @@
                     v-tooltip.right="{ value: isTouchEventsDetected ? undefined : t('layout.directMessages') }"
                     class="application__space application__space--dm"
                     :class="{
-                        'application__space--active': !currentTopLevelSpaceId,
+                        'application__space--active': !currentTopLevelSpaceId && route.name !== 'discover',
                     }"
                     :aria-label="t('layout.directMessages')"
                     @click="viewDirectMessages"
@@ -92,8 +92,12 @@
                 <button
                     v-tooltip.right="{ value: isTouchEventsDetected ? undefined : t('layout.discover') }"
                     class="application__space application__space--action"
+                    :class="{
+                        'application__space--active': route.name === 'discover',
+                    }"
                     :aria-label="t('layout.discover')"
                     @contextmenu.prevent
+                    @click="router.push({ name: 'discover' })"
                 >
                     <div class="application__space__icon">
                         <span class="pi pi-compass" aria-hidden="true" />
@@ -116,7 +120,7 @@
 
 <script setup lang="ts">
 import { computed, ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useApplication } from '@/composables/application'
@@ -132,6 +136,7 @@ import vTooltip from 'primevue/tooltip'
 import type { SpaceSummary } from '@/types'
 
 const { t } = useI18n()
+const route = useRoute()
 const router = useRouter()
 const { isTouchEventsDetected } = useApplication()
 const { invitedDirectMessageRooms } = storeToRefs(useRoomStore())
@@ -426,6 +431,8 @@ function showSpaceContextMenu(event: MouseEvent, space: SpaceSummary) {
     line-height: 1.2em;
     transition: background-color 0.2s;
     white-space: nowrap;
+
+    --p-icon-size: 1.125rem;
 }
 
 .application__space__notify-count {

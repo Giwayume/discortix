@@ -1,5 +1,6 @@
 <template>
     <Dialog
+        id="new-message-dialog"
         :visible="visible"
         modal
         :header="t('newMessageDialog.title')"
@@ -94,8 +95,12 @@
                     </div>
                 </div>
                 <div class="flex w-full gap-2 pt-2">
-                    <Button :label="t('newMessageDialog.cancelButton')" class="grow-1 basis-1" severity="secondary" @click="emit('update:visible', false)" autofocus />
-                    <Button :loading="isCreatingRoom" class="grow-1 basis-1" severity="primary" @click="createRoomConfirm()">
+                    <Button id="new-message-dialog-cancel-button" :label="t('newMessageDialog.cancelButton')" class="grow-1 basis-1" severity="secondary" @click="emit('update:visible', false)" autofocus />
+                    <Button
+                        id="new-message-dialog-create-room-button"
+                        :loading="isCreatingRoom" class="grow-1 basis-1" severity="primary"
+                        @click="createRoomConfirm()"
+                    >
                         <div class="p-button-label">{{ t(selectedUserIds.length > 1 ? 'newMessageDialog.createGroupMessageButton' : 'newMessageDialog.createMessageButton') }}</div>
                         <div class="p-button-loading-dots" />
                     </Button>

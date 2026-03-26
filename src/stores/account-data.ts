@@ -12,7 +12,7 @@ import {
 
 import {
     eventContentSchemaByType,
-    type EventComReeksiteDiscortixHiddenRoomsContent,
+    type EventInvalidDiscortixHiddenRoomsContent,
     type ApiV3SyncAccountDataEvent,
     type ApiV3SyncResponse,
 } from '@/types'
@@ -20,14 +20,14 @@ import {
 const log = createLogger(import.meta.url)
 
 export const useAccountDataStore = defineStore('accountData', () => {
-    const { isLeader } = useBroadcast()
+    const { isLeader, broadcastMessageFromTab, onTabMessage } = useBroadcast({ permanent: true })
 
     const accountDataLoading = ref<boolean>(true)
     const accountDataLoadError = ref<Error | null>(null)
     const accountData = ref<Record<string, any>>({})
 
-    const hiddenRooms = computed<EventComReeksiteDiscortixHiddenRoomsContent['hiddenRooms']>(() => {
-        return (accountData.value['invalid.discortix.hidden_rooms'] as EventComReeksiteDiscortixHiddenRoomsContent)?.hiddenRooms ?? {}
+    const hiddenRooms = computed<EventInvalidDiscortixHiddenRoomsContent['hiddenRooms']>(() => {
+        return (accountData.value['invalid.discortix.hidden_rooms'] as EventInvalidDiscortixHiddenRoomsContent)?.hiddenRooms ?? {}
     })
 
     async function initialize() {
@@ -77,7 +77,30 @@ export const useAccountDataStore = defineStore('accountData', () => {
 
     function populateByType(type: string, data: any) {
         accountData.value[type] = data
+        broadcastMessageFromTab({
+            type: 'populateAccountDataByType',
+            data: {
+                type,
+                data,
+            }
+        })
+        if (isLeader.value) {
+            saveDiscortixTableKey('accountData', type, toRaw(data)).catch(() => {
+                // Maybe this isn't the end of the world.
+            })
+        }
     }
+
+    onTabMessage((message) => {
+        if (message.type === 'populateAccountDataByType') {
+            accountData.value[message.data.type] = message.data.data
+            if (isLeader.value) {
+                saveDiscortixTableKey('accountData', message.data.type, toRaw(message.data.data)).catch(() => {
+                    // Maybe this isn't the end of the world.
+                })
+            }
+        }
+    })
 
     return {
         accountDataLoading,

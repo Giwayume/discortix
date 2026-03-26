@@ -368,6 +368,10 @@ async function onSubmitMessageForm() {
             name: 'room',
             params: { roomId: createdRoomId },
         })
+    } else {
+        router.push({
+            name: 'home',
+        })
     }
 
 }

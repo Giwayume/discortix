@@ -2,6 +2,7 @@
     "createRoom": {
         "title": "Create Chat Room",
         "inputPlaceholder": "Send your first message",
+        "sendFirstDirectMessage": "{displayname} will be invited to chat after you send your first message.",
         "sendFirstMessage": "Other users will be invited to chat after you send your first message.",
         "enableEncryption": "Enable encryption",
         "errorCreatingRoomToast": "An error occurred when creating the chat room. Please try again later.",
@@ -28,6 +29,9 @@
     },
     "dialog": {
         "close": "Close dialog"
+    },
+    "discover": {
+        "title": "Discover"
     },
     "editGroup": {
         "title": "Edit Group",
@@ -150,7 +154,38 @@
             "online": "Online",
             "all": "All",
             "addFriend": "Add Friend"
-        }
+        },
+        "newGroupDm": "New Group DM",
+        "friendSearchPlaceholder": "Search",
+        "clearSearchButton": "Clear Search",
+        "onlineFriendCount": "Online — {count}",
+        "allFriendCount": "All friends — {count}",
+        "messageTooltip": "Message",
+        "moreTooltip": "More",
+        "noOnlineFriends": "No friends are online.",
+        "noFriends": "You have not added any friends yet.",
+        "contextMenu": {
+            "startVideoCall": "Start Video Call",
+            "startVoiceCall": "Start Voice Call",
+            "removeFriend": "Remove Friend"
+        },
+        "removeFriendConfirm": {
+            "title": "Remove '{displayname}'",
+            "subtitle": "Are you sure you want to remove {displayname} from your friends?",
+            "cancelButton": "Cancel",
+            "removeFriendButton": "Remove Friend"
+        },
+        "addFriendHeading": "Add Friend",
+        "addFriendLabel": "You can add friends with their username.",
+        "addFriendPlaceholder": "\"username\" or \"{'@'}username:example.com\"",
+        "addFriendButton": "Add Friend",
+        "friendRequestFailedTitle": "Friend request failed",
+        "friendRequestFailedDescription": "Hm, didn't work. Double check that the username is correct.",
+        "friendRequestSuccess": "Success! You added **{displayname}** as a friend.",
+        "okayButton": "Okay",
+        "otherPlacesMakeFriendsHeading": "Other Places to Make Friends",
+        "otherPlacesMakeFriendsDescription": "Don't have a username on hand? Check out our list of public servers that includes everything from gaming to cooking, music, anime and more.",
+        "exploreSpacesButton": "Explore Discoverable Spaces"
     },
     "homeserverSelectionDialog": {
         "title": "Change Homeserver",

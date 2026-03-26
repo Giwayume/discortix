@@ -48,6 +48,12 @@
     --p-button-text-secondary-color: var(--interactive-text-default);
     --p-button-text-secondary-hover-background: var(--control-secondary-background-hover);
     --p-button-text-secondary-hover-color: var(--interactive-text-hover);
+    --p-button-text-secondary-active-background: var(--control-secondary-background-active);
+
+    --p-button-outlined-secondary-border-color: var(--border-subtle);
+    --p-button-outlined-secondary-color: var(--text-default);
+    --p-button-outlined-secondary-hover-background: var(--interactive-background-hover);
+    --p-button-outlined-secondary-active-background: var(--interactive-background-active);
 
     --p-button-danger-background: var(--control-critical-primary-background-default);
     --p-button-danger-border-color: var(--control-critical-primary-border-default);
@@ -108,6 +114,17 @@
     }
     &.p-button-text.p-button-secondary {
         background: var(--p-button-text-secondary-hover-background);
+    }
+    &.p-button-primary {
+        background: var(--opacity-blurple-16);
+        border-color: var(--control-primary-border-default);
+        color: var(--text-brand);
+
+        &:hover {
+            background: var(--opacity-blurple-16);
+            border-color: var(--control-primary-border-default);
+            color: var(--text-brand);
+        }
     }
 }
 

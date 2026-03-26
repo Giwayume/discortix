@@ -1,5 +1,5 @@
 <template>
-    <div class="p-4 overflow-hidden">
+    <div id="message-history-beginning" class="p-4 overflow-hidden">
         <template v-if="isInsideSpace">
             <div class="w-20 h-20">
                 <AuthenticatedImage :mxcUri="roomAvatarUrl" type="thumbnail" :width="48" :height="48" method="scale">
@@ -44,10 +44,19 @@
                     <strong>{{ otherMembersDisplayed[0]!.displayname ?? otherMembersDisplayed[0]!.userId }}</strong>
                 </template>
             </I18nT>
-            <div class="flex gap-2 mt-4">
+            <div v-if="room.roomId" class="flex gap-2 mt-4">
                 <Button size="small" severity="secondary">{{ t('room.removeFriendButton') }}</Button>
                 <Button size="small" severity="secondary">{{ t('room.blockButton') }}</Button>
             </div>
+            <template v-if="!room.roomId">
+                <div class="text-(--channels-default) my-4 text-sm">
+                    {{ t('createRoom.sendFirstDirectMessage', { displayname: otherMembersDisplayed[0]!.displayname ?? otherMembersDisplayed[0]!.userId }) }}
+                </div>
+                <div class="flex items-center gap-2 mb-6">
+                    <label for="message-beginning-enable-encryption-toggle">{{ t('createRoom.enableEncryption') }}</label>
+                    <ToggleSwitch v-model="settings.prefersEnableEncryption" inputId="message-beginning-enable-encryption-toggle" />
+                </div>
+            </template>
         </template>
         <template v-else-if="otherMembersDisplayed.length > 1">
             <div

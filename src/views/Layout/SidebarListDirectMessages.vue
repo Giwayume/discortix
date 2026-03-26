@@ -35,6 +35,7 @@
             <div class="flex justify-between pl-2 pb-1">
                 <h2 class="text-sm text-(--channels-default)">{{ t('home.directMessages') }}</h2>
                 <Button
+                    id="sidebar-list-direct-messages-create-message-button"
                     v-tooltip.top="{ value: isTouchEventsDetected ? undefined : t('home.createMessage') }"
                     icon="pi pi-plus"
                     severity="secondary"
@@ -92,7 +93,7 @@
                                         </div>
                                         <div
                                             v-if="item.canLeave"
-                                            class="p-button p-component p-button-icon-only p-button-secondary p-button-text p-button-sm !absolute right-1 !p-0 !w-8 !h-8"
+                                            class="p-button p-component p-button-icon-only p-button-secondary p-button-text p-button-sm !bg-(--background-surface-high) !absolute right-1 !p-0 !w-8 !h-8"
                                             variant="text"
                                             severity="secondary"
                                             size="small"
@@ -125,7 +126,7 @@
             </Button>
         </template>
     </Dialog>
-    <NewMessagedialog v-model:visible="newMessageDialogVisible" />
+    <NewMessageDialog v-model:visible="newMessageDialogVisible" />
 </template>
 
 <script setup lang="ts">
@@ -144,7 +145,7 @@ import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
-const NewMessagedialog = defineAsyncComponent(() => import('@/views/Layout/NewMessageDialog.vue'))
+const NewMessageDialog = defineAsyncComponent(() => import('@/views/Layout/NewMessageDialog.vue'))
 import OverlayStatus from '@/views/Common/OverlayStatus.vue'
 import SidebarListBody from './SidebarListBody.vue'
 import SidebarListHeader from './SidebarListHeader.vue'

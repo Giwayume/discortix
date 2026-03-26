@@ -11,6 +11,7 @@ import {
 
 import {
     eventContentSchemaByType,
+    type ApiV3ProfileResponse,
     type ApiV3SyncResponse,
     type ApiV3UserDirectorySearchResponse,
     type UserProfile,
@@ -180,6 +181,27 @@ export const useProfileStore = defineStore('profile', () => {
         }
     }
 
+    async function populateFromApiV3ProfileResponse(userId: string, profileResponse: ApiV3ProfileResponse) {
+        if (!profiles.value[userId]) {
+            profiles.value[userId] = {
+                userId,
+                currentlyActive: false,
+                presence: 'offline',
+            }
+        }
+        const profile = profiles.value[userId]
+        if (!profile) return
+        if (profileResponse.avatarUrl != null) {
+            profile.avatarUrl = profileResponse.avatarUrl
+        }
+        if (profileResponse.displayname != null) {
+            profile.displayname = profileResponse.displayname
+        }
+        if (isLeader.value) {
+            saveDiscortixTableKey('profiles', userId, toRaw(profiles.value[userId]))
+        }
+    }
+
     return {
         authenticatedUserAvatarUrl,
         authenticatedUserDisplayName,
@@ -188,5 +210,6 @@ export const useProfileStore = defineStore('profile', () => {
         profilesLoadError,
         populateFromApiV3SyncResponse,
         populateFromUserSearchResponse,
+        populateFromApiV3ProfileResponse,
     }
 })

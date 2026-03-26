@@ -9,6 +9,11 @@ const router = createRouter({
             component: () => import('@/views/Room/CreateRoom.vue'),
         },
         {
+            name: 'discover',
+            path: '/discover',
+            component: () => import('@/views/Discover.vue'),
+        },
+        {
             name: 'landing',
             path: '/',
             component: () => import('@/views/Landing.vue'),

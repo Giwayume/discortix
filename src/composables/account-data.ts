@@ -3,25 +3,29 @@ import { type ZodType } from 'zod'
 import { camelizeApiResponse, snakeCaseApiRequest } from '@/utils/zod'
 
 import { useAccountDataStore } from '@/stores/account-data'
+import { useProfileStore } from '@/stores/profile'
 import { useSessionStore } from '@/stores/session'
 
 import { fetchJson } from '@/utils/fetch'
 
 import {
+    ApiV3ProfileResponseSchema, type ApiV3ProfileResponse,
     eventContentSchemaByType,
-    type EventComReeksiteDiscortixHiddenRoomsContent,
+    type EventInvalidDiscortixHiddenRoomsContent,
+    type EventInvalidDiscortixFriendsContent,
 } from '@/types'
 
 export function useAccountData() {
-    const { homeserverBaseUrl, userId } = storeToRefs(useSessionStore())
+    const { homeserverBaseUrl, userId: sessionUserId, defaultUserIdHomeserver } = storeToRefs(useSessionStore())
     const accountDataStore = useAccountDataStore()
     const { accountData } = storeToRefs(accountDataStore)
     const { populateByType: populateAccountDataByType } = accountDataStore
+    const { populateFromApiV3ProfileResponse } = useProfileStore()
 
     async function getAccountDataByType<T = any>(type: string, schema?: ZodType, camelize?: boolean): Promise<T | undefined> {
         try {
             let response = await fetchJson(
-                `${homeserverBaseUrl.value}/_matrix/client/v3/user/${encodeURIComponent(userId.value + '')}/account_data/${type}`,
+                `${homeserverBaseUrl.value}/_matrix/client/v3/user/${encodeURIComponent(sessionUserId.value + '')}/account_data/${type}`,
                 {
                     useAuthorization: true,
                 },
@@ -42,7 +46,7 @@ export function useAccountData() {
 
     async function setAccountDataByType(type: string, data: any): Promise<void> {
         await fetchJson(
-            `${homeserverBaseUrl.value}/_matrix/client/v3/user/${encodeURIComponent(userId.value + '')}/account_data/${type}`,
+            `${homeserverBaseUrl.value}/_matrix/client/v3/user/${encodeURIComponent(sessionUserId.value + '')}/account_data/${type}`,
             {
                 method: 'PUT',
                 body: JSON.stringify(data),
@@ -54,7 +58,7 @@ export function useAccountData() {
     }
 
     async function toggleRoomVisibility(roomId: string, visible: boolean) {
-        const eventContent: EventComReeksiteDiscortixHiddenRoomsContent = accountData.value['invalid.discortix.hidden_rooms'] ?? {}
+        const eventContent: EventInvalidDiscortixHiddenRoomsContent = accountData.value['invalid.discortix.hidden_rooms'] ?? {}
         if (!eventContent.hiddenRooms) {
             eventContent.hiddenRooms = {}
         }
@@ -69,7 +73,34 @@ export function useAccountData() {
         setAccountDataByType('invalid.discortix.hidden_rooms', snakeCaseApiRequest(eventContent))
     }
 
+    async function addFriend(username: string): Promise<string> {
+        let userId = username.replace(/^@/, '')
+        if (!userId.includes(':')) {
+            userId += ':' + defaultUserIdHomeserver.value
+        }
+        userId = '@' + userId
+
+        const profile = await fetchJson<ApiV3ProfileResponse>(
+            `${homeserverBaseUrl.value}/_matrix/client/v3/profile/${encodeURIComponent(userId)}`,
+            {
+                useAuthorization: true,
+                jsonSchema: ApiV3ProfileResponseSchema,
+            },
+        )
+        populateFromApiV3ProfileResponse(userId, profile)
+
+        const eventContent: EventInvalidDiscortixFriendsContent = accountData.value['invalid.discortix.friends'] ?? { friends: [] }
+        if (!eventContent.friends.includes(userId)) {
+            eventContent.friends.push(userId)
+            eventContent.friends.sort()
+        }
+        await setAccountDataByType('invalid.discortix.friends', snakeCaseApiRequest(eventContent))
+
+        return userId
+    }
+
     return {
+        addFriend,
         getAccountDataByType,
         setAccountDataByType,
         toggleRoomVisibility,

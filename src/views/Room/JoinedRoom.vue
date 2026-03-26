@@ -222,18 +222,18 @@ const isInsideSpace = computed<boolean>(() => {
 })
 
 const otherMembers = computed(() => {
-    return (props.room as JoinedRoom).stateEventsByType['m.room.member']?.filter((member) => {
-        const userId = member.content.membership === 'join' ? member.sender : member.content.membership === 'invite' ? member.stateKey : undefined
-        return userId && userId != sessionUserId.value
-    }).map((member) => {
-        const userId = member.stateKey!
+    return Array.from(new Set((props.room as JoinedRoom).stateEventsByType['m.room.member']?.map(member => {
+        return (member.content.membership === 'join' ? member.sender : member.content.membership === 'invite' ? member.stateKey : undefined) ?? ''
+    }).filter(
+        userId => userId && userId != sessionUserId.value
+    ))).map((userId) => {
         return {
             userId,
-            avatarUrl: profiles.value[userId]?.avatarUrl ?? member.content.avatarUrl,
-            displayname: profiles.value[userId]?.displayname ?? member.content.displayname,
+            avatarUrl: profiles.value[userId]?.avatarUrl,
+            displayname: profiles.value[userId]?.displayname,
             presence: profiles.value[userId]?.presence ?? 'offline',
         }
-    }) ?? []
+    })
 })
 const otherMembersDisplayed = computed(() => {
     return otherMembers.value.slice(0, 5)

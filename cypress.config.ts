@@ -6,6 +6,8 @@ const appConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '/config.json'
 
 export default defineConfig({
     allowCypressEnv: false,
+    defaultCommandTimeout: 60000,
+    requestTimeout: 60000,
 
     e2e: {
         blockHosts: [

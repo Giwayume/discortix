@@ -17,13 +17,18 @@ const EventRelatesToContentSchema = z.object({
 export const EventComReeksiteDiscortixHiddenRoomMetadataSchema = z.object({
     hiddenAt: z.number().optional(), // Timestamp
 })
-export const EventComReeksiteDiscortixHiddenRoomsContentSchema = z.object({
+export const EventInvalidDiscortixHiddenRoomsContentSchema = z.object({
     hiddenRooms: z.record(
         z.string(), // Room ID
         EventComReeksiteDiscortixHiddenRoomMetadataSchema,
     )
 })
-export type EventComReeksiteDiscortixHiddenRoomsContent = z.infer<typeof EventComReeksiteDiscortixHiddenRoomsContentSchema>
+export type EventInvalidDiscortixHiddenRoomsContent = z.infer<typeof EventInvalidDiscortixHiddenRoomsContentSchema>
+
+export const EventInvalidDiscortixFriendsContentSchema = z.object({
+    friends: z.array(z.string()),
+})
+export type EventInvalidDiscortixFriendsContent = z.infer<typeof EventInvalidDiscortixFriendsContentSchema>
 
 /** @see https://spec.matrix.org/v1.17/client-server-api/#maudio */
 export const EventAudioContentSchema = z.object({
@@ -614,7 +619,8 @@ export const EventVideoContentSchema = z.object({
 export type EventVideoContent = z.infer<typeof EventVideoContentSchema>
 
 export const eventContentSchemaByType = {
-    'invalid.discortix.hidden_rooms': EventComReeksiteDiscortixHiddenRoomsContentSchema,
+    'invalid.discortix.hidden_rooms': EventInvalidDiscortixHiddenRoomsContentSchema,
+    'invalid.discortix.friends': EventInvalidDiscortixFriendsContentSchema,
     'im.ponies.room_emotes': EventImPoniesRoomEmotesContentSchema,
     'im.ponies.user_emotes': EventImPoniesUserEmotesContentSchema,
     'm.audio': EventAudioContentSchema,
@@ -657,7 +663,8 @@ export const eventContentSchemaByType = {
 } as const
 
 export interface EventContentByType {
-    'invalid.discortix.hidden_rooms': EventComReeksiteDiscortixHiddenRoomsContent,
+    'invalid.discortix.hidden_rooms': EventInvalidDiscortixHiddenRoomsContent,
+    'invalid.discortix.friends': EventInvalidDiscortixFriendsContent,
     'im.ponies.room_emotes': EventImPoniesRoomEmotesContent,
     'im.ponies.user_emotes': EventImPoniesUserEmotesContent,
     'm.audio': EventAudioContent,

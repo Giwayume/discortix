@@ -9,6 +9,17 @@ export const BroadcastApiV3SyncMessageSchema = z.object({
 })
 export type BroadcastApiV3SyncMessage = z.infer<typeof BroadcastApiV3SyncMessageSchema>
 
+export const BroadcastPopulateAccountDataByTypeMessageSchema = z.object({
+    fromLeader: z.boolean().optional(),
+    fromTabId: z.string().optional(),
+    type: z.literal('populateAccountDataByType'),
+    data: z.object({
+        type: z.string(),
+        data: z.any(),
+    })
+})
+export type BroadcastPopulateAccountDataByTypeMessage = z.infer<typeof BroadcastPopulateAccountDataByTypeMessageSchema>
+
 export const BroadcastPopulateRoomKeysFromMegolmBackupMessageSchema = z.object({
     fromLeader: z.boolean().optional(),
     fromTabId: z.string().optional(),
@@ -51,6 +62,7 @@ export type BroadcastUpdateClientSettingMessage = z.infer<typeof BroadcastUpdate
 
 export const broadcastMessageSchemaByType = {
     'apiV3Sync': BroadcastApiV3SyncMessageSchema,
+    'populateAccountDataByType': BroadcastPopulateAccountDataByTypeMessageSchema,
     'populateRoomKeysFromMegolmBackup': BroadcastPopulateRoomKeysFromMegolmBackupMessageSchema,
     'redactUnsentRoomTimelineEvent': BroadcastRedactUnsentRoomTimelineEventMessageSchema,
     'syncStatus': BroadcastSyncStatusMessageSchema,
@@ -59,6 +71,7 @@ export const broadcastMessageSchemaByType = {
 
 export type BroadcastMessage = (
     BroadcastApiV3SyncMessage
+    | BroadcastPopulateAccountDataByTypeMessage
     | BroadcastPopulateRoomKeysFromMegolmBackupMessage
     | BroadcastRedactUnsentRoomTimelineEventMessage
     | BroadcastSyncStatusMessage
