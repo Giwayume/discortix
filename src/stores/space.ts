@@ -167,9 +167,12 @@ export const useSpaceStore = defineStore('space', () => {
                 creator,
                 heroes,
                 joinedMemberCount: room.numJoinedMembers,
+                lastMessageTs: 0,
+                membershipType: 'joined',
                 name: (room.name ?? heroes.join(', ')) || t('layout.unnamedSpace'),
                 roomId: room.roomId,
                 roomVersion: room.roomVersion,
+                tags: {},
             })
         }
         spaceRoomSummaries.value[spaceRoomId] = roomSummaries

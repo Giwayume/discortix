@@ -65,15 +65,19 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
+import type { GroupSession } from 'vodozemac-wasm-bindings'
 
 import { formatMessage } from '@/utils/message'
 import { until } from '@/utils/vue'
 
 import { useApplication } from '@/composables/application'
 import { useEmoji } from '@/composables/emoji'
+import { createLogger } from '@/composables/logger'
 import { createMediaInfo, createLazyMediaUpload } from '@/composables/media'
+import { useMegolm } from '@/composables/megolm'
 import { useRooms } from '@/composables/rooms'
 
+import { useClientSettingsStore } from '@/stores/client-settings'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 import { vPointer } from '@/directives/pointer'
@@ -98,7 +102,11 @@ import {
     type ApiV3RoomCreateRequest,
     type EventRoomNameContent, type EventRoomMemberContent,
     type MediaInfo,
+    type EventRoomEncryptionContent,
+    type EventRoomEncryptedContent,
 } from '@/types'
+
+const log = createLogger(import.meta.url)
 
 const { t } = useI18n()
 const router = useRouter()
@@ -106,8 +114,10 @@ const toast = useToast()
 
 const { isTouchEventsDetected } = useApplication()
 const { currentRoomCustomEmojiByCode } = useEmoji()
+const { createGroupSession } = useMegolm()
 const { createRoom, sendMessageEvent, sendStateEvent } = useRooms()
 
+const { settings } = useClientSettingsStore()
 const { draft, joined: joinedRooms } = storeToRefs(useRoomStore())
 const { userId: sessionUserId } = storeToRefs(useSessionStore())
 
@@ -272,6 +282,8 @@ async function onSubmitMessageForm() {
     if (message.value.trim() === '') return
     isCreatingRoom.value = true
 
+    const invitedUserIds = draft.value?.invited ?? []
+
     let createdRoomId: string | undefined = undefined
     let avatarMxcUri: string | undefined = undefined
     try {
@@ -282,7 +294,7 @@ async function onSubmitMessageForm() {
         }
 
         if (draft.value?.invited) {
-            createRoomRequest.invite = draft.value.invited
+            createRoomRequest.invite = invitedUserIds
         }
         if (draft.value?.groupName) {
             createRoomRequest.name = draft.value.groupName
@@ -348,11 +360,24 @@ async function onSubmitMessageForm() {
             if (unredactedBody) {
                 eventContent['invalid.discortix.unredacted_body'] = unredactedBody
             }
-            
+
+            let groupSession: GroupSession | undefined = undefined
+            if (settings.prefersEnableEncryption) {
+                await sendStateEvent<EventRoomEncryptionContent>(
+                    createdRoomId, 'm.room.encryption', '', {
+                        algorithm: 'm.megolm.v1.aes-sha2',
+                        rotationPeriodMs: 604800000,
+                        rotationPeriodMsgs: 100,
+                    },
+                )
+                groupSession = await createGroupSession(createdRoomId, invitedUserIds)
+            }
+
             await sendMessageEvent<EventTextContent>(
-                createdRoomId, 'm.room.message', uuidv4(), eventContent,
+                createdRoomId, 'm.room.message', uuidv4(), eventContent, groupSession,
             )
         } catch (error) {
+            log.error('Error sending first message', error)
             toast.add({ severity: 'error', summary: t('createRoom.errorSendingFirstMessageToast'), life: 5000 })
         }
     }

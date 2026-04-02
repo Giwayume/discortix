@@ -2,6 +2,7 @@ import { computed, ref, toRaw, watch } from 'vue'
 import { defineStore } from 'pinia'
 
 import { useBroadcast } from '@/composables/broadcast'
+import { onLogout } from '@/composables/logout'
 
 import {
     getAllTableKeys as getAllDiscortixTableKeys,
@@ -201,6 +202,11 @@ export const useProfileStore = defineStore('profile', () => {
             saveDiscortixTableKey('profiles', userId, toRaw(profiles.value[userId]))
         }
     }
+
+    onLogout(() => {
+        authenticatedUserAvatarUrl.value = undefined
+        authenticatedUserDisplayName.value = undefined
+    }, { permanent: true })
 
     return {
         authenticatedUserAvatarUrl,

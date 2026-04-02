@@ -53,7 +53,7 @@ import { required } from '@vuelidate/validators'
 import { downloadFile } from '@/utils/file-access'
 import { encryptMegolmKeyFile } from '@/utils/megolm-export'
 
-import { useCryptoKeysStore } from '@/stores/crypto-keys'
+import { useMegolmStore } from '@/stores/megolm'
 import { useSessionStore } from '@/stores/session'
 
 import Button from 'primevue/button'
@@ -62,8 +62,7 @@ import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
 
 const { t } = useI18n()
-const cryptoKeysStore = useCryptoKeysStore()
-const { generateMegolmBackup } = cryptoKeysStore
+const { generateMegolmBackup } = useMegolmStore()
 const { userId: sessionUserId } = storeToRefs(useSessionStore())
 
 const props = defineProps({

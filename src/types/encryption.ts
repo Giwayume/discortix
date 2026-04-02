@@ -1,4 +1,5 @@
-import type { Session } from 'vodozemac-wasm-bindings'
+import type { Session, GroupSession, InboundGroupSession } from 'vodozemac-wasm-bindings'
+import type { ApiV3SyncToDeviceEvent } from '@/types/api-events'
 
 import * as z from 'zod'
 
@@ -25,8 +26,29 @@ export const EncryptedFileSchema = z.object({
 })
 export type EncryptedFile = z.infer<typeof EncryptedFileSchema>
 
+export interface InboundMegolmSessionWithUsage {
+    forwardingCurve25519KeyChain: string[];
+    senderClaimedEd25519Key: string;
+    session: InboundGroupSession;
+}
+
+export interface OutboundMegolmSessionWithUsage {
+    session: GroupSession;
+}
+
+export interface ToDeviceErroredEvent {
+    receivedTs: number;
+    event: ApiV3SyncToDeviceEvent;
+}
+
 export interface OlmSessionWithUsage {
-    lastActivityTs: number;
-    isPreKey?: boolean;
+    lastInboundActivityTs: number;
+    isConfirmed?: boolean; // The other side sent an OLM message back
     session: Session;
+}
+
+export interface PickledOlmSessionWithUsage {
+    lastInboundActivityTs: number;
+    isConfirmed?: boolean;
+    pickle: string;
 }

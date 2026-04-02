@@ -1,5 +1,13 @@
 export { ZodError } from 'zod'
 
+export class DecryptionError extends Error {
+    constructor(message?: string) {
+        const defaultMessage = 'Decryption failed.'
+        super(message ?? defaultMessage)
+        this.name = 'DecryptionError'
+    }
+}
+
 export class EncryptionNotSupportedError extends Error {
     constructor(message?: string) {
         const defaultMessage = 'Encryption is not supported.'
@@ -85,6 +93,14 @@ export class InvalidFileError extends Error {
         const defaultMessage = 'The contents of the file are in an invalid format.'
         super(message ?? defaultMessage)
         this.name = 'InvalidFileError'
+    }
+}
+
+export class MissingEncryptionKeyError extends Error {
+    constructor(message?: string) {
+        const defaultMessage = 'Missing encryption keys.'
+        super(message ?? defaultMessage)
+        this.name = 'MissingEncryptionKeyError'
     }
 }
 

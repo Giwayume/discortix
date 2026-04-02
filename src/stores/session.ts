@@ -189,11 +189,13 @@ export const useSessionStore = defineStore('session', () => {
     onLogout(() => {
         secureSessionInitialized.value = false
         accessToken.value = undefined
+        decryptedAccessToken.value = undefined
         refreshToken.value = undefined
+        decryptedRefreshToken.value = undefined
         userId.value = undefined
         isGuest.value = false
 
-        // DO NOT Delete tables: olm
+        // DO NOT Delete tables: olm, megolm
         clearDiscortixTable('4s')
         clearDiscortixTable('accountData')
         clearDiscortixTable('authentication')

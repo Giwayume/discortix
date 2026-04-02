@@ -3,7 +3,14 @@
 // Copyright (c) 2014-2018 The Bitcoin Core developers (base58.cpp)
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-function base (ALPHABET) {
+
+interface BaseConverter {
+    encode(buffer: Uint8Array | number[]): string;
+    decodeUnsafe(string: string): Uint8Array | undefined;
+    decode(string: string): Uint8Array;
+}
+
+function base(ALPHABET: string): BaseConverter {
     if (ALPHABET.length >= 255) { throw new TypeError('Alphabet too long') }
     const BASE_MAP = new Uint8Array(256)
     for (let j = 0; j < BASE_MAP.length; j++) {
@@ -19,7 +26,7 @@ function base (ALPHABET) {
     const LEADER = ALPHABET.charAt(0)
     const FACTOR = Math.log(BASE) / Math.log(256) // log(BASE) / log(256), rounded up
     const iFACTOR = Math.log(256) / Math.log(BASE) // log(256) / log(BASE), rounded up
-    function encode (source) {
+    function encode(source: Uint8Array | number[]): string {
         // eslint-disable-next-line no-empty
         if (source instanceof Uint8Array) { } else if (ArrayBuffer.isView(source)) {
             source = new Uint8Array(source.buffer, source.byteOffset, source.byteLength)
@@ -42,11 +49,11 @@ function base (ALPHABET) {
         const b58 = new Uint8Array(size)
         // Process the bytes.
         while (pbegin !== pend) {
-            let carry = source[pbegin]
+            let carry = source[pbegin]!
             // Apply "b58 = b58 * 256 + ch".
             let i = 0
             for (let it1 = size - 1; (carry !== 0 || i < length) && (it1 !== -1); it1--, i++) {
-                carry += (256 * b58[it1]) >>> 0
+                carry += (256 * b58[it1]!) >>> 0
                 b58[it1] = (carry % BASE) >>> 0
                 carry = (carry / BASE) >>> 0
             }
@@ -61,10 +68,10 @@ function base (ALPHABET) {
         }
         // Translate the result into a string.
         let str = LEADER.repeat(zeroes)
-        for (; it2 < size; ++it2) { str += ALPHABET.charAt(b58[it2]) }
+        for (; it2 < size; ++it2) { str += ALPHABET.charAt(b58[it2]!) }
         return str
     }
-    function decodeUnsafe (source) {
+    function decodeUnsafe(source: string): Uint8Array | undefined {
         if (typeof source !== 'string') { throw new TypeError('Expected String') }
         if (source.length === 0) { return new Uint8Array() }
         let psz = 0
@@ -85,12 +92,12 @@ function base (ALPHABET) {
             // Base map can not be indexed using char code
             if (charCode > 255) { return }
             // Decode character
-            let carry = BASE_MAP[charCode]
+            let carry = BASE_MAP[charCode]!
             // Invalid character
             if (carry === 255) { return }
             let i = 0
             for (let it3 = size - 1; (carry !== 0 || i < length) && (it3 !== -1); it3--, i++) {
-                carry += (BASE * b256[it3]) >>> 0
+                carry += (BASE * b256[it3]!) >>> 0
                 b256[it3] = (carry % 256) >>> 0
                 carry = (carry / 256) >>> 0
             }
@@ -106,11 +113,11 @@ function base (ALPHABET) {
         const vch = new Uint8Array(zeroes + (size - it4))
         let j = zeroes
         while (it4 !== size) {
-            vch[j++] = b256[it4++]
+            vch[j++] = b256[it4++]!
         }
         return vch
     }
-    function decode (string) {
+    function decode(string: string): Uint8Array {
         const buffer = decodeUnsafe(string)
         if (buffer) { return buffer }
         throw new Error('Non-base' + BASE + ' character')

@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 
+import { onLogout } from '@/composables/logout'
+
 export const useSyncStore = defineStore('sync', () => {
 
     function getNextBatch(): string | undefined {
@@ -13,6 +15,10 @@ export const useSyncStore = defineStore('sync', () => {
             localStorage.removeItem('mx_sync_next_batch')
         }
     }
+
+    onLogout(() => {
+        setNextBatch(undefined)
+    }, { permanent: true })
 
     return { getNextBatch, setNextBatch }
 })

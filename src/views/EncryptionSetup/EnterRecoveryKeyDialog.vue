@@ -66,12 +66,16 @@ import { pickFile } from '@/utils/file-access'
 import { EncryptionVerificationError } from '@/utils/error'
 
 import { useCryptoKeys } from '@/composables/crypto-keys'
+import { createLogger } from '@/composables/logger'
+
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
 
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
+
+const log = createLogger(import.meta.url)
 
 const { t } = useI18n()
 const { installRecoveryKey } = useCryptoKeys()
@@ -136,11 +140,12 @@ async function uploadRecoveryKey() {
     try {
         const file = await pickFile({ multiple: false })
         const text = await file.text()
-        if (text.length > 200 || text.replace(/ /g, '').length !== 48) {
+        if (text.length > 200 || text.replace(/[ \n]/g, '').length !== 48) {
             throw new Error('File contents doesn\'t look like a recovery key.')
         }
         formData.recoveryKey = text.trim()
     } catch (error) {
+        log.error('Error uploading recovery key: ', error)
         formData.recoveryKey = ''
         wrongFileUploaded.value = true
         v$.value.$validate()
@@ -160,6 +165,7 @@ async function submit() {
             error = undefined
             break
         } catch (e) {
+            log.error('Error installing recovery key', e)
             error = e as Error
         }
     }

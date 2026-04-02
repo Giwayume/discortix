@@ -4,6 +4,7 @@ import { useI18n, type ComposerTranslation } from 'vue-i18n'
 
 import { useBroadcast } from '@/composables/broadcast'
 import { useCryptoKeys } from '@/composables/crypto-keys'
+import { onLogout } from '@/composables/logout'
 import { useOlm } from '@/composables/olm'
 import { createLogger } from '@/composables/logger'
 
@@ -188,6 +189,10 @@ export function useSync() {
             stopSyncing()
         })
     }
+
+    onLogout(() => {
+        syncInitialized.value = false
+    })
 
     return {
         getFriendlyErrorMessage: (error: Error | unknown) => getFriendlyErrorMessage(t, error),

@@ -33,13 +33,11 @@ import { computed, reactive, type PropType } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 
-import { decryptMegolmEvent } from '@/utils/crypto'
-
 import { messageEventTypes, settingsEventTypes } from '@/composables/event-timeline'
 import { useEmoji } from '@/composables/emoji'
 
 import { useClientSettingsStore } from '@/stores/client-settings'
-import { useCryptoKeysStore } from '@/stores/crypto-keys'
+import { useMegolmStore } from '@/stores/megolm'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
@@ -60,7 +58,7 @@ const { t } = useI18n()
 const { currentRoomCustomEmojiByCode } = useEmoji()
 const { settings } = useClientSettingsStore()
 
-const { roomKeys } = storeToRefs(useCryptoKeysStore())
+const { decryptEvent: decryptMegolmEvent } = useMegolmStore()
 const { profiles } = storeToRefs(useProfileStore())
 const { currentRoomEncryptionEnabledTimestamp, decryptedRoomEvents } = storeToRefs(useRoomStore())
 const { userId: sessionUserId } = storeToRefs(useSessionStore())
@@ -135,19 +133,16 @@ const eventRenderInfo = computed<EventWithRenderInfo | undefined>(() => {
         if (decryptedRoomEvents.value[event.eventId]) {
             eventRenderInfo.event = decryptedRoomEvents.value[event.eventId]!
         } else {
-            const roomKey = roomKeys.value[props.room.roomId]?.[event.content.sessionId]?.[event.content.senderKey]
-            if (roomKey) {
-                decryptMegolmEvent(event.content, roomKey).then((decrypted) => {
-                    const decryptedEvent = {
-                        ...event,
-                        ...decrypted,
-                    }
-                    decryptedRoomEvents.value[event.eventId] = decryptedEvent
-                    eventRenderInfo.event = decryptedEvent
-                }).catch((error) => {
-                    console.error(error)
-                })
-            }
+            decryptMegolmEvent(props.room.roomId, event.content.sessionId, event.content.senderKey, event.content).then((decrypted) => {
+                const decryptedEvent = {
+                    ...event,
+                    ...decrypted,
+                }
+                decryptedRoomEvents.value[event.eventId] = decryptedEvent
+                eventRenderInfo.event = decryptedEvent
+            }).catch((error) => {
+                console.error(error)
+            })
         }
     }
 

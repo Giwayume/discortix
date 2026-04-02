@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
+import type { GroupSession } from 'vodozemac-wasm-bindings'
 
 import { useAccountData } from './account-data'
 import { useBroadcast } from '@/composables/broadcast'
@@ -9,11 +10,13 @@ import { useServerCapabilities } from '@/composables/server-capabilities'
 
 import { useAccountDataStore } from '@/stores/account-data'
 import { useClientSettingsStore } from '@/stores/client-settings'
+import { useCryptoKeysStore } from '@/stores/crypto-keys'
+import { useMegolmStore } from '@/stores/megolm'
 import { useRoomStore } from '@/stores/room'
 import { useSpaceStore } from '@/stores/space'
 import { useSessionStore } from '@/stores/session'
 
-import { PendingNetworkRequestError } from '@/utils/error'
+import { HttpError, PendingNetworkRequestError } from '@/utils/error'
 import { fetchJson } from '@/utils/fetch'
 import { camelizeSchema, snakeCaseApiRequest } from '@/utils/zod'
 
@@ -48,9 +51,12 @@ export function useRooms() {
     const { toggleRoomVisibility } = useAccountData()
     const { getCapabilities } = useServerCapabilities()
 
-    const { settings } = useClientSettingsStore()
     const { hiddenRooms } = storeToRefs(useAccountDataStore())
-    const { homeserverBaseUrl, userId: sessionUserId } = storeToRefs(useSessionStore())
+    const { settings } = useClientSettingsStore()
+    const cryptoKeysStore = useCryptoKeysStore()
+    const { deviceKeys } = storeToRefs(cryptoKeysStore)
+    const { saveOutboundMegolmSession } = useMegolmStore()
+    const { homeserverBaseUrl, userId: sessionUserId, deviceId: sessionDeviceId } = storeToRefs(useSessionStore())
     const roomStore = useRoomStore()
     const { joined, left } = storeToRefs(roomStore)
     const {
@@ -217,32 +223,48 @@ export function useRooms() {
         if (reason) {
             request.reason = reason
         }
-        const response = await fetchJson(
-            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/leave`,
-            {
-                method: 'POST',
-                body: JSON.stringify(request),
-                useAuthorization: true,
+        try {
+            const response = await fetchJson(
+                `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/leave`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify(request),
+                    useAuthorization: true,
+                }
+            )
+            deleteJoinedRoom(roomId)
+            return response
+        } catch (error) {
+            if (error instanceof HttpError && error.isMatrixForbidden()) {
+                deleteJoinedRoom(roomId)
             }
-        )
-        deleteJoinedRoom(roomId)
-        return response
+            throw error
+        }
     }
 
     async function forgetRoom(roomId: string) {
-        const response = await fetchJson(
-            `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/forget`,
-            {
-                method: 'POST',
-                body: '{}',
-                useAuthorization: true,
+        try {
+            await fetchJson(
+                `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/forget`,
+                {
+                    method: 'POST',
+                    body: '{}',
+                    useAuthorization: true,
+                }
+            )
+            deleteInvitedRoom(roomId)
+            deleteKnockedRoom(roomId)
+            deleteJoinedRoom(roomId)
+            deleteLeftRoom(roomId)
+        } catch (error) {
+            if (error instanceof HttpError && error.isMatrixForbidden()) {
+                deleteInvitedRoom(roomId)
+                deleteKnockedRoom(roomId)
+                deleteJoinedRoom(roomId)
+                deleteLeftRoom(roomId)
             }
-        )
-        deleteInvitedRoom(roomId)
-        deleteKnockedRoom(roomId)
-        deleteJoinedRoom(roomId)
-        deleteLeftRoom(roomId)
-        return response
+            throw error
+        }
     }
 
     async function sendTypingNotification(roomId: string, typing: boolean) {
@@ -275,9 +297,31 @@ export function useRooms() {
         roomId: string,
         eventType: string,
         txnId: string,
-        eventContent: E
+        eventContent: E,
+        groupSession?: GroupSession,
     ): Promise<ApiV3RoomSendMessageEventResponse> {
-        return await fetchJson(
+        if (groupSession) {
+            const myDeviceCurveKey = deviceKeys.value[sessionUserId.value!]?.[sessionDeviceId.value!]?.keys[`curve25519:${sessionDeviceId.value!}`] ?? ''
+            const innerEventCiphertext = groupSession.encrypt(
+                new TextEncoder().encode(
+                    JSON.stringify(snakeCaseApiRequest({
+                        type: eventType,
+                        content: eventContent,
+                        roomId,
+                    }))
+                )
+            )
+            eventType = 'm.room.encrypted'
+            eventContent = {
+                algorithm: 'm.megolm.v1.aes-sha2',
+                ciphertext: innerEventCiphertext,
+                deviceId: sessionDeviceId.value,
+                senderKey: myDeviceCurveKey,
+                sessionId: groupSession.session_id,
+            } as unknown as E
+        }
+
+        const response = await fetchJson(
             `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/send/${eventType}/${txnId}`,
             {
                 method: 'PUT',
@@ -288,6 +332,12 @@ export function useRooms() {
                 jsonSchema: ApiV3RoomSendMessageEventResponseSchema,
             }
         )
+
+        if (groupSession) {
+            await saveOutboundMegolmSession(roomId, groupSession)
+        }
+
+        return response
     }
 
     async function sendStateEvent<E = any>(

@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { createLogger } from '@/composables/logger'
 
 import { useBroadcast } from '@/composables/broadcast'
+import { onLogout } from '@/composables/logout'
 
 import {
     getAllTableKeys as getAllDiscortixTableKeys,
@@ -80,8 +81,8 @@ export const useAccountDataStore = defineStore('accountData', () => {
         broadcastMessageFromTab({
             type: 'populateAccountDataByType',
             data: {
-                type,
-                data,
+                type: toRaw(type),
+                data: toRaw(data),
             }
         })
         if (isLeader.value) {
@@ -101,6 +102,12 @@ export const useAccountDataStore = defineStore('accountData', () => {
             }
         }
     })
+
+    onLogout(() => {
+        accountDataLoading.value = false
+        accountDataLoadError.value = null
+        accountData.value = {}
+    }, { permanent: true })
 
     return {
         accountDataLoading,

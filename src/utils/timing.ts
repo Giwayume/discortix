@@ -70,3 +70,40 @@ export function timeAgo(ts: number | null | undefined, t: ComposerTranslation) {
     const years = Math.round(days / 365)
     return t('timeSince.yearsAgo', years)
 }
+
+export class ConcurrencyLimiter {
+    private running = 0
+    private readonly waiters: (() => void)[] = []
+    private idleResolver: (() => void) | null = null
+
+    constructor(private readonly limit: number) {
+        if (limit < 1) throw new Error('limit must be >= 1')
+    }
+
+    async available(): Promise<void> {
+        if (this.running < this.limit) return
+        return new Promise<void>((resolve) => this.waiters.push(resolve))
+    }
+
+    add<T>(p: Promise<T>) {
+        this.running++;
+
+        const release = () => {
+            this.running--;
+            if (this.waiters.length) this.waiters.shift()!()
+
+            if (this.running === 0 && this.idleResolver) {
+                const resolve = this.idleResolver
+                this.idleResolver = null
+                resolve()
+            }
+        };
+
+        p.finally(release)
+    }
+
+    async waitForIdle(): Promise<void> {
+        if (this.running === 0) return
+        return new Promise<void>((resolve) => (this.idleResolver = resolve))
+    }
+}

@@ -22,7 +22,7 @@
                     </AuthenticatedImage>
                     <div class="grow-1">
                         <div>
-                            <span class="text-(--text-strong)">{{ room.name ?? room.displayname }}</span>
+                            <span class="text-(--text-strong)">{{ room.name || room.displayname }}</span>
                             <time class="text-xs text-(--text-muted) ml-2" :datetime="room.datetime">
                                 {{ room.displayTime }}
                             </time>

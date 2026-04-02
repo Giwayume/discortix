@@ -120,7 +120,7 @@ import { useI18n } from 'vue-i18n'
 import { v4 as uuidv4 } from 'uuid'
 import { useFloating, offset as floatingOffset, autoUpdate as floatingAutoUpdate } from '@floating-ui/vue'
 
-import { decryptMegolmEvent } from '@/utils/crypto'
+import { MissingEncryptionKeyError } from '@/utils/error'
 import { throttle } from '@/utils/timing'
 
 import { useApplication } from '@/composables/application'
@@ -130,7 +130,7 @@ import { useRooms } from '@/composables/rooms'
 import { attachmentEventMessageTypes, messageEventTypes, settingsEventTypes } from '@/composables/event-timeline'
 
 import { useClientSettingsStore } from '@/stores/client-settings'
-import { useCryptoKeysStore } from '@/stores/crypto-keys'
+import { useMegolmStore } from '@/stores/megolm'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
@@ -174,11 +174,11 @@ const { currentRoomCustomEmojiByCode } = useEmoji()
 const { isShiftKeyPressed } = useKeyboard()
 const { getMessageEvent, getPreviousMessages, redactEvent } = useRooms()
 
+const { decryptEvent: decryptMegolmEvent } = useMegolmStore()
 const { profiles } = storeToRefs(useProfileStore())
 const roomStore = useRoomStore()
 const { currentRoomEncryptionEnabledTimestamp, currentRoomPermissions, decryptedRoomEvents } = storeToRefs(roomStore)
 const { getTimelineEventById, getTimelineEventIndexById } = useRoomStore()
-const { roomKeys } = storeToRefs(useCryptoKeysStore())
 const { userId: sessionUserId } = storeToRefs(useSessionStore())
 
 const props = defineProps({
@@ -438,11 +438,8 @@ const loadingEventChunks = computed<EventChunk[]>(() => {
                     event.event.content = event.replacementEvent.content['m.new_content']
                     continue
                 }
-                const roomKey = roomKeys.value[props.room.roomId]?.[event.event.content.sessionId]?.[event.event.content.senderKey]
-                if (!roomKey) continue
-                // TODO - wait until all events are decrypted then assign at once (to create only a single re-render)
                 decryptPromises.push(
-                    decryptMegolmEvent(event.replacementEvent.content, roomKey).then((decrypted) => {
+                    decryptMegolmEvent(props.room.roomId, event.event.content.sessionId, event.event.content.senderKey, event.replacementEvent.content).then((decrypted) => {
                         const decryptedEvent = {
                             ...event.replacementEvent,
                             ...decrypted,
@@ -451,7 +448,9 @@ const loadingEventChunks = computed<EventChunk[]>(() => {
                         event.replacementEvent = decryptedEvent
                         event.event.content = decryptedEvent.content['m.new_content']
                     }).catch((error) => {
-                        console.error(error)
+                        if (!(error instanceof MissingEncryptionKeyError)) {
+                            console.error(error)
+                        }
                     })
                 )
             } else if (event.event.type === 'm.room.encrypted') {
@@ -459,10 +458,8 @@ const loadingEventChunks = computed<EventChunk[]>(() => {
                     event.event = decryptedRoomEvents.value[event.event.eventId]!
                     continue
                 }
-                const roomKey = roomKeys.value[props.room.roomId]?.[event.event.content.sessionId]?.[event.event.content.senderKey]
-                if (!roomKey) continue
                 decryptPromises.push(
-                    decryptMegolmEvent(event.event.content, roomKey).then((decrypted) => {
+                    decryptMegolmEvent(props.room.roomId, event.event.content.sessionId, event.event.content.senderKey, event.event.content).then((decrypted) => {
                         const decryptedEvent = {
                             ...event.event,
                             ...decrypted,
@@ -470,7 +467,9 @@ const loadingEventChunks = computed<EventChunk[]>(() => {
                         decryptedRoomEvents.value[event.event.eventId] = decryptedEvent
                         event.event = decryptedEvent
                     }).catch((error) => {
-                        console.error(error)
+                        if (!(error instanceof MissingEncryptionKeyError)) {
+                            console.error(error)
+                        }
                     })
                 )
             }

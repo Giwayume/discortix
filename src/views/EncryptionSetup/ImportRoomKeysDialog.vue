@@ -68,7 +68,7 @@ import { pickFile } from '@/utils/file-access'
 import { decryptMegolmKeyFile } from '@/utils/megolm-export'
 import { InvalidFileError } from '@/utils/error'
 
-import { useCryptoKeysStore } from '@/stores/crypto-keys'
+import { useMegolmStore } from '@/stores/megolm'
 
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
@@ -78,8 +78,7 @@ import { useToast } from 'primevue/usetoast'
 
 const { t } = useI18n()
 const toast = useToast()
-const cryptoKeysStore = useCryptoKeysStore()
-const { populateRoomKeysFromMegolmBackup } = cryptoKeysStore
+const { populateRoomKeysFromMegolmBackup } = useMegolmStore()
 
 const props = defineProps({
     visible: {

@@ -60,6 +60,55 @@ export const BroadcastUpdateClientSettingMessageSchema = z.object({
 })
 export type BroadcastUpdateClientSettingMessage = z.infer<typeof BroadcastUpdateClientSettingMessageSchema>
 
+export const BroadcastUpdateInboundMegolmSessionMessageSchema = z.object({
+    fromLeader: z.boolean().optional(),
+    fromTabId: z.string().optional(),
+    type: z.literal('updateInboundMegolmSession'),
+    data: z.object({
+        roomId: z.string(),
+        sessionId: z.string(),
+        senderKey: z.string(),
+    }),
+})
+export type BroadcastUpdateInboundMegolmSessionMessage = z.infer<typeof BroadcastUpdateInboundMegolmSessionMessageSchema>
+
+export const BroadcastUpdateOlmAccountMessageSchema = z.object({
+    fromLeader: z.boolean().optional(),
+    fromTabId: z.string().optional(),
+    type: z.literal('updateOlmAccount'),
+    data: z.object().optional(),
+})
+export type BroadcastUpdateOlmAccountMessage = z.infer<typeof BroadcastUpdateOlmAccountMessageSchema>
+
+export const BroadcastUpdateOlmSessionsMessageSchema = z.object({
+    fromLeader: z.boolean().optional(),
+    fromTabId: z.string().optional(),
+    type: z.literal('updateOlmSessions'),
+    data: z.object({
+        sessionKey: z.string(),
+    }),
+})
+export type BroadcastUpdateOlmSessionsMessage = z.infer<typeof BroadcastUpdateOlmSessionsMessageSchema>
+
+export const BroadcastUpdateOutboundMegolmSessionMessageSchema = z.object({
+    fromLeader: z.boolean().optional(),
+    fromTabId: z.string().optional(),
+    type: z.literal('updateOutboundMegolmSession'),
+    data: z.object({
+        roomId: z.string(),
+        sessionId: z.string(),
+    }),
+})
+export type BroadcastUpdateOutboundMegolmSessionMessage = z.infer<typeof BroadcastUpdateOutboundMegolmSessionMessageSchema>
+
+export const BroadcastUpdateToDeviceErroredEventsMessageSchema = z.object({
+    fromLeader: z.boolean().optional(),
+    fromTabId: z.string().optional(),
+    type: z.literal('updateToDeviceErroredEvents'),
+    data: z.object().optional(),
+})
+export type BroadcastUpdateToDeviceErroredEventsMessage = z.infer<typeof BroadcastUpdateToDeviceErroredEventsMessageSchema>
+
 export const broadcastMessageSchemaByType = {
     'apiV3Sync': BroadcastApiV3SyncMessageSchema,
     'populateAccountDataByType': BroadcastPopulateAccountDataByTypeMessageSchema,
@@ -67,6 +116,11 @@ export const broadcastMessageSchemaByType = {
     'redactUnsentRoomTimelineEvent': BroadcastRedactUnsentRoomTimelineEventMessageSchema,
     'syncStatus': BroadcastSyncStatusMessageSchema,
     'updateClientSetting': BroadcastUpdateClientSettingMessageSchema,
+    'updateInboundMegolmSession': BroadcastUpdateInboundMegolmSessionMessageSchema,
+    'updateOlmAccount': BroadcastUpdateOlmAccountMessageSchema,
+    'updateOlmSessions': BroadcastUpdateOlmSessionsMessageSchema,
+    'updateOutboundMegolmSession': BroadcastUpdateOutboundMegolmSessionMessageSchema,
+    'updateToDeviceErroredEvents': BroadcastUpdateToDeviceErroredEventsMessageSchema,
 }
 
 export type BroadcastMessage = (
@@ -76,4 +130,9 @@ export type BroadcastMessage = (
     | BroadcastRedactUnsentRoomTimelineEventMessage
     | BroadcastSyncStatusMessage
     | BroadcastUpdateClientSettingMessage
+    | BroadcastUpdateInboundMegolmSessionMessage
+    | BroadcastUpdateOlmAccountMessage
+    | BroadcastUpdateOlmSessionsMessage
+    | BroadcastUpdateOutboundMegolmSessionMessage
+    | BroadcastUpdateToDeviceErroredEventsMessage
 )

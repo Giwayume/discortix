@@ -65,6 +65,7 @@ import { useCryptoKeys } from '@/composables/crypto-keys'
 import { createLogger } from '@/composables/logger'
 
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
+import { useMegolmStore } from '@/stores/megolm'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
@@ -81,10 +82,10 @@ const { fetchUserKeys, requestRoomKey } = useCryptoKeys()
 
 const {
     encryptionNotSupported,
-    roomKeys,
     deviceKeys,
     userSigningKeys,
 } = storeToRefs(useCryptoKeysStore())
+const { megolmSessionExists } = useMegolmStore()
 const roomStore = useRoomStore()
 const { profiles } = storeToRefs(useProfileStore())
 const { userId: sessionUserId } = storeToRefs(useSessionStore())
@@ -144,7 +145,7 @@ const messageHasRoomKey = computed<boolean>(() => {
     if (!event.value) return false
     if (event.value.type === 'm.room.encrypted') {
         const eventContent = event.value.content as EventRoomEncryptedContent
-        return !!roomKeys.value[props.roomId!]?.[eventContent.sessionId!]?.[eventContent.senderKey!]
+        return megolmSessionExists(props.roomId!, eventContent.sessionId!, eventContent.senderKey!)
     }
     return false
 })

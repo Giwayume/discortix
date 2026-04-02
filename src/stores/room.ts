@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 
 import { useBroadcast } from '@/composables/broadcast'
 import { useEventTimeline } from '@/composables/event-timeline'
+import { onLogout } from '@/composables/logout'
 
 import { useAccountDataStore } from './account-data'
 import { useSessionStore } from '@/stores/session'
@@ -1097,6 +1098,19 @@ export const useRoomStore = defineStore('room', () => {
         delete left.value[roomId]
         updateLeftRoomDatabase(roomId)
     }
+
+    onLogout(() => {
+        roomsLoading.value = false
+        roomsLoadError.value = null
+
+        draft.value = undefined
+        invited.value = {}
+        knocked.value = {}
+        joined.value = {}
+        left.value = {}
+
+        decryptedRoomEvents.value = {}
+    }, { permanent: true })
 
     return {
         roomsLoading,

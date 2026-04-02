@@ -28,8 +28,10 @@ import { useOlm } from './olm'
 
 import { getAllTableKeys as getAllDiscortixTableKeys, loadTableKey as loadDiscortixTableKey, saveTableKey as saveDiscortixTableKey } from '@/stores/database/discortix'
 import { useAccountDataStore } from '@/stores/account-data'
-import { useSessionStore } from '@/stores/session'
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
+import { useMegolmStore } from '@/stores/megolm'
+import { useOlmStore } from '@/stores/olm'
+import { useSessionStore } from '@/stores/session'
 
 import {
     type AesHmacSha2EncryptedData,
@@ -79,7 +81,6 @@ export function useCryptoKeys() {
     const cryptoKeysStore = useCryptoKeysStore()
     const {
         encryptionNotSupported,
-        roomKeyLoadFailed,
         signingKeysValidationFailed,
         signingKeysUploadFailed,
         secretKeyIdsMissing,
@@ -90,21 +91,26 @@ export function useCryptoKeys() {
         crossSigningMasterKey,
         crossSigningUserSigningKey,
         crossSigningSelfSigningKey,
+        olmSecretKey,
         olmAccount,
     } = storeToRefs(cryptoKeysStore)
     const {
-        addRoomKeyInMemory,
         populateKeysFromApiV3KeysQueryResponse,
-        loadAllOutboundSessions,
-        loadAllInboundSessions,
     } = cryptoKeysStore
+    const {
+        loadToDeviceErroredEvents,
+        loadAllOlmSessions,
+    } = useOlmStore()
+    const {
+        loadAllMegolmSessions,
+    } = useMegolmStore()
 
     watch(() => isLeader.value, async (isLeader, wasLeader) => {
-        if (isLeader && !wasLeader && userDevicePickleKey.value && sessionDeviceId.value) {
+        if (isLeader && !wasLeader && olmSecretKey.value && sessionDeviceId.value) {
             const accountPickle: string | undefined = (await loadDiscortixTableKey('olm', ['account', sessionDeviceId.value])) ?? undefined
             if (accountPickle) {
                 try {
-                    olmAccount.value = Account.from_pickle(accountPickle, userDevicePickleKey.value)
+                    olmAccount.value = Account.from_pickle(accountPickle, olmSecretKey.value)
                 } catch (error) { /* Ignore */ }
             }
         }
@@ -276,7 +282,7 @@ export function useCryptoKeys() {
             }
             
             // Generate one-time keys.
-            olmAccount.generate_one_time_keys(50)
+            olmAccount.generate_one_time_keys(olmAccount.max_number_of_one_time_keys)
             oneTimeKeys = {}
             for (const [keyId, oneTimeKey] of olmAccount.one_time_keys) {
                 const oneTimeKeyToSign = {
@@ -318,15 +324,15 @@ export function useCryptoKeys() {
         )
 
         olmAccount.mark_keys_as_published()
-        if (userDevicePickleKey.value) {
-            await saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.pickle(userDevicePickleKey.value))
+        if (olmSecretKey.value) {
+            await saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.pickle(olmSecretKey.value))
         }
 
         if (response.oneTimeKeyCounts?.signedCurve25519 != null && response.oneTimeKeyCounts.signedCurve25519 < 50) {
             uploadAuthenticatedUserDeviceOneTimeKeys(
                 olmAccount,
                 crossSigningSelfSigningKey,
-                50 - response.oneTimeKeyCounts.signedCurve25519
+                olmAccount.max_number_of_one_time_keys - response.oneTimeKeyCounts.signedCurve25519
             )
         }
     }
@@ -368,8 +374,8 @@ export function useCryptoKeys() {
         )
 
         olmAccount.mark_keys_as_published()
-        if (userDevicePickleKey.value) {
-            await saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.pickle(userDevicePickleKey.value))
+        if (olmSecretKey.value) {
+            await saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.pickle(olmSecretKey.value))
         }
     }
 
@@ -436,44 +442,6 @@ export function useCryptoKeys() {
             log.error('Vodozemac initialization failed.', error)
         }
 
-        await Promise.allSettled([
-            loadAllOutboundSessions(),
-            loadAllInboundSessions(),
-        ])
-
-        // Fetch room keys from storage.
-        try {
-            const roomKeyTableKeys: string[][] = await getAllDiscortixTableKeys('roomKeys')
-            const fetchPromises: Array<Promise<[string, string, string, EventForwardedRoomKeyContent]>> = []
-            for (const [roomId, sessionId, senderKey] of roomKeyTableKeys) {
-                if (!roomId || !sessionId || !senderKey) continue
-                fetchPromises.push(
-                    loadDiscortixTableKey('roomKeys', [roomId, sessionId, senderKey]).then(
-                        async (encryptedData: AesHmacSha2EncryptedData) => ([
-                            roomId,
-                            sessionId,
-                            senderKey,
-                            JSON.parse(await decryptSecret(
-                                userDevicePickleKey.value!,
-                                encryptedData,
-                                `${roomId},${sessionId},${senderKey}`,
-                            )),
-                        ])
-                    )
-                )
-            }
-            const settleResults = await Promise.allSettled(fetchPromises)
-            for (const settleResult of settleResults) {
-                if (settleResult.status === 'fulfilled') {
-                    const [roomId, sessionId, senderKey, event] = settleResult.value
-                    addRoomKeyInMemory(event)
-                }
-            }
-        } catch (error) {
-            log.error('An error occurred when loading room keys from storage.', error)
-            roomKeyLoadFailed.value = true
-        }
-        
         // Try to retrieve keys from the account data and uploaded store.
         let [
             secretStorageDefaultKeyName,
@@ -656,7 +624,8 @@ export function useCryptoKeys() {
         }
         const ownedSecretKeyIds = Object.keys(secretKeys)
 
-        // Retrieve signing private keys
+        // Retrieve signing private keys and OLM account
+        const accountPickle: string | undefined = (await loadDiscortixTableKey('olm', ['account', sessionDeviceId.value])) ?? undefined
         for (const keyId of ownedSecretKeyIds) {
             if (crossSigningMaster?.encrypted[keyId]) {
                 try {
@@ -679,6 +648,15 @@ export function useCryptoKeys() {
                     )
                 } catch (error) { /* Ignore */ }
             }
+            if (accountPickle) {
+                try {
+                    olmAccount.value = Account.from_pickle(accountPickle, secretKeys[keyId]!)
+                    olmSecretKey.value = secretKeys[keyId]!
+                } catch (error) { /* Ignore */ }
+            }
+        }
+        if (!olmSecretKey.value && ownedSecretKeyIds.length > 0) {
+            olmSecretKey.value = secretKeys[ownedSecretKeyIds[0]!]
         }
 
         // Determine which secret keys are missing if failed to retrieve any of the private signing keys.
@@ -706,28 +684,28 @@ export function useCryptoKeys() {
         }
         secretKeyIdsMissing.value = Array.from(missingKeyIdSet)
 
+        await Promise.allSettled([
+            loadAllMegolmSessions(),
+            loadAllOlmSessions(),
+            loadToDeviceErroredEvents(),
+        ])
+
         await generateDeviceKeys(uploadedKeys)
     }
 
     async function generateDeviceKeys(uploadedKeys?: ApiV3KeysQueryResponse) {
-        if (!userDevicePickleKey.value || !sessionDeviceId.value) return
+        if (!sessionDeviceId.value) return
 
         if (!uploadedKeys) {
             uploadedKeys = await queryAuthenticatedUserKeys()
         }
 
+        console.log('GENERATE DEVICE KEYS ', olmSecretKey.value)
         // Generate Curve25519 identity key for OLM message encryption.
-        const accountPickle: string | undefined = (await loadDiscortixTableKey('olm', ['account', sessionDeviceId.value])) ?? undefined
-        if (accountPickle) {
-            try {
-                olmAccount.value = Account.from_pickle(accountPickle, userDevicePickleKey.value)
-            } catch (error) {
-                // Account will be re-generated, device identity is reset.
-            }
-        }
-        if (!olmAccount.value) {
+        if (!olmAccount.value && olmSecretKey.value) {
+            console.log('CREATING OLM ACCOUNT')
             olmAccount.value = new Account()
-            saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.value.pickle(userDevicePickleKey.value))
+            saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.value.pickle(olmSecretKey.value))
         }
 
         // Upload OLM device keys.
@@ -777,6 +755,9 @@ export function useCryptoKeys() {
                 crossSigningMasterKey.value = decodeBase64(
                     await decryptSecret(secretKey, crossSigningMaster.encrypted[keyId], 'm.cross_signing.master')
                 )
+                if (!olmSecretKey.value) {
+                    olmSecretKey.value = secretKey
+                }
             } catch (error) { /* Ignore */ }
         }
         if (crossSigningUserSigning?.encrypted[keyId]) {
@@ -784,6 +765,9 @@ export function useCryptoKeys() {
                 crossSigningUserSigningKey.value = decodeBase64(
                     await decryptSecret(secretKey, crossSigningUserSigning.encrypted[keyId], 'm.cross_signing.user_signing')
                 )
+                if (!olmSecretKey.value) {
+                    olmSecretKey.value = secretKey
+                }
             } catch (error) { /* Ignore */ }
         }
         if (crossSigningSelfSigning?.encrypted[keyId]) {
@@ -791,14 +775,28 @@ export function useCryptoKeys() {
                 crossSigningSelfSigningKey.value = decodeBase64(
                     await decryptSecret(secretKey, crossSigningSelfSigning.encrypted[keyId], 'm.cross_signing.self_signing')
                 )
+                if (!olmSecretKey.value) {
+                    olmSecretKey.value = secretKey
+                }
+            } catch (error) { /* Ignore */ }
+        }
+        const accountPickle: string | undefined = (await loadDiscortixTableKey('olm', ['account', sessionDeviceId.value!])) ?? undefined
+        if (accountPickle) {
+            try {
+                olmAccount.value = Account.from_pickle(accountPickle, secretKey)
+                olmSecretKey.value = secretKey
             } catch (error) { /* Ignore */ }
         }
     }
 
     async function installRecoveryKey(keyId: string, recoveryKey: string) {
         const secretKey = await recoveryKeyStringToRawKey(recoveryKey)
-        installSecretKey(keyId, secretKey)
-        await generateDeviceKeys()
+        await installSecretKey(keyId, secretKey)
+        await Promise.allSettled([
+            generateDeviceKeys(),
+            loadAllMegolmSessions(),
+            loadAllOlmSessions(),
+        ])
     }
 
     // TODO - maybe persist these timestamps in storage to reduce API cost
@@ -868,8 +866,6 @@ export function useCryptoKeys() {
             // }
         }
     }
-
-    
 
     async function requestRoomKey(roomId: string, sessionId: string, senderKey: string, otherUserId: string, otherDeviceId: string) {
         forceClaimLeadership()
@@ -954,7 +950,7 @@ export function useCryptoKeys() {
             uploadAuthenticatedUserDeviceOneTimeKeys(
                 olmAccount.value,
                 crossSigningSelfSigningKey.value,
-                50 - syncResponse.deviceOneTimeKeysCount.signedCurve25519,
+                olmAccount.value.max_number_of_one_time_keys - syncResponse.deviceOneTimeKeysCount.signedCurve25519,
             )
         }
     }

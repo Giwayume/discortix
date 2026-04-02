@@ -91,7 +91,7 @@
                     </div>
                     <div class="flex flex-col grow-1">
                         <label for="new-message-dialog-group-name-input" class="text-sm text-(--text-muted) mb-3">{{ t('newMessageDialog.groupNameLabel') }}</label>
-                        <InputText v-model="groupName" :placeholder="defaultGroupName" id="new-message-dialog-group-name-input" class="w-full" />
+                        <InputText v-model="groupName" :placeholder="defaultGroupName" id="new-message-dialog-group-name-input" class="w-full" @keydown.prevent.enter="createRoomConfirm()" />
                     </div>
                 </div>
                 <div class="flex w-full gap-2 pt-2">
