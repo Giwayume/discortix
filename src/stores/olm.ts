@@ -2,6 +2,8 @@ import { ref, toRaw } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
 import { Session } from 'vodozemac-wasm-bindings'
 
+import { deepToRaw } from '@/utils/vue'
+
 import { useBroadcast } from '@/composables/broadcast'
 import { createLogger } from '@/composables/logger'
 import { onLogout } from '@/composables/logout'
@@ -38,7 +40,7 @@ export const useOlmStore = defineStore('olm', () => {
 
     async function saveToDeviceErroredEvents() {
         if (!isLeader.value) return
-        await saveDiscortixTableKey('olm', ['toDevice', 'errors'], toRaw(toDeviceErroredEvents.value))
+        await saveDiscortixTableKey('olm', ['toDevice', 'errors'], deepToRaw(toDeviceErroredEvents.value))
         broadcastMessageFromTab({
             type: 'updateToDeviceErroredEvents',
         })
@@ -122,7 +124,7 @@ export const useOlmStore = defineStore('olm', () => {
             }
         })
         try {
-            await saveDiscortixTableKey('olm', ['sessions', sessionKey], toRaw(sessionPickles))
+            await saveDiscortixTableKey('olm', ['sessions', sessionKey], deepToRaw(sessionPickles))
             broadcastMessageFromTab({
                 type: 'updateOlmSessions',
                 data: {
@@ -146,7 +148,7 @@ export const useOlmStore = defineStore('olm', () => {
                             pickle: sessionWithUsage.session.pickle(olmSecretKey.value!)
                         }
                     })
-                    await saveDiscortixTableKey('olm', ['sessions', sessionKey], toRaw(sessionPickles))
+                    await saveDiscortixTableKey('olm', ['sessions', sessionKey], deepToRaw(sessionPickles))
                     broadcastMessageFromTab({
                         type: 'updateOlmSessions',
                         data: {
@@ -194,7 +196,7 @@ export const useOlmStore = defineStore('olm', () => {
                         pickle: sessionWithUsage.session.pickle(olmSecretKey.value!)
                     }
                 })
-                await saveDiscortixTableKey('olm', ['sessions', sessionKey], toRaw(sessionPickles))
+                await saveDiscortixTableKey('olm', ['sessions', sessionKey], deepToRaw(sessionPickles))
                 broadcastMessageFromTab({
                     type: 'updateOlmSessions',
                     data: {

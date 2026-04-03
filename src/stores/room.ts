@@ -1,7 +1,9 @@
-import { computed, ref, toRaw } from 'vue'
+import { computed, ref, type Ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { defineStore, storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
+
+import { deepToRaw } from '@/utils/vue'
 
 import { useBroadcast } from '@/composables/broadcast'
 import { useEventTimeline } from '@/composables/event-timeline'
@@ -32,10 +34,17 @@ import {
     type ApiV3SyncResponse,
     type ApiV3SyncLeftRoom,
     type ApiV3SyncTimeline,
+    type EventRoomEncryptedContent,
     type EventRoomRedactionContent,
 } from '@/types'
 
 const { isEventVisible, redactEvent } = useEventTimeline()
+
+let decryptMegolmEvent: ((roomId: string,
+        sessionId: string,
+        senderKey: string,
+        eventContent: EventRoomEncryptedContent
+    ) => any) | undefined = undefined
 
 function isRoomStateEventType(type: string) {
     return /^(m\.room|m\.space)/.test(type)
@@ -156,10 +165,11 @@ function addJoinedOrLeftRoomStateEvent(room: JoinedRoom | LeftRoom, event: ApiV3
 }
 
 /** Merges event into the timeline in server timestamp order. Returns true if it was a duplicate event. */
-function addJoinedOrLeftRoomTimelineEvent(
+async function addJoinedOrLeftRoomTimelineEvent(
     room: JoinedRoom | LeftRoom,
-    event: ApiV3SyncClientEventWithoutRoomId
-): boolean {
+    event: ApiV3SyncClientEventWithoutRoomId,
+    decryptedRoomEvents: Ref<Record<string, ApiV3SyncClientEventWithoutRoomId>>,
+): Promise<boolean> {
     let timeline = isEventVisible(event) ? room.visibleTimeline : room.invisibleTimeline
 
     // Process redaction
@@ -205,7 +215,7 @@ function addJoinedOrLeftRoomTimelineEvent(
 
                 redactEvent(redactedInvisibleEvent)
                 if (redactedInvisibleEvent.type !== 'm.room.redaction') {
-                    addJoinedOrLeftRoomTimelineEvent(room, redactedInvisibleEvent)
+                    await addJoinedOrLeftRoomTimelineEvent(room, redactedInvisibleEvent, decryptedRoomEvents)
                 }
             }
         }
@@ -283,6 +293,24 @@ function addJoinedOrLeftRoomTimelineEvent(
     const duplicateEventIndex = getTimelineEventIndexById(timeline, event.eventId, 100)
     if (duplicateEventIndex != null) {
         timeline.splice(duplicateEventIndex, 1)
+    }
+
+    // Decrypt and store unencrypted text
+    console.log('new event' ,event.type)
+    if (event.type === 'm.room.encrypted' && event.content) {
+        console.log('decrypting event!')
+        if (!decryptMegolmEvent) {
+            ({ decryptEvent: decryptMegolmEvent } = (await import('@/stores/megolm')).useMegolmStore())
+        }
+        try {
+            const decrypted = await decryptMegolmEvent(room.roomId, event.content.sessionId, event.content.senderKey, event.content)
+            const decryptedEvent = {
+                ...event,
+                ...decrypted,
+            }
+            decryptedRoomEvents.value[event.eventId] = decryptedEvent
+            console.log('decrypted', decryptedEvent)
+        } catch (error) { console.log(error) /* Ignore. Other code will try again later. */ }
     }
 
     // Insert event into timeline
@@ -661,7 +689,7 @@ export const useRoomStore = defineStore('room', () => {
                             if (isRoomStateEventType(timelineEvent.type)) {
                                 addJoinedOrLeftRoomStateEvent(joined.value[roomId], timelineEvent)
                             }
-                            addJoinedOrLeftRoomTimelineEvent(joined.value[roomId], timelineEvent)
+                            await addJoinedOrLeftRoomTimelineEvent(joined.value[roomId], timelineEvent, decryptedRoomEvents)
                         }
                     }
                 }
@@ -738,7 +766,7 @@ export const useRoomStore = defineStore('room', () => {
                             if (isRoomStateEventType(timelineEvent.type)) {
                                 addJoinedOrLeftRoomStateEvent(left.value[roomId], timelineEvent)
                             }
-                            addJoinedOrLeftRoomTimelineEvent(left.value[roomId], timelineEvent)
+                            await addJoinedOrLeftRoomTimelineEvent(left.value[roomId], timelineEvent, decryptedRoomEvents)
                         }
                     }
                 }
@@ -772,28 +800,28 @@ export const useRoomStore = defineStore('room', () => {
             const updatePromises: Promise<void>[] = []
             for (const roomId of updatedInvitedRoomIds) {
                 updatePromises.push(
-                    saveDiscortixTableKey('rooms', ['invited', roomId], toRaw(invited.value[roomId])).catch(() => {
+                    saveDiscortixTableKey('rooms', ['invited', roomId], invited.value[roomId] ? deepToRaw(invited.value[roomId]) : undefined).catch(() => {
                         localStorage.setItem('mx_full_sync_required', 'true')
                     })
                 )
             }
             for (const roomId of updatedKnockedRoomIds) {
                 updatePromises.push(
-                    saveDiscortixTableKey('rooms', ['knocked', roomId], toRaw(knocked.value[roomId])).catch((error) => {
+                    saveDiscortixTableKey('rooms', ['knocked', roomId], knocked.value[roomId] ? deepToRaw(knocked.value[roomId]) : undefined).catch((error) => {
                         localStorage.setItem('mx_full_sync_required', 'true')
                     })
                 )
             }
             for (const roomId of updatedJoinedRoomIds) {
                 updatePromises.push(
-                    saveDiscortixTableKey('rooms', ['joined', roomId], toRaw(joined.value[roomId])).catch(() => {
+                    saveDiscortixTableKey('rooms', ['joined', roomId], joined.value[roomId] ? deepToRaw(joined.value[roomId]) : undefined).catch(() => {
                         localStorage.setItem('mx_full_sync_required', 'true')
                     })
                 )
             }
             for (const roomId of updatedLeftRoomIds) {
                 updatePromises.push(
-                    saveDiscortixTableKey('rooms', ['left', roomId], toRaw(left.value[roomId])).catch((error) => {
+                    saveDiscortixTableKey('rooms', ['left', roomId], left.value[roomId] ? deepToRaw(left.value[roomId]) : undefined).catch((error) => {
                         localStorage.setItem('mx_full_sync_required', 'true')
                     })
                 )
@@ -806,7 +834,7 @@ export const useRoomStore = defineStore('room', () => {
     async function populateSentMessageEvent(roomId: string, event: ApiV3SyncClientEventWithoutRoomId) {
         const room = joined.value[roomId]
         if (!room) return
-        addJoinedOrLeftRoomTimelineEvent(room, event)
+        await addJoinedOrLeftRoomTimelineEvent(room, event, decryptedRoomEvents)
 
         updateJoinedRoomDatabase(roomId)
     }
@@ -843,7 +871,7 @@ export const useRoomStore = defineStore('room', () => {
         let duplicateEncounteredCount = 0
 
         for (const timelineEvent of messages.chunk) {
-            duplicateEncounteredCount += addJoinedOrLeftRoomTimelineEvent(room, timelineEvent) ? 1 : 0
+            duplicateEncounteredCount += await addJoinedOrLeftRoomTimelineEvent(room, timelineEvent, decryptedRoomEvents) ? 1 : 0
             if (duplicateEncounteredCount > 3) break
         }
 
@@ -871,13 +899,13 @@ export const useRoomStore = defineStore('room', () => {
         if (isLeader.value) {
             if (joinedRoom) {
                 try {
-                    await saveDiscortixTableKey('rooms', ['joined', roomId], toRaw(joined.value[roomId]))
+                    await saveDiscortixTableKey('rooms', ['joined', roomId], joined.value[roomId] ? deepToRaw(joined.value[roomId]) : undefined)
                 } catch (error) {
                     // Ignore - It is not critical that message history is updated. Can fetch again.
                 }
             } else if (leftRoom) {
                 try {
-                    await saveDiscortixTableKey('rooms', ['left', roomId], toRaw(left.value[roomId]))
+                    await saveDiscortixTableKey('rooms', ['left', roomId], left.value[roomId] ? deepToRaw(left.value[roomId]) : undefined)
                 } catch (error) {
                     // Ignore - It is not critical that message history is updated. Can fetch again.
                 }
@@ -889,7 +917,7 @@ export const useRoomStore = defineStore('room', () => {
         if (isLeader.value) {
             try {
                 if (invited.value[roomId]) {
-                    await saveDiscortixTableKey('rooms', ['invited', roomId], toRaw(invited.value[roomId]))
+                    await saveDiscortixTableKey('rooms', ['invited', roomId], invited.value[roomId] ? deepToRaw(invited.value[roomId]) : undefined)
                 } else {
                     await deleteDiscortixTableKey('rooms', ['invited', roomId])
                 }
@@ -902,7 +930,7 @@ export const useRoomStore = defineStore('room', () => {
         if (isLeader.value) {
             try {
                 if (knocked.value[roomId]) {
-                    await saveDiscortixTableKey('rooms', ['knocked', roomId], toRaw(knocked.value[roomId]))
+                    await saveDiscortixTableKey('rooms', ['knocked', roomId], knocked.value[roomId] ? deepToRaw(knocked.value[roomId]) : undefined)
                 } else {
                     await deleteDiscortixTableKey('rooms', ['knocked', roomId])
                 }
@@ -915,7 +943,7 @@ export const useRoomStore = defineStore('room', () => {
         if (isLeader.value) {
             try {
                 if (joined.value[roomId]) {
-                    await saveDiscortixTableKey('rooms', ['joined', roomId], toRaw(joined.value[roomId]))
+                    await saveDiscortixTableKey('rooms', ['joined', roomId], joined.value[roomId] ? deepToRaw(joined.value[roomId]) : undefined)
                 } else {
                     await deleteDiscortixTableKey('rooms', ['joined', roomId])
                 }
@@ -928,7 +956,7 @@ export const useRoomStore = defineStore('room', () => {
         if (isLeader.value) {
             try {
                 if (left.value[roomId]) {
-                    await saveDiscortixTableKey('rooms', ['left', roomId], toRaw(left.value[roomId]))
+                    await saveDiscortixTableKey('rooms', ['left', roomId], left.value[roomId] ? deepToRaw(left.value[roomId]) : undefined)
                 } else {
                     await deleteDiscortixTableKey('rooms', ['left', roomId])
                 }

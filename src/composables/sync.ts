@@ -74,7 +74,7 @@ export function useSync() {
             log.error('Error when populating account data from sync.', error)
         }
         try {
-            populateRoomsFromApiV3SyncResponse(syncResponse)
+            await populateRoomsFromApiV3SyncResponse(syncResponse)
         } catch (error) {
             log.error('Error when populating rooms from sync.', error)
         }

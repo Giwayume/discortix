@@ -134,8 +134,11 @@
         "deviceEncryptionNotEnabledSecureContext": "This app is being hosted without HTTPS security, which disables its ability to use encryption. Please contact the administrator who hosts this website and ask them to fix it.",
         "unknownError": "We were unable to detect why this message can't be decrypted.",
         "roomKeyRequestInstructions": "Another user's device must be online in order to receive decryption keys. We can manually request, and see if we receive them.",
-        "roomKeyRequestError": "An error occured while requesting keys. Sorry about that. Try again later.",
+        "roomKeyRequestError": "We could not discover any user devices that are willing to share the room keys. It is possible they will respond to the key requests later when they come online.",
         "roomKeyRequestDiscoveringUsers": "Discovering users...",
+        "roomKeyRequestRequestingKeys": "Requesting keys...",
+        "roomKeyRequestWaitingForKeys": "Waiting for responses...",
+        "roomKeyFound": "Another user sent the key. The message should be decrypted now!",
         "requestKeysButton": "Request Keys"
     },
     "home": {
@@ -379,6 +382,7 @@
         "ignoreInviteButton": "Ignore",
         "spaceMessageHistoryBeginningTitle": "Welcome to #{roomName}",
         "spaceMessageHistoryBeginningSubtitle": "This is the start of the #{roomName} room.",
+        "addFriendButton": "Add Friend",
         "removeFriendButton": "Remove Friend",
         "blockButton": "Block",
         "roomEncryptionEnabled": "Chat room encryption is enabled.",

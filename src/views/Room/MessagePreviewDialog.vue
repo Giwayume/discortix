@@ -126,7 +126,11 @@ const eventRenderInfo = computed<EventWithRenderInfo | undefined>(() => {
         replacementDate: replacementEvent?.originServerTs ? new Date(replacementEvent.originServerTs).toLocaleString() : undefined,
         reactions,
         replyTo: undefined,
-        showUnencryptedWarning: settings.warnUnencryptedMessageInEncryptedRoom && currentRoomEncryptionEnabledTimestamp.value != null && event.type !== 'm.room.encrypted' && event.originServerTs > currentRoomEncryptionEnabledTimestamp.value,
+        showUnencryptedWarning: settings.warnUnencryptedMessageInEncryptedRoom
+            && currentRoomEncryptionEnabledTimestamp.value != null
+            && event.sender !== sessionUserId.value
+            && event.type !== 'm.room.encrypted'
+            && event.originServerTs > currentRoomEncryptionEnabledTimestamp.value,
     })
 
     if (event.type === 'm.room.encrypted') {

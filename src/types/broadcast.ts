@@ -101,6 +101,16 @@ export const BroadcastUpdateOutboundMegolmSessionMessageSchema = z.object({
 })
 export type BroadcastUpdateOutboundMegolmSessionMessage = z.infer<typeof BroadcastUpdateOutboundMegolmSessionMessageSchema>
 
+export const BroadcastUpdateRoomMegolmMetadataMessageSchema = z.object({
+    fromLeader: z.boolean().optional(),
+    fromTabId: z.string().optional(),
+    type: z.literal('updateRoomMegolmMetadata'),
+    data: z.object({
+        roomId: z.string(),
+    }),
+})
+export type BroadcastUpdateRoomMegolmMetadataMessage = z.infer<typeof BroadcastUpdateRoomMegolmMetadataMessageSchema>
+
 export const BroadcastUpdateToDeviceErroredEventsMessageSchema = z.object({
     fromLeader: z.boolean().optional(),
     fromTabId: z.string().optional(),
@@ -120,6 +130,7 @@ export const broadcastMessageSchemaByType = {
     'updateOlmAccount': BroadcastUpdateOlmAccountMessageSchema,
     'updateOlmSessions': BroadcastUpdateOlmSessionsMessageSchema,
     'updateOutboundMegolmSession': BroadcastUpdateOutboundMegolmSessionMessageSchema,
+    'updateRoomMegolmMetadata': BroadcastUpdateRoomMegolmMetadataMessageSchema,
     'updateToDeviceErroredEvents': BroadcastUpdateToDeviceErroredEventsMessageSchema,
 }
 
@@ -134,5 +145,6 @@ export type BroadcastMessage = (
     | BroadcastUpdateOlmAccountMessage
     | BroadcastUpdateOlmSessionsMessage
     | BroadcastUpdateOutboundMegolmSessionMessage
+    | BroadcastUpdateRoomMegolmMetadataMessage
     | BroadcastUpdateToDeviceErroredEventsMessage
 )

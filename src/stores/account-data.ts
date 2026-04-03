@@ -1,8 +1,10 @@
 import { computed, ref, toRaw } from 'vue'
 import { defineStore } from 'pinia'
-import { createLogger } from '@/composables/logger'
+
+import { deepToRaw } from '@/utils/vue'
 
 import { useBroadcast } from '@/composables/broadcast'
+import { createLogger } from '@/composables/logger'
 import { onLogout } from '@/composables/logout'
 
 import {
@@ -69,7 +71,7 @@ export const useAccountDataStore = defineStore('accountData', () => {
             accountData.value[accountDataItem.type] = accountDataItem.content
 
             if (isLeader.value) {
-                saveDiscortixTableKey('accountData', accountDataItem.type, toRaw(accountDataItem.content)).catch(() => {
+                saveDiscortixTableKey('accountData', accountDataItem.type, deepToRaw(accountDataItem.content)).catch(() => {
                     // Maybe this isn't the end of the world.
                 })
             }
@@ -86,7 +88,7 @@ export const useAccountDataStore = defineStore('accountData', () => {
             }
         })
         if (isLeader.value) {
-            saveDiscortixTableKey('accountData', type, toRaw(data)).catch(() => {
+            saveDiscortixTableKey('accountData', type, deepToRaw(data)).catch(() => {
                 // Maybe this isn't the end of the world.
             })
         }
@@ -96,7 +98,7 @@ export const useAccountDataStore = defineStore('accountData', () => {
         if (message.type === 'populateAccountDataByType') {
             accountData.value[message.data.type] = message.data.data
             if (isLeader.value) {
-                saveDiscortixTableKey('accountData', message.data.type, toRaw(message.data.data)).catch(() => {
+                saveDiscortixTableKey('accountData', message.data.type, deepToRaw(message.data.data)).catch(() => {
                     // Maybe this isn't the end of the world.
                 })
             }

@@ -126,6 +126,7 @@ import { computed, defineAsyncComponent, reactive, ref, watch, type PropType } f
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
+import type { GroupSession } from 'vodozemac-wasm-bindings'
 
 import { vPointer } from '@/directives/pointer'
 
@@ -133,6 +134,7 @@ import { useApplication } from '@/composables/application'
 import { useCryptoKeys } from '@/composables/crypto-keys'
 import { useEmoji } from '@/composables/emoji'
 import { createLogger } from '@/composables/logger'
+import { useMegolm } from '@/composables/megolm'
 import { useRooms } from '@/composables/rooms'
 
 import { useProfileStore } from '@/stores/profile'
@@ -174,6 +176,8 @@ const { sendTypingNotification, sendMessageEvent, sendMessageReaction } = useRoo
 
 const { fetchUserKeys } = useCryptoKeys()
 const { currentRoomCustomEmojiByCode } = useEmoji()
+const { getOutboundGroupSession } = useMegolm()
+
 const roomStore = useRoomStore()
 const {
     getTimelineEventIndexById,
@@ -477,11 +481,13 @@ async function onSubmitMessageForm() {
     populateSentMessageEvent(props.room.roomId, event)
 
     try {
+        let groupSession: GroupSession | undefined = await getOutboundGroupSession(props.room.roomId)
         const response = await sendMessageEvent<EventTextContent>(
-            props.room.roomId, 'm.room.message', txnId, event.content
+            props.room.roomId, 'm.room.message', txnId, event.content, groupSession
         )
         associateTransactionIdWithEventId(props.room.roomId, txnId, response.eventId)
     } catch (error) {
+        log.error('Error sending message:', error)
         event.sendError = true
     }
 }
@@ -498,6 +504,7 @@ async function retrySendMessage(eventId?: string) {
         )
         associateTransactionIdWithEventId(props.room.roomId, event.txnId, response.eventId)
     } catch (error) {
+        log.error('Error resending message:', error)
         event.sendError = true
     }
 }

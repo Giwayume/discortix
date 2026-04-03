@@ -1,15 +1,14 @@
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
-import { Account, type InboundCreationResult, type Session } from 'vodozemac-wasm-bindings'
+import type { InboundCreationResult, Session } from 'vodozemac-wasm-bindings'
 
-import { DecryptionError } from '@/utils/error'
+import { DecryptionError, EncryptionNotSupportedError } from '@/utils/error'
 import { fetchJson } from '@/utils/fetch'
 import { snakeCaseApiRequest, camelizeApiResponse } from '@/utils/zod'
 
 import { createLogger } from '@/composables/logger'
 import { useBroadcast } from '@/composables/broadcast'
 
-import { loadTableKey as loadDiscortixTableKey, saveTableKey as saveDiscortixTableKey } from '@/stores/database/discortix'
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
 import { useMegolmStore } from '@/stores/megolm'
 import { useOlmStore } from '@/stores/olm'
@@ -30,6 +29,13 @@ import {
 } from '@/types'
 
 const log = createLogger(import.meta.url)
+
+interface ProcessedSendToDeviceMessage {
+    userId: string;
+    deviceId: string;
+    messageType: string;
+    messageContent: Partial<OlmPayload>;
+}
 
 const olmAlgorithm = 'm.olm.v1.curve25519-aes-sha2'
 const megolmAlgorithm = 'm.megolm.v1.aes-sha2'
@@ -72,9 +78,8 @@ export function useOlm() {
         deviceId: sessionDeviceId,
     } = storeToRefs(useSessionStore())
 
-    async function sendMessageToDevice<T = any>(
-        otherUserId: string,
-        otherDeviceId: string,
+    async function sendMessageToDevices<T = any>(
+        userDeviceIds: Array<[string, string]>,
         messageType: string,
         messageContent: T,
         overrideOlmSession?: Session,
@@ -85,122 +90,137 @@ export function useOlm() {
             || !olmAccount.value
         ) throw new Error('Missing required state to send an OLM message.')
 
-        const isEncryptedMessageType = encryptedMessageTypes.includes(messageType)
-        let messageToSend: Partial<OlmPayload> = {
-            type: messageType,
-            content: snakeCaseApiRequest(messageContent),
-            sender: sessionUserId.value,
-        }
-        let encryptedMessageToSend: Partial<OlmPayload> | undefined = undefined
+        const messagesToSend: ProcessedSendToDeviceMessage[] = []
 
-        const myDeviceEd25519Key = deviceKeys.value[sessionUserId.value]?.[sessionDeviceId.value]?.keys[`ed25519:${sessionDeviceId.value}`] ?? ''
-        const otherDeviceCurveKey = deviceKeys.value[otherUserId]?.[otherDeviceId]?.keys[`curve25519:${otherDeviceId}`] ?? ''
-        const otherDeviceEd25519Key = deviceKeys.value[otherUserId]?.[otherDeviceId]?.keys[`ed25519:${otherDeviceId}`] ?? ''
+        for (const [otherUserId, otherDeviceId] of userDeviceIds) {
 
-        let olmSessions: OlmSessionWithUsage[] = overrideOlmSession
-            ? [{
-                createdTs: Date.now(),
-                lastInboundActivityTs: 0,
-                isConfirmed: true,
-                session: overrideOlmSession,
-            }]
-            : await getOlmSessions(otherUserId, otherDeviceCurveKey, olmAlgorithm)
-        let mostReliableSession: OlmSessionWithUsage | undefined = undefined
+            const isEncryptedMessageType = encryptedMessageTypes.includes(messageType)
+            let messageToSend: Partial<OlmPayload> = {
+                type: messageType,
+                content: snakeCaseApiRequest(messageContent),
+                sender: sessionUserId.value,
+            }
+            let encryptedMessageToSend: Partial<OlmPayload> | undefined = undefined
 
-        if (olmSessions.length === 0) {
-            const oneTimeKeysResponse = await fetchJson<ApiV3KeysClaimResponse>(
-                `${homeserverBaseUrl.value}/_matrix/client/v3/keys/claim`,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        one_time_keys: {
-                            [otherUserId]: {
-                                [otherDeviceId]: 'signed_curve25519',
+            const myDeviceEd25519Key = deviceKeys.value[sessionUserId.value]?.[sessionDeviceId.value]?.keys[`ed25519:${sessionDeviceId.value}`] ?? ''
+            const otherDeviceCurveKey = deviceKeys.value[otherUserId]?.[otherDeviceId]?.keys[`curve25519:${otherDeviceId}`] ?? ''
+            const otherDeviceEd25519Key = deviceKeys.value[otherUserId]?.[otherDeviceId]?.keys[`ed25519:${otherDeviceId}`] ?? ''
+
+            let olmSessions: OlmSessionWithUsage[] = overrideOlmSession
+                ? [{
+                    createdTs: Date.now(),
+                    lastInboundActivityTs: 0,
+                    isConfirmed: true,
+                    session: overrideOlmSession,
+                }]
+                : await getOlmSessions(otherUserId, otherDeviceCurveKey, olmAlgorithm)
+            let mostReliableSession: OlmSessionWithUsage | undefined = undefined
+
+            if (olmSessions.length === 0) {
+                const oneTimeKeysResponse = await fetchJson<ApiV3KeysClaimResponse>(
+                    `${homeserverBaseUrl.value}/_matrix/client/v3/keys/claim`,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            one_time_keys: {
+                                [otherUserId]: {
+                                    [otherDeviceId]: 'signed_curve25519',
+                                },
                             },
-                        },
-                        timeout: 10000,
-                    } satisfies ApiV3KeysClaimRequest),
-                    useAuthorization: true,
-                    jsonSchema: ApiV3KeysClaimResponseSchema,
-                },
-            )
+                            timeout: 10000,
+                        } satisfies ApiV3KeysClaimRequest),
+                        useAuthorization: true,
+                        jsonSchema: ApiV3KeysClaimResponseSchema,
+                    },
+                )
 
-            const oneTimeKeys = oneTimeKeysResponse.oneTimeKeys[otherUserId]?.[otherDeviceId] ?? {}
-            const oneTimeKeyOrString = oneTimeKeys[Object.keys(oneTimeKeys)[0]!]
-            const oneTimeKey: string
-                = (Object.prototype.toString.call(oneTimeKeyOrString) === '[object Object]')
-                    ? (oneTimeKeyOrString as any).key
-                    : oneTimeKeyOrString as any
-            
-            await addOlmSession(
-                otherUserId,
-                otherDeviceCurveKey,
-                olmAlgorithm,
-                olmAccount.value.create_outbound_session(otherDeviceCurveKey, oneTimeKey),
-                true,
-            )
-            olmSessions = await getOlmSessions(otherUserId, otherDeviceCurveKey, olmAlgorithm)
+                const oneTimeKeys = oneTimeKeysResponse.oneTimeKeys[otherUserId]?.[otherDeviceId] ?? {}
+                const oneTimeKeyOrString = oneTimeKeys[Object.keys(oneTimeKeys)[0]!]
+                const oneTimeKey: string
+                    = (Object.prototype.toString.call(oneTimeKeyOrString) === '[object Object]')
+                        ? (oneTimeKeyOrString as any).key
+                        : oneTimeKeyOrString as any
+                
+                await addOlmSession(
+                    otherUserId,
+                    otherDeviceCurveKey,
+                    olmAlgorithm,
+                    olmAccount.value.create_outbound_session(otherDeviceCurveKey, oneTimeKey),
+                    true,
+                )
+                olmSessions = await getOlmSessions(otherUserId, otherDeviceCurveKey, olmAlgorithm)
+            }
+
+            if (isEncryptedMessageType) {
+                if (olmSessions.length === 0) throw new Error('No existing inbound sessions, and failed to create outbound session.')
+
+                messageToSend.keys = {
+                    ed25519: myDeviceEd25519Key,
+                }
+                messageToSend.recipient = otherUserId
+                messageToSend.recipientKeys = {
+                    ed25519: otherDeviceEd25519Key,
+                }
+                messageToSend.sender = sessionUserId.value
+
+                mostReliableSession = olmSessions.sort((a, b) => {
+                    if (a.isConfirmed && !b.isConfirmed) return -1
+                    if (b.isConfirmed && !a.isConfirmed) return 1
+                    return a.lastInboundActivityTs > b.lastInboundActivityTs ? -1 : 1
+                })[0]
+
+                if (!mostReliableSession) throw new Error('Could not find an OLM session to use')
+
+                const encryptedResult = mostReliableSession.session.encrypt(
+                    new TextEncoder().encode(
+                        JSON.stringify(snakeCaseApiRequest(messageToSend))
+                    )
+                )
+
+                await saveOlmSession(mostReliableSession)
+
+                encryptedMessageToSend = {
+                    type: isEncryptedMessageType ? 'm.room.encrypted' : 'm.dummy',
+                    content: {
+                        algorithm: olmAlgorithm,
+                        sender_key: olmAccount.value?.curve25519_key,
+                        ciphertext: {
+                            [otherDeviceCurveKey]: {
+                                type: mostReliableSession.isConfirmed ? 1 : 0,
+                                body: encryptedResult.ciphertext,
+                            }
+                        }
+                    },
+                }
+            }
+
+            messagesToSend.push({
+                userId: otherUserId,
+                deviceId: otherDeviceId,
+                messageType: encryptedMessageToSend?.type ?? messageToSend.type ?? '',
+                messageContent: encryptedMessageToSend?.content ?? messageToSend.content,
+            })
         }
 
-        if (isEncryptedMessageType) {
-            if (olmSessions.length === 0) throw new Error('No existing inbound sessions, and failed to create outbound session.')
-
-            messageToSend.keys = {
-                ed25519: myDeviceEd25519Key,
+        if (messagesToSend.length === 0) return
+        const messages: Record<string, Record<string, Partial<OlmPayload>>> = {}
+        for (const message of messagesToSend) {
+            if (!messages[message.userId]) {
+                messages[message.userId] = {}
             }
-            messageToSend.recipient = otherUserId
-            messageToSend.recipientKeys = {
-                ed25519: otherDeviceEd25519Key,
-            }
-            messageToSend.sender = sessionUserId.value
-
-            mostReliableSession = olmSessions.sort((a, b) => {
-                if (a.isConfirmed && !b.isConfirmed) return -1
-                if (b.isConfirmed && !a.isConfirmed) return 1
-                return a.lastInboundActivityTs > b.lastInboundActivityTs ? -1 : 1
-            })[0]
-
-            if (!mostReliableSession) throw new Error('Could not find an OLM session to use')
-
-            const encryptedResult = mostReliableSession.session.encrypt(
-                new TextEncoder().encode(
-                    JSON.stringify(snakeCaseApiRequest(messageToSend))
-                )
-            )
-
-            encryptedMessageToSend = {
-                type: isEncryptedMessageType ? 'm.room.encrypted' : 'm.dummy',
-                content: {
-                    algorithm: olmAlgorithm,
-                    sender_key: olmAccount.value?.curve25519_key,
-                    ciphertext: {
-                        [otherDeviceCurveKey]: {
-                            type: mostReliableSession.isConfirmed ? 1 : 0,
-                            body: encryptedResult.ciphertext,
-                        }
-                    }
-                },
-            }
+            messages[message.userId]![message.deviceId] = message.messageContent
         }
 
         await fetchJson(
-            `${homeserverBaseUrl.value}/_matrix/client/v3/sendToDevice/${encryptedMessageToSend?.type ?? messageToSend.type}/${uuidv4()}`,
+            `${homeserverBaseUrl.value}/_matrix/client/v3/sendToDevice/${messagesToSend[0]!.messageType}/${uuidv4()}`,
             {
                 method: 'PUT',
                 body: JSON.stringify({
-                    messages: {
-                        [otherUserId]: {
-                            [otherDeviceId]: encryptedMessageToSend?.content ?? messageToSend.content,
-                        },
-                    },
+                    messages,
                 } satisfies ApiV3SendEventToDeviceRequest),
                 useAuthorization: true,
             },
         )
-
-        if (mostReliableSession) {
-            await saveOlmSession(mostReliableSession)
-        }
     }
 
     async function decryptAndStoreInboundDeviceMessage(event: ApiV3SyncToDeviceEvent) {
@@ -210,7 +230,7 @@ export function useOlm() {
         let otherDeviceEd25519Key = ''
 
         if (event.type === 'm.room.encrypted') {
-            if (!olmAccount.value) throw new Error('OLM account is missing for this device.')
+            if (!olmAccount.value) throw new EncryptionNotSupportedError('OLM account is missing for this device.')
 
             const eventContent = event.content as EventRoomEncryptedContent
             const otherUserId = event.sender
@@ -290,7 +310,7 @@ export function useOlm() {
             if (newInboundSessionInfo) {
                 const senderDeviceId = (event as OlmPayload).senderDeviceKeys?.deviceId ?? otherDeviceId
                 if (senderDeviceId) {
-                    sendMessageToDevice(otherUserId, senderDeviceId, 'm.dummy', {}, newInboundSessionInfo.session)
+                    sendMessageToDevices([[otherUserId, senderDeviceId]], 'm.dummy', {}, newInboundSessionInfo.session)
                 }
             }
         } else {
@@ -317,9 +337,8 @@ export function useOlm() {
                     if (inboundSession) {
                         const sessionKey = inboundSession.session.export_at(inboundSession.session.first_known_index)
                         if (!sessionKey) break
-                        sendMessageToDevice<EventForwardedRoomKeyContent>(
-                            event.sender,
-                            eventContent.requestingDeviceId,
+                        sendMessageToDevices<EventForwardedRoomKeyContent>(
+                            [[event.sender, eventContent.requestingDeviceId]],
                             'm.forwarded_room_key',
                             {
                                 algorithm: eventContent.body?.algorithm ?? megolmAlgorithm,
@@ -337,9 +356,8 @@ export function useOlm() {
                     if (senderKey !== myDeviceCurveKey) break
                     const outboundSession = await getOutboundMegolmSession(room.roomId, sessionId)
                     if (outboundSession) {
-                        sendMessageToDevice<EventRoomKeyContent>(
-                            event.sender,
-                            eventContent.requestingDeviceId,
+                        sendMessageToDevices<EventRoomKeyContent>(
+                            [[event.sender, eventContent.requestingDeviceId]],
                             'm.room_key', {
                                 algorithm: 'm.megolm.v1.aes-sha2',
                                 roomId: room.roomId,
@@ -388,14 +406,15 @@ export function useOlm() {
                     try {
                         await decryptAndStoreInboundDeviceMessage(event)
                     } catch (error) {
-                        if (error instanceof DecryptionError) {
+                        if (error instanceof DecryptionError || error instanceof EncryptionNotSupportedError) {
                             log.warn('Could not decrypt an inbound device message. Storing it for later processing.', error)
                             newToDeviceErroredEvents.push({
                                 receivedTs: Date.now(),
                                 event,
                             })
+                        } else {
+                            log.error('Could not decrypt an inbound device message. Discarding it.', error)
                         }
-                        console.error(error);
                     }
                 }
 
@@ -420,7 +439,7 @@ export function useOlm() {
     }
 
     return {
-        sendMessageToDevice,
+        sendMessageToDevices,
         manageDeviceMessagesFromApiV3SyncResponse,
     }
 

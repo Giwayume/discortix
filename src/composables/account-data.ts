@@ -99,8 +99,16 @@ export function useAccountData() {
         return userId
     }
 
+    async function removeFriend(userId: string) {
+        const eventContent: EventInvalidDiscortixFriendsContent = accountData.value['invalid.discortix.friends'] ?? { friends: [] }
+        const friendIndex = eventContent.friends.indexOf(userId)
+        eventContent.friends.splice(friendIndex, 1)
+        await setAccountDataByType('invalid.discortix.friends', snakeCaseApiRequest(eventContent))
+    }
+
     return {
         addFriend,
+        removeFriend,
         getAccountDataByType,
         setAccountDataByType,
         toggleRoomVisibility,

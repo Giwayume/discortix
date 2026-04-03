@@ -2,6 +2,9 @@ import { computed, ref, toRaw, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { defineStore, storeToRefs } from 'pinia'
+
+import { deepToRaw } from '@/utils/vue'
+
 import { createLogger } from '@/composables/logger'
 
 import {
@@ -150,7 +153,7 @@ export const useSpaceStore = defineStore('space', () => {
 
     function updateSpaceClientSettings(roomId: string, settings: SpaceClientSettings) {
         spaceClientSettings.value[roomId] = settings
-        saveDiscortixTableKey('clientSettings', ['space', roomId], toRaw(settings))
+        saveDiscortixTableKey('clientSettings', ['space', roomId], deepToRaw(settings))
     }
 
     function populateFromApiV1RoomHierarchyResponse(spaceRoomId: string, rooms: ApiV1RoomHierarchyResponse['rooms']) {

@@ -138,6 +138,7 @@ import { micromark } from 'micromark'
 
 import { useAccountData } from '@/composables/account-data'
 import { useApplication } from '@/composables/application'
+import { useKeyboard } from '@/composables/keyboard'
 import { createLogger } from '@/composables/logger'
 import { useRooms } from '@/composables/rooms'
 
@@ -166,6 +167,7 @@ const { t } = useI18n()
 const toast = useToast()
 const { toggleRoomVisibility } = useAccountData()
 const { isTouchEventsDetected, toggleApplicationSidebar } = useApplication()
+const { isShiftKeyPressed } = useKeyboard()
 const { leaveRoom, forgetRoom } = useRooms()
 const { joinedDirectMessageRooms, invitedDirectMessageRooms, serverNoticeRooms } = storeToRefs(useRoomStore())
 const { profiles } = storeToRefs(useProfileStore())
@@ -264,7 +266,7 @@ function onPointerUpChat(event: PointerEvent, item: MenuItem) {
             const duplicateChats = directChatItems.value.filter(
                 (otherItem) => otherItem.isDirect && otherItem.heroes[0] === item.heroes[0] && otherItem.canLeave
             )
-            if (!item.isDirect || duplicateChats.length > 1) {
+            if (!item.isDirect || duplicateChats.length > 1 || isShiftKeyPressed.value) {
                 leaveRoomIsGroup.value = !item.isDirect
                 leaveRoomMenuItem.value = item
                 leaveRoomDialogVisible.value = true

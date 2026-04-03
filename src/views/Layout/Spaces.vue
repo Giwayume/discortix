@@ -97,7 +97,7 @@
                     }"
                     :aria-label="t('layout.discover')"
                     @contextmenu.prevent
-                    @click="router.push({ name: 'discover' })"
+                    @click="viewDiscover()"
                 >
                     <div class="application__space__icon">
                         <span class="pi pi-compass" aria-hidden="true" />
@@ -138,7 +138,7 @@ import type { SpaceSummary } from '@/types'
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const { isTouchEventsDetected } = useApplication()
+const { isTouchEventsDetected, toggleApplicationSidebar } = useApplication()
 const { invitedDirectMessageRooms } = storeToRefs(useRoomStore())
 const { currentTopLevelSpaceId, joinedSpaces } = storeToRefs(useSpaceStore())
 
@@ -334,6 +334,11 @@ function viewDirectMessages() {
 
 function viewSpace(space: SpaceSummary) {
     router.push({ name: 'room', params: { roomId: space.roomId } })
+}
+
+function viewDiscover() {
+    toggleApplicationSidebar(false)
+    router.push({ name: 'discover' })
 }
 
 function showSpaceContextMenu(event: MouseEvent, space: SpaceSummary) {

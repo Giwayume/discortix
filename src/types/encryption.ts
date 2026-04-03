@@ -33,7 +33,12 @@ export interface InboundMegolmSessionWithUsage {
 }
 
 export interface OutboundMegolmSessionWithUsage {
+    createdTs: number;
     session: GroupSession;
+}
+
+export interface RoomMegolmMetadata {
+    outboundSessionId: string | undefined;
 }
 
 export interface ToDeviceErroredEvent {

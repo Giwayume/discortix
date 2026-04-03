@@ -1,6 +1,8 @@
 import { computed, ref, toRaw, watch } from 'vue'
 import { defineStore } from 'pinia'
 
+import { deepToRaw } from '@/utils/vue'
+
 import { useBroadcast } from '@/composables/broadcast'
 import { onLogout } from '@/composables/logout'
 
@@ -142,7 +144,7 @@ export const useProfileStore = defineStore('profile', () => {
             for (const userId of touchedUserIds) {
                 if (!profiles.value[userId]) continue
                 try {
-                    saveDiscortixTableKey('profiles', userId, toRaw(profiles.value[userId]))
+                    saveDiscortixTableKey('profiles', userId, deepToRaw(profiles.value[userId]))
                 } catch (error) {
                     // Ignore, can call profile API later.
                 }
@@ -174,7 +176,7 @@ export const useProfileStore = defineStore('profile', () => {
             for (const userId of touchedUserIds) {
                 if (!profiles.value[userId]) continue
                 try {
-                    saveDiscortixTableKey('profiles', userId, toRaw(profiles.value[userId]))
+                    saveDiscortixTableKey('profiles', userId, deepToRaw(profiles.value[userId]))
                 } catch (error) {
                     // Ignore, can call profile API later.
                 }
@@ -199,7 +201,7 @@ export const useProfileStore = defineStore('profile', () => {
             profile.displayname = profileResponse.displayname
         }
         if (isLeader.value) {
-            saveDiscortixTableKey('profiles', userId, toRaw(profiles.value[userId]))
+            saveDiscortixTableKey('profiles', userId, deepToRaw(profiles.value[userId]))
         }
     }
 

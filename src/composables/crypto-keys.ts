@@ -1,9 +1,8 @@
-import { nextTick, watch } from 'vue'
+import { watch } from 'vue'
 import { useI18n, type ComposerTranslation } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import initVodozemacAsync, { verify_signature as verifyAccountSignature, Account } from 'vodozemac-wasm-bindings'
-import { v4 as uuidv4 } from 'uuid'
 
 import { createLogger } from '@/composables/logger'
 
@@ -24,9 +23,8 @@ import * as z from 'zod'
 
 import { useAccountData } from './account-data'
 import { useBroadcast } from './broadcast'
-import { useOlm } from './olm'
 
-import { getAllTableKeys as getAllDiscortixTableKeys, loadTableKey as loadDiscortixTableKey, saveTableKey as saveDiscortixTableKey } from '@/stores/database/discortix'
+import { loadTableKey as loadDiscortixTableKey, saveTableKey as saveDiscortixTableKey } from '@/stores/database/discortix'
 import { useAccountDataStore } from '@/stores/account-data'
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
 import { useMegolmStore } from '@/stores/megolm'
@@ -34,15 +32,12 @@ import { useOlmStore } from '@/stores/olm'
 import { useSessionStore } from '@/stores/session'
 
 import {
-    type AesHmacSha2EncryptedData,
     type AesHmacSha2KeyDescription, AesHmacSha2KeyDescriptionSchema,
     type SecretStorageAccountData, SecretStorageAccountDataSchema,
     type ApiV3KeysQueryRequest, type ApiV3KeysQueryResponse, ApiV3KeysQueryResponseSchema,
     type ApiV3KeysUploadRequest, type ApiV3KeysUploadResponse, ApiV3KeysUploadResponseSchema,
     type ApiV3KeysDeviceSigningUploadRequest,
     type ApiV3SyncResponse,
-    type EventForwardedRoomKeyContent,
-    type EventRoomKeyRequestContent,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
@@ -66,8 +61,7 @@ export function useCryptoKeys() {
     const { t } = useI18n()
     const route = useRoute()
     const { getAccountDataByType, setAccountDataByType } = useAccountData()
-    const { isLeader, forceClaimLeadership } = useBroadcast()
-    const { sendMessageToDevice } = useOlm()
+    const { isLeader } = useBroadcast()
     const {
         homeserverBaseUrl,
         userId: sessionUserId,
@@ -840,84 +834,7 @@ export function useCryptoKeys() {
                 }
             }
         }
-
-        if (isLeader.value) {
-            // TODO - skip users with existing sessions
-            // for (let i = 0; i < userIds.length; i += 10) {
-            //     const oneTimeKeys: ApiV3KeysClaimRequest['one_time_keys'] = {}
-            //     for (let j = i; j < i + 10; j++) {
-            //         const userId = userIds[j]
-            //         if (!userId) break
-            //         oneTimeKeys[userId] = {
-
-            //         }
-            //     }
-
-            //     const oneTimeKeysResponse = await fetchJson<ApiV3KeysClaimResponse>(
-            //         `${homeserverBaseUrl.value}/_matrix/client/v3/keys/claim`,
-            //         {
-            //             method: 'POST',
-            //             body: JSON.stringify({
-            //                 one_time_keys: oneTimeKeys,
-            //                 timeout: 10000,
-            //             } satisfies ApiV3KeysClaimRequest),
-            //         },
-            //     )
-            // }
-        }
     }
-
-    async function requestRoomKey(roomId: string, sessionId: string, senderKey: string, otherUserId: string, otherDeviceId: string) {
-        forceClaimLeadership()
-        await nextTick()
-
-        await sendMessageToDevice<EventRoomKeyRequestContent>(otherUserId, otherDeviceId, 'm.room_key_request', {
-            action: 'request',
-            body: {
-                algorithm: 'm.megolm.v1.aes-sha2',
-                roomId,
-                sessionId,
-                senderKey,
-            },
-            requestId: uuidv4(),
-            requestingDeviceId: sessionDeviceId.value!,
-        })
-
-        // const inboundMessageSessionKey = `${otherUserId}:${otherDeviceCurveKey}:${olmAlgorithm}`
-
-        // await until(() => {
-        //     return (inboundDeviceEncryptedMessages.value[inboundMessageSessionKey]?.length ?? 0) > 0
-        // })
-
-        // const firstEncryptedMessage = inboundDeviceEncryptedMessages.value[inboundMessageSessionKey]![0]!
-
-        // let inboundOlmSession = inboundOlmSessions.value[`${otherUserId}:${deviceCurveKey}:${olmAlgorithm}`]
-        // if (!inboundOlmSession) {
-        //     inboundOlmSession = olmAccount.value.create_inbound_session(
-        //         deviceCurveKey,
-        //         0,
-        //         firstEncryptedMessage.content.
-        //     )
-        // }
-
-        // await fetchJson(
-        //     `${homeserverBaseUrl.value}/_matrix/client/v3/sendToDevice/m.room_key_request/${uuidv4()}`,
-        //     {
-        //         method: 'PUT',
-        //         body: JSON.stringify({
-        //             messages: {
-        //                 [otherUserId]: {
-        //                     [otherDeviceId]: snakeCaseApiRequest(keyRequestEventContent.content),
-        //                 },
-        //             },
-        //         } satisfies ApiV3SendEventToDeviceRequest),
-        //         useAuthorization: true,
-        //     },
-        // )
-
-    }
-
-
     
     function manageCryptoKeysFromApiV3SyncResponse(syncResponse: ApiV3SyncResponse) {
         if (route.name === 'room') {
@@ -961,7 +878,6 @@ export function useCryptoKeys() {
         installRecoveryKey,
         fetchUserKeys,
         manageCryptoKeysFromApiV3SyncResponse,
-        requestRoomKey,
         generateDeviceKeys,
     }
 }

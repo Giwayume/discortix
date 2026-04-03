@@ -45,7 +45,14 @@
                 </template>
             </I18nT>
             <div v-if="room.roomId" class="flex gap-2 mt-4">
-                <Button size="small" severity="secondary">{{ t('room.removeFriendButton') }}</Button>
+                <Button v-if="otherMemberIsFriend" size="small" severity="secondary" :loading="addFriendLoading" @click="tryRemoveFriend()">
+                    <span class="p-button-label">{{ t('room.removeFriendButton') }}</span>
+                    <span class="p-button-loading-dots" />
+                </Button>
+                <Button v-else size="small" severity="primary" :loading="addFriendLoading" @click="tryAddFriend()">
+                    <span class="p-button-label">{{ t('room.addFriendButton') }}</span>
+                    <span class="p-button-loading-dots" />
+                </Button>
                 <Button size="small" severity="secondary">{{ t('room.blockButton') }}</Button>
             </div>
             <template v-if="!room.roomId">
@@ -134,8 +141,11 @@ import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 
 import { isRoomPartOfSpace } from '@/utils/room'
+
+import { useAccountData } from '@/composables/account-data'
 import { useApplication } from '@/composables/application'
 
+import { useAccountDataStore } from '@/stores/account-data'
 import { useClientSettingsStore } from '@/stores/client-settings'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
@@ -150,11 +160,17 @@ import Button from 'primevue/button'
 import ToggleSwitch from 'primevue/toggleswitch'
 import vTooltip from 'primevue/tooltip'
 
-import type { JoinedRoom } from '@/types'
+import type {
+    JoinedRoom,
+    EventInvalidDiscortixFriendsContent,
+} from '@/types'
 
 const { t } = useI18n()
+
+const { addFriend, removeFriend } = useAccountData()
 const { isTouchEventsDetected } = useApplication()
 
+const { accountData } = storeToRefs(useAccountDataStore())
 const { settings } = useClientSettingsStore()
 const { profiles } = storeToRefs(useProfileStore())
 const { currentRoomPermissions } = storeToRefs(useRoomStore())
@@ -205,12 +221,39 @@ const otherMembersDisplayed = computed(() => {
     return otherMembers.value.slice(0, 5)
 })
 
+const otherMemberIsFriend = computed(() => {
+    const friends = (accountData.value['invalid.discortix.friends'] as EventInvalidDiscortixFriendsContent)?.friends ?? []
+    return friends.includes(otherMembers.value[0]?.userId!)
+})
+
 const isInsideSpace = computed<boolean>(() => {
     return isRoomPartOfSpace(props.room)
 })
 
 const editGroupDialogVisible = ref<boolean>(false)
 const editGroupIconDialogVisible = ref<boolean>(false)
+
+const addFriendLoading = ref<boolean>(false)
+
+function tryAddFriend() {
+    if (!otherMembers.value[0]) return
+    addFriendLoading.value = true
+    try {
+        addFriend(otherMembers.value[0].userId!)
+    } finally {
+        addFriendLoading.value = false
+    }
+}
+
+function tryRemoveFriend() {
+    if (!otherMembers.value[0]) return
+    addFriendLoading.value = true
+    try {
+        removeFriend(otherMembers.value[0].userId!)
+    } finally {
+        addFriendLoading.value = false
+    }
+}
 
 </script>
 

@@ -302,6 +302,7 @@ export function useRooms() {
     ): Promise<ApiV3RoomSendMessageEventResponse> {
         if (groupSession) {
             const myDeviceCurveKey = deviceKeys.value[sessionUserId.value!]?.[sessionDeviceId.value!]?.keys[`curve25519:${sessionDeviceId.value!}`] ?? ''
+
             const innerEventCiphertext = groupSession.encrypt(
                 new TextEncoder().encode(
                     JSON.stringify(snakeCaseApiRequest({
@@ -311,6 +312,8 @@ export function useRooms() {
                     }))
                 )
             )
+            await saveOutboundMegolmSession(roomId, groupSession)
+
             eventType = 'm.room.encrypted'
             eventContent = {
                 algorithm: 'm.megolm.v1.aes-sha2',
@@ -332,10 +335,6 @@ export function useRooms() {
                 jsonSchema: ApiV3RoomSendMessageEventResponseSchema,
             }
         )
-
-        if (groupSession) {
-            await saveOutboundMegolmSession(roomId, groupSession)
-        }
 
         return response
     }

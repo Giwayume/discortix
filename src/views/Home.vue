@@ -189,7 +189,7 @@ import type {
 
 const { t } = useI18n()
 const router = useRouter()
-const { addFriend, setAccountDataByType, toggleRoomVisibility } = useAccountData()
+const { addFriend, removeFriend, setAccountDataByType, toggleRoomVisibility } = useAccountData()
 const { isTouchEventsDetected } = useApplication()
 
 const { accountData, hiddenRooms } = storeToRefs(useAccountDataStore())
@@ -275,10 +275,7 @@ async function tryAddFriend() {
 }
 
 async function tryRemoveFriend(friend: UserProfile) {
-    const eventContent: EventInvalidDiscortixFriendsContent = accountData.value['invalid.discortix.friends'] ?? { friends: [] }
-    const friendIndex = eventContent.friends.indexOf(friend.userId)
-    eventContent.friends.splice(friendIndex, 1)
-    await setAccountDataByType('invalid.discortix.friends', snakeCaseApiRequest(eventContent))
+    removeFriend(friend.userId)
 }
 
 function messageFriend(friend: UserProfile) {

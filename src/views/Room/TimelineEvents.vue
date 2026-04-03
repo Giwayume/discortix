@@ -422,7 +422,11 @@ const loadingEventChunks = computed<EventChunk[]>(() => {
                 replacementDate: replacementEvent?.originServerTs ? new Date(replacementEvent.originServerTs).toLocaleString() : undefined,
                 reactions,
                 replyTo,
-                showUnencryptedWarning: settings.warnUnencryptedMessageInEncryptedRoom && currentRoomEncryptionEnabledTimestamp.value != null && event.type !== 'm.room.encrypted' && event.originServerTs > currentRoomEncryptionEnabledTimestamp.value
+                showUnencryptedWarning: settings.warnUnencryptedMessageInEncryptedRoom
+                    && currentRoomEncryptionEnabledTimestamp.value != null
+                    && event.sender !== sessionUserId.value
+                    && event.type !== 'm.room.encrypted'
+                    && event.originServerTs > currentRoomEncryptionEnabledTimestamp.value
             })
 
             previousEvent = event

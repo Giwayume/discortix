@@ -6,7 +6,10 @@
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
         @update:visible="(visible) => emit('update:visible', visible)"
     >
-        <div v-if="!isMessageEncrypted" v-html="micromark(t('fixDecryption.messageNotEncryptedInEncryptedRoom', { messageSenderDisplayname }))" />
+        <div v-if="messageHasRoomKey">
+            {{ t('fixDecryption.roomKeyFound') }}
+        </div>
+        <div v-else-if="!isMessageEncrypted" v-html="micromark(t('fixDecryption.messageNotEncryptedInEncryptedRoom', { messageSenderDisplayname }))" />
         <template v-else-if="encryptionNotSupported">
             <template v-if="isSecureContext">
                 {{ t('fixDecryption.deviceEncryptionNotSupported') }}
@@ -22,6 +25,13 @@
             <template v-if="isDiscoveringUsers">
                 {{ t('fixDecryption.roomKeyRequestDiscoveringUsers') }}
             </template>
+            <template v-else-if="isWaitingForForwardedKeys">
+                {{ t('fixDecryption.roomKeyRequestWaitingForKeys') }}
+            </template>
+            <template v-else>
+                {{ t('fixDecryption.roomKeyRequestRequestingKeys') }}
+            </template>
+            <ProgressBar mode="indeterminate" class="my-4"></ProgressBar>
         </template>
         <template v-else-if="!messageHasRoomKey">
             <p>{{ t('fixDecryption.roomKeyRequestInstructions') }}</p>
@@ -30,7 +40,7 @@
             </div>
         </template>
         <template v-else>
-            <!-- {{ t('fixDecryption.unknownError') }} -->
+            {{ t('fixDecryption.unknownError') }}
         </template>
 
         <!-- <p class="text-(--text-default)">{{ t('identityVerification.subtitle') }}</p>
@@ -60,9 +70,14 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { micromark } from 'micromark'
+import { v4 as uuidv4 } from 'uuid'
+
+import { ConcurrencyLimiter } from '@/utils/timing'
+import { until } from '@/utils/vue'
 
 import { useCryptoKeys } from '@/composables/crypto-keys'
 import { createLogger } from '@/composables/logger'
+import { useOlm } from '@/composables/olm'
 
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
 import { useMegolmStore } from '@/stores/megolm'
@@ -72,13 +87,15 @@ import { useSessionStore } from '@/stores/session'
 
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
+import ProgressBar  from 'primevue/progressbar'
 
-import { type EventRoomEncryptedContent } from '@/types'
+import type { EventRoomEncryptedContent, EventRoomKeyRequestContent } from '@/types'
 
 const log = createLogger(import.meta.url)
 
 const { t } = useI18n()
-const { fetchUserKeys, requestRoomKey } = useCryptoKeys()
+const { fetchUserKeys } = useCryptoKeys()
+const { sendMessageToDevices } = useOlm()
 
 const {
     encryptionNotSupported,
@@ -88,7 +105,7 @@ const {
 const { megolmSessionExists } = useMegolmStore()
 const roomStore = useRoomStore()
 const { profiles } = storeToRefs(useProfileStore())
-const { userId: sessionUserId } = storeToRefs(useSessionStore())
+const { userId: sessionUserId, deviceId: sessionDeviceId } = storeToRefs(useSessionStore())
 const {
     joined: joinedRooms,
 } = storeToRefs(roomStore)
@@ -118,6 +135,9 @@ const emit = defineEmits<{
 watch(() => props.visible, (visible, wasVisible) => {
     if (visible && !wasVisible) {
         isRequestingKeys.value = false
+        isRequestKeysError.value = false
+        isDiscoveringUsers.value = false
+        isWaitingForForwardedKeys.value = false
     }
 })
 
@@ -159,7 +179,7 @@ const messageHasRoomKey = computed<boolean>(() => {
 const isRequestingKeys = ref<boolean>(false)
 const isRequestKeysError = ref<boolean>(false)
 const isDiscoveringUsers = ref<boolean>(false)
-
+const isWaitingForForwardedKeys = ref<boolean>(false)
 
 async function requestKeys() {
     isRequestingKeys.value = true
@@ -173,23 +193,56 @@ async function requestKeys() {
         const room = joinedRooms.value[props.roomId ?? -1]
         if (!room) throw new Error('Missing room.')
 
-        const userIds = Array.from(new Set(room.stateEventsByType['m.room.member']
+        const userIdSet = new Set(room.stateEventsByType['m.room.member']
             ?.filter((memberEvent) => memberEvent.content?.membership === 'join' && memberEvent.sender !== sessionUserId.value)
-            ?.map((memberEvent) => memberEvent.sender) ?? []))
+            ?.map((memberEvent) => memberEvent.sender) ?? [])
+        userIdSet.add(sessionUserId.value!)
+
+        const userIds = Array.from(userIdSet).sort((a, b) => {
+            if (a === sessionUserId.value) return -1
+            if (b === sessionUserId.value) return 1
+            return 0
+        })
 
         if (userIds.length === 0) throw new Error('No other joined members in room.')
 
-        await fetchUserKeys([ ...userIds, sessionUserId.value! ])
-
-        for (const userId of userIds) {
-            const userDeviceKeys = deviceKeys.value[userId]
-            for (const deviceId in userDeviceKeys) {
-                if (deviceId !== 'CHIjNVrySd') continue // TODO - TESTING, remove
-                await requestRoomKey(room.roomId, eventContent.sessionId, eventContent.senderKey, userId, deviceId)
-            }
-        }
+        await fetchUserKeys(userIds)
 
         isDiscoveringUsers.value = false
+
+        const limiter = new ConcurrencyLimiter(10)
+        for (const userId of userIds) {
+            const userDeviceIds = Object.keys(deviceKeys.value[userId] ?? {})
+            const sendToUsers: Array<[string, string]> = []
+            for (const deviceId of userDeviceIds) {
+                if (userId === sessionUserId.value && deviceId === sessionDeviceId.value) continue
+                sendToUsers.push([userId, deviceId])
+            }
+            if (messageHasRoomKey.value) break
+            await limiter.available()
+            limiter.add(
+                sendMessageToDevices<EventRoomKeyRequestContent>(sendToUsers, 'm.room_key_request', {
+                    action: 'request',
+                    body: {
+                        algorithm: 'm.megolm.v1.aes-sha2',
+                        roomId: room.roomId,
+                        sessionId: eventContent.sessionId,
+                        senderKey: eventContent.senderKey,
+                    },
+                    requestId: uuidv4(),
+                    requestingDeviceId: sessionDeviceId.value!,
+                })
+            )
+        }
+        await limiter.waitForIdle()
+
+        isWaitingForForwardedKeys.value = true
+        await until(() => messageHasRoomKey.value, 5000)
+        isWaitingForForwardedKeys.value = false
+
+        if (!messageHasRoomKey.value) {
+            isRequestKeysError.value = true
+        }
     } catch (error) {
         log.error('Error while requesting keys: ', error)
         isRequestKeysError.value = true
