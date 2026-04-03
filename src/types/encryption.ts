@@ -42,12 +42,14 @@ export interface ToDeviceErroredEvent {
 }
 
 export interface OlmSessionWithUsage {
+    createdTs: number;
     lastInboundActivityTs: number;
     isConfirmed?: boolean; // The other side sent an OLM message back
     session: Session;
 }
 
 export interface PickledOlmSessionWithUsage {
+    createdTs: number;
     lastInboundActivityTs: number;
     isConfirmed?: boolean;
     pickle: string;

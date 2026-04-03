@@ -32,6 +32,7 @@ import {
 const log = createLogger(import.meta.url)
 
 const olmAlgorithm = 'm.olm.v1.curve25519-aes-sha2'
+const megolmAlgorithm = 'm.megolm.v1.aes-sha2'
 const encryptedMessageTypes = ['m.dummy', 'm.room_key', 'm.forwarded_room_key', 'm.secret_send']
 const toDeviceErroredEventRetainTimeout = 2.592e+9 // 30 days
 
@@ -44,9 +45,7 @@ export function useOlm() {
     } = cryptoKeysStore
     const {
         deviceKeys,
-        olmSecretKey,
         olmAccount,
-        userDevicePickleKey,
     } = storeToRefs(cryptoKeysStore)
     const olmStore = useOlmStore()
     const { toDeviceErroredEvents } = storeToRefs(olmStore)
@@ -56,8 +55,11 @@ export function useOlm() {
         getOlmSessions,
         addOlmSession,
         markInboundOlmSessionActivity,
+        removeOldOlmSessions,
     } = olmStore
     const {
+        getInboundMegolmSession,
+        getOutboundMegolmSession,
         populateRoomKeysFromRoomKeyEvent,
         populateRoomKeysFromForwardedRoomKeyEvent,
     } = useMegolmStore()
@@ -97,6 +99,7 @@ export function useOlm() {
 
         let olmSessions: OlmSessionWithUsage[] = overrideOlmSession
             ? [{
+                createdTs: Date.now(),
                 lastInboundActivityTs: 0,
                 isConfirmed: true,
                 session: overrideOlmSession,
@@ -104,9 +107,7 @@ export function useOlm() {
             : await getOlmSessions(otherUserId, otherDeviceCurveKey, olmAlgorithm)
         let mostReliableSession: OlmSessionWithUsage | undefined = undefined
 
-        let needsPreKey = false
         if (olmSessions.length === 0) {
-            needsPreKey = true
             const oneTimeKeysResponse = await fetchJson<ApiV3KeysClaimResponse>(
                 `${homeserverBaseUrl.value}/_matrix/client/v3/keys/claim`,
                 {
@@ -174,7 +175,7 @@ export function useOlm() {
                     sender_key: olmAccount.value?.curve25519_key,
                     ciphertext: {
                         [otherDeviceCurveKey]: {
-                            type: needsPreKey ? 0 : 1,
+                            type: mostReliableSession.isConfirmed ? 1 : 0,
                             body: encryptedResult.ciphertext,
                         }
                     }
@@ -255,7 +256,7 @@ export function useOlm() {
             let olmSessions = await getOlmSessions(otherUserId, otherDeviceCurveKey, olmAlgorithm)
             let plaintext: Uint8Array | undefined = undefined
             let newInboundSessionInfo: InboundCreationResult | undefined = undefined
-            if (olmSessions.length === 0 || messageType === 0) {
+            if (olmSessions.length === 0) {
                 newInboundSessionInfo = olmAccount.value.create_inbound_session(
                     otherDeviceCurveKey,
                     messageType ?? 0,
@@ -289,7 +290,6 @@ export function useOlm() {
             if (newInboundSessionInfo) {
                 const senderDeviceId = (event as OlmPayload).senderDeviceKeys?.deviceId ?? otherDeviceId
                 if (senderDeviceId) {
-                    console.log('sending confirmation dummy message')
                     sendMessageToDevice(otherUserId, senderDeviceId, 'm.dummy', {}, newInboundSessionInfo.session)
                 }
             }
@@ -297,20 +297,58 @@ export function useOlm() {
             event = camelizeApiResponse(event)
         }
 
-        console.log('received device event', event)
-
+        console.log('Decrypted toDevice event', event)
         switch (event.type) {
             case 'm.room_key_request':
-                // if (isLeader.value) {
-                //     const eventContent: EventRoomKeyRequestContent = event.content 
-                //     const keyInfo = roomKeys.value[eventContent.body?.roomId!]?.[eventContent.body?.sessionId!]?.[eventContent.body?.senderKey!]
-                //     const room = joinedRooms.value[eventContent.body?.roomId!]
-                //     if (!room || !keyInfo) break
-                //     const member = room.stateEventsByType['m.room.member']?.find(
-                //         (member) => member.content?.membership === 'join' && member.sender === ''
-                //     )
-                // }
-                // TODO - need a way to map from the device key back to the userId to check if we should send
+                {
+                    // TODO - should check the room history visibility
+                    const eventContent: EventRoomKeyRequestContent = event.content 
+                    const room = joinedRooms.value[eventContent.body?.roomId!]
+                    if (!room) break
+                    const userIds: string[] = room.stateEventsByType['m.room.member']?.filter(
+                        (event) => event.content?.membership === 'join' || event.content?.membership === 'invite'
+                    ).map(
+                        (event) => event.content.membership === 'join' ? event.sender : event.stateKey!
+                    ) ?? []
+                    if (!event.sender || !userIds.includes(event.sender)) break
+                    const sessionId = eventContent.body!.sessionId
+                    const senderKey = eventContent.body!.senderKey!
+                    const inboundSession = await getInboundMegolmSession(room.roomId, sessionId, senderKey)
+                    if (inboundSession) {
+                        const sessionKey = inboundSession.session.export_at(inboundSession.session.first_known_index)
+                        if (!sessionKey) break
+                        sendMessageToDevice<EventForwardedRoomKeyContent>(
+                            event.sender,
+                            eventContent.requestingDeviceId,
+                            'm.forwarded_room_key',
+                            {
+                                algorithm: eventContent.body?.algorithm ?? megolmAlgorithm,
+                                forwardingCurve25519KeyChain: inboundSession.forwardingCurve25519KeyChain,
+                                roomId: room.roomId,
+                                senderClaimedEd25519Key: inboundSession.senderClaimedEd25519Key,
+                                senderKey,
+                                sessionId,
+                                sessionKey,
+                            },
+                        )
+                        break
+                    }
+                    const myDeviceCurveKey = deviceKeys.value[sessionUserId.value]?.[sessionDeviceId.value]?.keys[`curve25519:${sessionDeviceId.value}`] ?? ''
+                    if (senderKey !== myDeviceCurveKey) break
+                    const outboundSession = await getOutboundMegolmSession(room.roomId, sessionId)
+                    if (outboundSession) {
+                        sendMessageToDevice<EventRoomKeyContent>(
+                            event.sender,
+                            eventContent.requestingDeviceId,
+                            'm.room_key', {
+                                algorithm: 'm.megolm.v1.aes-sha2',
+                                roomId: room.roomId,
+                                sessionId: outboundSession.session.session_id,
+                                sessionKey: outboundSession.session.session_key,
+                            },
+                        )
+                    }
+                }
                 break
             case 'm.forwarded_room_key':
                 populateRoomKeysFromForwardedRoomKeyEvent(event.content)
@@ -357,6 +395,7 @@ export function useOlm() {
                                 event,
                             })
                         }
+                        console.error(error);
                     }
                 }
 
@@ -375,6 +414,7 @@ export function useOlm() {
                 }
 
                 saveToDeviceErroredEvents()
+                removeOldOlmSessions()
             }
         }
     }

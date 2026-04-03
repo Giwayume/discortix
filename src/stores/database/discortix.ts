@@ -24,7 +24,6 @@ async function init(): Promise<void> {
             db.createObjectStore('clientSettings')
             db.createObjectStore('profiles')
             db.createObjectStore('rooms')
-            db.createObjectStore('roomKeys')
             db.createObjectStore('megolm')
             db.createObjectStore('olm')
             db.createObjectStore('pickleKey')

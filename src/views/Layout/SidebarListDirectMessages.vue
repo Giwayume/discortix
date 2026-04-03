@@ -218,7 +218,7 @@ const directChatItems = computed<MenuItem[]>(() => {
                 heroes: room.heroes,
                 displayname: room.name || room.heroes.map(
                     (userId) => profiles.value[userId ?? '']?.displayname ?? userId
-                ).filter((displayName) => !!displayName).join(', '),
+                ).filter((displayName) => !!displayName).join(', ') || t('layout.emptyRoom'),
                 avatarUrl: room.heroes.length > 1 ? undefined : profile?.avatarUrl,
                 presence: profile?.presence,
                 statusMessage: room.heroes.length > 1 ? undefined : profile?.statusMessage,

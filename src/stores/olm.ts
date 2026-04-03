@@ -16,11 +16,12 @@ import {
 import type { OlmSessionWithUsage, PickledOlmSessionWithUsage, ToDeviceErroredEvent } from '@/types'
 
 const log = createLogger(import.meta.url)
+const olmSessionDiscardTimeout = 2.592e+9 // 30 days
 
 export const useOlmStore = defineStore('olm', () => {
     const { isLeader, broadcastMessageFromTab, onTabMessage } = useBroadcast({ permanent: true })
 
-    const { userDevicePickleKey } = storeToRefs(useCryptoKeysStore())
+    const { olmSecretKey } = storeToRefs(useCryptoKeysStore())
 
     /*--------------------*\
     |                      |
@@ -32,7 +33,7 @@ export const useOlmStore = defineStore('olm', () => {
     const toDeviceErroredEvents = ref<ToDeviceErroredEvent[]>([])
 
     async function loadToDeviceErroredEvents() {
-        toDeviceErroredEvents.value = await loadDiscortixTableKey('olm', ['toDevice', 'errors'])
+        toDeviceErroredEvents.value = (await loadDiscortixTableKey('olm', ['toDevice', 'errors'])) ?? []
     }
 
     async function saveToDeviceErroredEvents() {
@@ -59,13 +60,14 @@ export const useOlmStore = defineStore('olm', () => {
             if (olmType === 'sessions') {
                 try {
                     const value: PickledOlmSessionWithUsage[] = (await loadDiscortixTableKey('olm', [olmType, olmId])) ?? []
-                    if (!userDevicePickleKey.value) continue
+                    if (!olmSecretKey.value) continue
                     olmSessions.value[olmId] = []
                     for (const pickledSession of value) {
                         olmSessions.value[olmId].push({
+                            createdTs: pickledSession.createdTs ?? Date.now(),
                             lastInboundActivityTs: pickledSession.lastInboundActivityTs ?? 0,
                             isConfirmed: pickledSession.isConfirmed ?? false,
-                            session: Session.from_pickle(pickledSession.pickle, userDevicePickleKey.value),
+                            session: Session.from_pickle(pickledSession.pickle, olmSecretKey.value),
                         })
                     }
                 } catch (error) {
@@ -76,14 +78,15 @@ export const useOlmStore = defineStore('olm', () => {
     }
 
     async function loadOlmSessions(sessionKey: string) {
-        const value: PickledOlmSessionWithUsage[] = await loadDiscortixTableKey('olm', ['sessions', sessionKey])
-        if (!userDevicePickleKey.value) return
+        const value: PickledOlmSessionWithUsage[] = (await loadDiscortixTableKey('olm', ['sessions', sessionKey])) ?? []
+        if (!olmSecretKey.value) return
         olmSessions.value[sessionKey] = []
         for (const pickledSession of value) {
             olmSessions.value[sessionKey].push({
+                createdTs: pickledSession.createdTs ?? Date.now(),
                 lastInboundActivityTs: pickledSession.lastInboundActivityTs ?? 0,
                 isConfirmed: pickledSession.isConfirmed ?? false,
-                session: Session.from_pickle(pickledSession.pickle, userDevicePickleKey.value),
+                session: Session.from_pickle(pickledSession.pickle, olmSecretKey.value),
             })
         }
     }
@@ -105,15 +108,17 @@ export const useOlmStore = defineStore('olm', () => {
             olmSessions.value[sessionKey] = []
         }
         olmSessions.value[sessionKey]?.push({
+            createdTs: Date.now(),
             lastInboundActivityTs: isOutbound ? 0 : Date.now(),
             isConfirmed: !isOutbound,
             session,
         })
         const sessionPickles: PickledOlmSessionWithUsage[] = olmSessions.value[sessionKey].map((sessionWithUsage) => {
             return {
+                createdTs: sessionWithUsage.createdTs ?? Date.now(),
                 lastInboundActivityTs: sessionWithUsage.lastInboundActivityTs,
                 isConfirmed: sessionWithUsage.isConfirmed,
-                pickle: sessionWithUsage.session.pickle(userDevicePickleKey.value!)
+                pickle: sessionWithUsage.session.pickle(olmSecretKey.value!)
             }
         })
         try {
@@ -128,16 +133,17 @@ export const useOlmStore = defineStore('olm', () => {
     }
 
     async function saveOlmSession(olmSessionWithUsage: OlmSessionWithUsage) {
-        if (!userDevicePickleKey.value) return
+        if (!olmSecretKey.value) return
         for (const sessionKey in olmSessions.value) {
             const sessions = olmSessions.value[sessionKey] ?? []
             for (const session of sessions) {
                 if (session.session === olmSessionWithUsage.session) {
                     const sessionPickles: PickledOlmSessionWithUsage[] = sessions.map((sessionWithUsage) => {
                         return {
+                            createdTs: sessionWithUsage.createdTs ?? Date.now(),
                             lastInboundActivityTs: sessionWithUsage.lastInboundActivityTs,
                             isConfirmed: sessionWithUsage.isConfirmed,
-                            pickle: sessionWithUsage.session.pickle(userDevicePickleKey.value!)
+                            pickle: sessionWithUsage.session.pickle(olmSecretKey.value!)
                         }
                     })
                     await saveDiscortixTableKey('olm', ['sessions', sessionKey], toRaw(sessionPickles))
@@ -157,6 +163,46 @@ export const useOlmStore = defineStore('olm', () => {
         olmSessionWithUsage.lastInboundActivityTs = Date.now()
         olmSessionWithUsage.isConfirmed = true
         await saveOlmSession(olmSessionWithUsage)
+    }
+
+    async function removeOldOlmSessions() {
+        if (!olmSecretKey.value) return
+        const now = Date.now()
+        for (const sessionKey in olmSessions.value) {
+            const sessions = olmSessions.value[sessionKey] ?? []
+            const mostRecentSession = sessions.reduce((accumulator, currentValue) => {
+                if (currentValue.lastInboundActivityTs > (accumulator?.lastInboundActivityTs ?? -1)) {
+                    return currentValue
+                }
+                return accumulator
+            }, undefined as OlmSessionWithUsage | undefined)
+            let hasRemoved = false
+            for (let i = sessions.length - 1; i >= 0; i--) {
+                const session = sessions[i]!
+                if (session.session === mostRecentSession?.session) continue
+                if (session.createdTs < now - olmSessionDiscardTimeout && session.lastInboundActivityTs < now - olmSessionDiscardTimeout) {
+                    sessions.splice(i, 1)
+                    hasRemoved = true
+                }
+            }
+            if (hasRemoved) {
+                const sessionPickles: PickledOlmSessionWithUsage[] = sessions.map((sessionWithUsage) => {
+                    return {
+                        createdTs: sessionWithUsage.createdTs ?? Date.now(),
+                        lastInboundActivityTs: sessionWithUsage.lastInboundActivityTs,
+                        isConfirmed: sessionWithUsage.isConfirmed,
+                        pickle: sessionWithUsage.session.pickle(olmSecretKey.value!)
+                    }
+                })
+                await saveDiscortixTableKey('olm', ['sessions', sessionKey], toRaw(sessionPickles))
+                broadcastMessageFromTab({
+                    type: 'updateOlmSessions',
+                    data: {
+                        sessionKey,
+                    }
+                })
+            }
+        }
     }
 
     /*-------------*\
@@ -190,6 +236,7 @@ export const useOlmStore = defineStore('olm', () => {
         addOlmSession,
         saveOlmSession,
         markInboundOlmSessionActivity,
+        removeOldOlmSessions,
     }
 
 })

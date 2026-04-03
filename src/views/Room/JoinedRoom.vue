@@ -214,7 +214,7 @@ const roomName = computed<string | undefined>(() => {
 })
 
 const roomMemberListDisplay = computed<string>(() => {
-    return Array.from(new Set(otherMembersDisplayed.value.map((member) => member.displayname ?? member.userId))).join(', ')
+    return Array.from(new Set(otherMembersDisplayed.value.map((member) => member.displayname ?? member.userId))).join(', ') || t('layout.emptyRoom')
 })
 
 const isInsideSpace = computed<boolean>(() => {
