@@ -75,6 +75,33 @@
                     @click="onCancelEditOrReply()"
                 />
             </div>
+            <ul v-if="selectedMedia.length > 0" class="joined-room__attachment-bar">
+                <li v-for="media in selectedMedia" :key="media.id" class="joined-room__attachment-bar__attachment">
+                    <div class="joined-room__attachment-bar__controls">
+                        <Button
+                            v-tooltip.top="{ value: isTouchEventsDetected ? undefined : t('room.attachmentMenu.spoiler') }"
+                            :icon="media.spoiler ? 'pi pi-eye-slash' : 'pi pi-eye'" severity="secondary" variant="text"
+                            :aria-label="t('room.attachmentMenu.spoiler')" @click="media.spoiler = !media.spoiler" />
+                        <Button v-tooltip.top="{ value: isTouchEventsDetected ? undefined : t('room.attachmentMenu.modify') }"
+                            icon="pi pi-pencil" severity="secondary" variant="text" :aria-label="t('room.attachmentMenu.modify')"
+                            @click="editSelectedMedia(media)" />
+                        <Button v-tooltip.top="{ value: isTouchEventsDetected ? undefined : t('room.attachmentMenu.remove') }"
+                            icon="pi pi-trash" severity="danger" variant="text" :aria-label="t('room.attachmentMenu.remove')" 
+                            @click="removeSelectedMedia(media)" />
+                    </div>
+                    <div class="joined-room__attachment-bar__media-preview">
+                        <div v-if="media.spoiler" class="joined-room__attachment-bar__media-preview__spoiler-overlay">
+                            <div class="joined-room__attachment-bar__media-preview__spoiler-overlay__label">
+                                {{ t('room.attachmentSpoiler') }}
+                            </div>
+                        </div>
+                        <img v-if="media.mediaInfo.type === 'image'" :src="media.previewObjectUrl">
+                    </div>
+                    <span class="joined-room__attachment-bar__attachment__filename">
+                        {{ media.filename }}
+                    </span>
+                </li>
+            </ul>
             <form class="joined-room__chat-bar" @submit.prevent="onSubmitMessageForm">
                 <div class="joined-room__chat-bar-input">
                     <Button
@@ -83,6 +110,7 @@
                         variant="text"
                         class="!h-8 !w-8 !mt-[0.6875rem]"
                         :aria-label="t('room.messageAddButton')"
+                        @click="mediaContextMenu?.show($event)"
                     />
                     <Textarea
                         v-model="message"
@@ -113,6 +141,19 @@
             </form>
         </template>
     </MainBody>
+    <ContextMenu ref="mediaContextMenu" :model="addMediaContextMenuItems">
+        <template #item="{ item, props }">
+            <a class="p-contextmenu-item-link" v-bind="props.action">
+                <span :class="item.icon" aria-hidden="true" />
+                <span class="p-contextmenu-item-label" :class="item.labelClass">{{ item.label }}</span>
+            </a>
+        </template>
+    </ContextMenu>
+    <ModifyAttachmentDialog
+        v-model:visible="modifyAttachmentDialogVisible"
+        :media="editingSelectedMedia"
+        @update:media="onUpdateEditingSelectedMedia"
+    />
     <ExpressionPicker
         ref="expressionPicker"
         :emojiOnly="expressionPickerEmojiOnly"
@@ -128,12 +169,19 @@ import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import type { GroupSession } from 'vodozemac-wasm-bindings'
 
+import { HttpError, PendingNetworkRequestError } from '@/utils/error'
+import { pickFile } from '@/utils/file-access'
+import { formatMessage } from '@/utils/message'
+import { isRoomPartOfSpace } from '@/utils/room'
+import { throttle } from '@/utils/timing'
+
 import { vPointer } from '@/directives/pointer'
 
 import { useApplication } from '@/composables/application'
 import { useCryptoKeys } from '@/composables/crypto-keys'
 import { useEmoji } from '@/composables/emoji'
 import { createLogger } from '@/composables/logger'
+import { createMediaInfo } from '@/composables/media'
 import { useMegolm } from '@/composables/megolm'
 import { useRooms } from '@/composables/rooms'
 
@@ -141,15 +189,11 @@ import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
-import { HttpError, PendingNetworkRequestError } from '@/utils/error'
-import { formatMessage } from '@/utils/message'
-import { isRoomPartOfSpace } from '@/utils/room'
-import { throttle } from '@/utils/timing'
-
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 const ExpressionPicker = defineAsyncComponent(() => import('@/views/Room/ExpressionPicker.vue'))
 import MainBody from '@/views/Layout/MainBody.vue'
 import MainHeader from '@/views/Layout/MainHeader.vue'
+const ModifyAttachmentDialog = defineAsyncComponent(() => import('@/views/Room/ModifyAttachmentDialog.vue'))
 import OverlayStatus from '@/views/Common/OverlayStatus.vue'
 
 import TimelineEvents from './TimelineEvents.vue'
@@ -157,7 +201,11 @@ import TimelineEvents from './TimelineEvents.vue'
 import Avatar from 'primevue/avatar'
 import AvatarGroup from 'primevue/avatargroup'
 import Button from 'primevue/button'
+import ContextMenu from 'primevue/contextmenu'
+import ScrollPanel from 'primevue/scrollpanel'
 import Textarea from 'primevue/textarea'
+import type { MenuItem } from 'primevue/menuitem'
+import vTooltip from 'primevue/tooltip'
 import { useToast } from 'primevue/usetoast'
 
 import {
@@ -165,6 +213,7 @@ import {
     type EventTextContent,
     type ApiV3SyncClientEventWithoutRoomId,
     type EmojiPickerEmojiItem,
+    type MediaInfo,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
@@ -284,6 +333,77 @@ const typingDisplayMessageKey = computed(() => {
         return 'room.typingIndicatorSeveral'
     }
 })
+
+/*------------------*\
+|                    |
+|   Add Media Menu   |
+|                    |
+\*------------------*/
+
+const mediaContextMenu = ref<InstanceType<typeof ContextMenu>>()
+
+const addMediaContextMenuItems = ref<MenuItem[]>([
+    {
+        label: t('room.messageAddMenu.uploadFile'),
+        icon: 'pi pi-upload',
+        command() {
+            selectMedia()
+        }
+    },
+    {
+        label: t('room.messageAddMenu.createPoll'),
+        icon: 'pi pi-chart-bar',
+        command() {
+        }
+    },
+])
+
+interface SelectedMedia {
+    description: string;
+    id: string;
+    file: File;
+    filename: string;
+    mediaInfo: MediaInfo;
+    previewObjectUrl: string;
+    spoiler: boolean;
+}
+
+const selectedMedia = ref<SelectedMedia[]>([])
+const editingSelectedMedia = ref<SelectedMedia>()
+const modifyAttachmentDialogVisible = ref<boolean>(false)
+
+async function selectMedia() {
+    const file = await pickFile({ multiple: false })
+    const mediaInfo = await createMediaInfo(file)
+
+    selectedMedia.value.push({
+        description: '',
+        id: uuidv4(),
+        file,
+        filename: file.name,
+        mediaInfo,
+        previewObjectUrl: URL.createObjectURL(file),
+        spoiler: false,
+    })
+}
+
+function editSelectedMedia(media: SelectedMedia) {
+    editingSelectedMedia.value = media
+    modifyAttachmentDialogVisible.value = true
+}
+
+function onUpdateEditingSelectedMedia(media: Pick<SelectedMedia, 'description' | 'filename' | 'spoiler'>) {
+    if (!editingSelectedMedia.value) return
+    editingSelectedMedia.value.filename = media.filename
+    editingSelectedMedia.value.description = media.description
+    editingSelectedMedia.value.spoiler = media.spoiler
+}
+
+function removeSelectedMedia(media: SelectedMedia) {
+    const mediaIndex = selectedMedia.value.indexOf(media)
+    URL.revokeObjectURL(media.previewObjectUrl)
+    selectedMedia.value.splice(mediaIndex, 1)
+}
 
 /*-----------------------------*\
 |                               |
@@ -562,11 +682,145 @@ async function retrySendMessage(eventId?: string) {
         --p-icon-size: 0.875rem;
     }
 
+    ~ .joined-room__attachment-bar {
+        border-start-end-radius: 0;
+        border-start-start-radius: 0;
+    }
+
     ~ .joined-room__chat-bar {
         .joined-room__chat-bar-input {
             border-start-end-radius: 0;
             border-start-start-radius: 0;
         }
+    }
+}
+.joined-room__attachment-bar {
+    display: flex;
+    align-items: center;
+    gap: 1.75rem;
+    overflow: auto hidden;
+    position: relative;
+    background: var(--chat-background-default);
+    border: 1px solid var(--border-muted);
+    border-bottom: none;
+    border-start-end-radius: var(--radius-sm);
+    border-start-start-radius: var(--radius-sm);
+    padding: 1.25rem 0.625rem 0.625rem 0.625rem;
+    margin: 0 3.75rem 0 0.5rem;
+
+    ~ .joined-room__chat-bar {
+        .joined-room__chat-bar-input {
+            border-top-color: var(--chat-background-default);
+            border-start-end-radius: 0;
+            border-start-start-radius: 0;
+        }
+    }
+}
+.joined-room__attachment-bar__attachment {
+    background-color: var(--background-surface-high);
+    border: 1px solid var(--border-normal);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-low);
+    display: inline-flex;
+    flex-direction: column;
+    margin: 0;
+    max-height: 12.5rem;
+    max-width: 12.5rem;
+    min-height: 12.5rem;
+    min-width: 12.5rem;
+    padding: 0.5rem;
+    position: relative;
+}
+.joined-room__attachment-bar__media-preview {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    height: 100%;
+    background-color: var(--background-surface-highest);
+    border-radius: 0.375rem;
+    object-fit: contain;
+    overflow: hidden;
+    position: relative;
+
+    > img {
+        display: flex;
+        flex-grow: 1;
+        height: 100%;
+        border-radius: 0.375rem;
+        object-fit: contain;
+        width: 100%;
+    }
+}
+.joined-room__attachment-bar__media-preview__spoiler-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    cursor: pointer;
+    z-index: 1;
+
+    ~ img {
+        filter: blur(2.75rem);
+    }
+
+    &:hover {
+        .joined-room__attachment-bar__media-preview__spoiler-overlay__label {
+            background-color: color-mix(in oklab, var(--spoiler-hidden-background-hover) 60%, rgba(0, 0, 0, 0.8));
+        }
+    }
+}
+.joined-room__attachment-bar__media-preview__spoiler-overlay__label {
+    background-color: color-mix(in oklab, var(--spoiler-hidden-background) 60%, rgba(0, 0, 0, 0.8));
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    align-items: center;
+    color: var(--spoiler-hidden-color);
+    display: flex;
+    flex-direction: column;
+    inset-inline-start: 50%;
+    line-height: 1;
+    padding: 0.5rem 0.75rem;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    user-select: none;
+    z-index: 1;
+}
+.joined-room__attachment-bar__attachment__filename {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.875rem;
+    font-weight: 400;
+    margin-top: 0.5rem;
+}
+.joined-room__attachment-bar__controls {
+    position: absolute;
+    top: 0;
+    right: -1.25rem;
+    align-items: center;
+    background-color: var(--background-surface-highest);
+    border-radius: 0.25rem;
+    box-shadow: var(--shadow-border), var(--shadow-low);
+    box-sizing: border-box;
+    display: grid;
+    grid-auto-flow: column;
+    height: 32px;
+    justify-content: flex-start;
+    overflow: hidden;
+    user-select: none;
+    width: max-content;
+    z-index: 3;
+
+    > .p-button {
+        width: 2rem !important;
+        height: 2rem !important;
+        --p-button-border-radius: 0.25rem;
     }
 }
 .joined-room__chat-bar {

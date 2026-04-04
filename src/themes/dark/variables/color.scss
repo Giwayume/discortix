@@ -57,6 +57,7 @@
     --plum-6: hsl(231.429 calc(1*6.667%) 79.412%/1);
     --plum-15: hsl(232.5 calc(1*6.557%) 23.922%/1);
 
+    --primary-200: hsl(240 calc(1*3.846%) 89.804%/1);
     --primary-700-hsl: 225 calc(1*6.25%) 12.549%;
 
     --red-new-22: hsl(2.655 calc(1*100%) 77.843%/1);
@@ -201,6 +202,9 @@
     --spoiler-background-color: var(--neutral-43);
     --spoiler-background-color-hover: var(--neutral-34);
     --spoiler-background-color-revealed: var(--background-mod-subtle);
+    --spoiler-hidden-background: var(--neutral-43);
+    --spoiler-hidden-background-hover: var(--neutral-34);
+    --spoiler-hidden-color: var(--primary-200);
 
     --text-default: var(--neutral-10);
     --text-strong: var(--neutral-1);

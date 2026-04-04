@@ -297,6 +297,15 @@
         "joinRoomErrorToast": "An error occurred when trying to join the room. You can ignore the DM request if this issue persists.",
         "rejectInviteErrorToast": "An error occurred when rejecting the invite. Please try again later."
     },
+    "modifyAttachmentDialog": {
+        "title": "Modify Attachment",
+        "filename": "Filename",
+        "description": "Description (Alt Text)",
+        "descriptionPlaceholder": "Add a description",
+        "markSpoiler": "Mark as spoiler",
+        "cancelButton": "Cancel",
+        "saveButton": "Save"
+    },
     "newMessageDialog": {
         "title": "New Message",
         "addCountLimit": "You can add {count} more people.",
@@ -420,6 +429,16 @@
         "copyMessageIdConfirm": "Message ID {eventId} copied to the clipboard.",
         "spoilerRedacted": "SPOILER REDACTED",
         "messageAddButton": "Add image, poll, etc.",
+        "messageAddMenu": {
+            "uploadFile": "Upload a File",
+            "createPoll": "Create Poll"
+        },
+        "attachmentMenu": {
+            "spoiler": "Spoiler Attachment",
+            "modify": "Modify Attachment",
+            "remove": "Remove Attachment"
+        },
+        "attachmentSpoiler": "Spoiler",
         "messagePlaceholder": "Message {roomName}",
         "messageEmojiButton": "Insert emoji",
         "replyingTo": "Replying To",
