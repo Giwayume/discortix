@@ -35,17 +35,7 @@ import Checkbox from 'primevue/checkbox'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 
-import type { MediaInfo } from '@/types'
-
-interface SelectedMedia {
-    description: string;
-    id: string;
-    file: File;
-    filename: string;
-    mediaInfo: MediaInfo;
-    previewObjectUrl: string;
-    spoiler: boolean;
-}
+import type { MediaInfo, MediaAttachmentPendingUpload } from '@/types'
 
 const { t } = useI18n()
 
@@ -55,7 +45,7 @@ const props = defineProps({
         default: false,
     },
     media: {
-        type: Object as PropType<SelectedMedia>,
+        type: Object as PropType<MediaAttachmentPendingUpload>,
         default: undefined,
     }
 })
@@ -70,7 +60,7 @@ watch(() => props.visible, (visible, wasVisible) => {
 
 const emit = defineEmits<{
     (e: 'update:visible', visible: boolean): void
-    (e: 'update:media', media: Pick<SelectedMedia, 'description' | 'filename' | 'spoiler'>): void
+    (e: 'update:media', media: Pick<MediaAttachmentPendingUpload, 'description' | 'filename' | 'spoiler'>): void
 }>()
 
 const formData = reactive({

@@ -1,10 +1,10 @@
-import {
-    type EventContentByType,
-    type EventImPoniesImage,
-    type EventTagContent,
-    type ApiV3SyncStrippedStateEvent,
-    type ApiV3SyncClientEventWithoutRoomId,
-    type ApiV3SyncRoomSummary,
+import type {
+    EventContentByType,
+    EventImPoniesImage,
+    EventTagContent,
+    ApiV3SyncStrippedStateEvent,
+    ApiV3SyncClientEventWithoutRoomId,
+    ApiV3SyncRoomSummary,
 } from './api-events'
 
 export interface RoomSummary {

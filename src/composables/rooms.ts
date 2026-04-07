@@ -33,7 +33,6 @@ import {
     type ApiV3RoomLeaveRequest,
     type EventReactionContent,
     type ApiV3RoomCreateRequest, ApiV3RoomCreateResponseSchema, type ApiV3RoomCreateResponse,
-    ApiV3CapabilitiesResponseSchema, type ApiV3CapabilitiesResponse,
 } from '@/types'
 
 const log = createLogger(import.meta.url)

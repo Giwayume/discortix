@@ -75,7 +75,7 @@
                     @click="onCancelEditOrReply()"
                 />
             </div>
-            <ul v-if="selectedMedia.length > 0" class="joined-room__attachment-bar">
+            <ul v-if="selectedMedia.length > 0 && editEventId == null" class="joined-room__attachment-bar">
                 <li v-for="media in selectedMedia" :key="media.id" class="joined-room__attachment-bar__attachment">
                     <div class="joined-room__attachment-bar__controls">
                         <Button
@@ -89,13 +89,17 @@
                             icon="pi pi-trash" severity="danger" variant="text" :aria-label="t('room.attachmentMenu.remove')" 
                             @click="removeSelectedMedia(media)" />
                     </div>
-                    <div class="joined-room__attachment-bar__media-preview">
+                    <div v-if="media.mediaInfo.type === 'image' || media.mediaInfo.type === 'video'" class="joined-room__attachment-bar__media-preview">
                         <div v-if="media.spoiler" class="joined-room__attachment-bar__media-preview__spoiler-overlay">
                             <div class="joined-room__attachment-bar__media-preview__spoiler-overlay__label">
                                 {{ t('room.attachmentSpoiler') }}
                             </div>
                         </div>
                         <img v-if="media.mediaInfo.type === 'image'" :src="media.previewObjectUrl">
+                        <video v-else-if="media.mediaInfo.type === 'video'" :src="media.previewObjectUrl" />
+                    </div>
+                    <div v-else class="joined-room__attachment-bar__media-icon">
+                        <span class="pi pi-file" aria-hidden="true" />
                     </div>
                     <span class="joined-room__attachment-bar__attachment__filename">
                         {{ media.filename }}
@@ -163,13 +167,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, reactive, ref, watch, type PropType } from 'vue'
+import { computed, defineAsyncComponent, onUnmounted, reactive, ref, watch, type PropType } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import type { GroupSession } from 'vodozemac-wasm-bindings'
 
-import { HttpError, PendingNetworkRequestError } from '@/utils/error'
+import { encryptFile } from '@/utils/crypto'
+import { FileTooBigError, HttpError, PendingNetworkRequestError } from '@/utils/error'
 import { pickFile } from '@/utils/file-access'
 import { formatMessage } from '@/utils/message'
 import { isRoomPartOfSpace } from '@/utils/room'
@@ -181,7 +186,7 @@ import { useApplication } from '@/composables/application'
 import { useCryptoKeys } from '@/composables/crypto-keys'
 import { useEmoji } from '@/composables/emoji'
 import { createLogger } from '@/composables/logger'
-import { createMediaInfo } from '@/composables/media'
+import { createLazyMediaUpload, createMediaInfo } from '@/composables/media'
 import { useMegolm } from '@/composables/megolm'
 import { useRooms } from '@/composables/rooms'
 
@@ -202,7 +207,6 @@ import Avatar from 'primevue/avatar'
 import AvatarGroup from 'primevue/avatargroup'
 import Button from 'primevue/button'
 import ContextMenu from 'primevue/contextmenu'
-import ScrollPanel from 'primevue/scrollpanel'
 import Textarea from 'primevue/textarea'
 import type { MenuItem } from 'primevue/menuitem'
 import vTooltip from 'primevue/tooltip'
@@ -210,29 +214,41 @@ import { useToast } from 'primevue/usetoast'
 
 import {
     type JoinedRoom,
-    type EventTextContent,
     type ApiV3SyncClientEventWithoutRoomId,
     type EmojiPickerEmojiItem,
-    type MediaInfo,
+    type EncryptedFile,
+    type EventAudioContent,
+    type EventFileContent,
+    type EventImageContent,
+    type EventTextContent,
+    type EventVideoContent,
+    type MediaAttachmentPendingUpload,
+    type MediaImageInfo,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
 
 const { t } = useI18n()
 const toast = useToast()
-const { isTouchEventsDetected } = useApplication()
-const { sendTypingNotification, sendMessageEvent, sendMessageReaction } = useRooms()
 
+const { isTouchEventsDetected } = useApplication()
 const { fetchUserKeys } = useCryptoKeys()
 const { currentRoomCustomEmojiByCode } = useEmoji()
 const { getOutboundGroupSession } = useMegolm()
+const { sendTypingNotification, sendMessageEvent, sendMessageReaction, redactEvent } = useRooms()
 
 const roomStore = useRoomStore()
+const {
+    currentRoomEncryptionEnabledTimestamp,
+    decryptedRoomEvents,
+    pendingMediaUploads,
+} = storeToRefs(roomStore)
 const {
     getTimelineEventIndexById,
     getTimelineEventById,
     associateTransactionIdWithEventId,
-    populateSentMessageEvent
+    populateSentMessageEvent,
+    cancelUnsentMessageEvent,
 } = roomStore
 const { profiles } = storeToRefs(useProfileStore())
 const { userId: sessionUserId } = storeToRefs(useSessionStore())
@@ -358,23 +374,26 @@ const addMediaContextMenuItems = ref<MenuItem[]>([
     },
 ])
 
-interface SelectedMedia {
-    description: string;
-    id: string;
-    file: File;
-    filename: string;
-    mediaInfo: MediaInfo;
-    previewObjectUrl: string;
-    spoiler: boolean;
-}
-
-const selectedMedia = ref<SelectedMedia[]>([])
-const editingSelectedMedia = ref<SelectedMedia>()
+const selectedMedia = ref<MediaAttachmentPendingUpload[]>([])
+const editingSelectedMedia = ref<MediaAttachmentPendingUpload>()
 const modifyAttachmentDialogVisible = ref<boolean>(false)
 
 async function selectMedia() {
     const file = await pickFile({ multiple: false })
-    const mediaInfo = await createMediaInfo(file)
+    const mediaInfo = await createMediaInfo(file, true)
+    let encryptedFile: EncryptedFile | undefined = undefined
+    let encryptedFileBlob: Blob | undefined = undefined
+    let encryptedThumbnailFile: EncryptedFile | undefined = undefined
+    let encryptedThumbnailFileBlob: Blob | undefined = undefined
+    if (currentRoomEncryptionEnabledTimestamp.value != null) {
+        let encryptedData: Uint8Array
+        ({ encryptedFile, encryptedData } = await encryptFile(file))
+        encryptedFileBlob = new Blob([encryptedData as never])
+        if ((mediaInfo.type === 'image' || mediaInfo.type === 'video') && mediaInfo.thumbnailBlob) {
+            ({ encryptedFile: encryptedThumbnailFile, encryptedData } = await encryptFile(mediaInfo.thumbnailBlob))
+            encryptedThumbnailFileBlob = new Blob([encryptedData as never])
+        }
+    }
 
     selectedMedia.value.push({
         description: '',
@@ -384,25 +403,36 @@ async function selectMedia() {
         mediaInfo,
         previewObjectUrl: URL.createObjectURL(file),
         spoiler: false,
+        encryptedFile,
+        encryptedFileBlob,
+        encryptedThumbnailFile,
+        encryptedThumbnailFileBlob,
     })
 }
 
-function editSelectedMedia(media: SelectedMedia) {
+function editSelectedMedia(media: MediaAttachmentPendingUpload) {
     editingSelectedMedia.value = media
     modifyAttachmentDialogVisible.value = true
 }
 
-function onUpdateEditingSelectedMedia(media: Pick<SelectedMedia, 'description' | 'filename' | 'spoiler'>) {
+function onUpdateEditingSelectedMedia(media: Pick<MediaAttachmentPendingUpload, 'description' | 'filename' | 'spoiler'>) {
     if (!editingSelectedMedia.value) return
     editingSelectedMedia.value.filename = media.filename
     editingSelectedMedia.value.description = media.description
     editingSelectedMedia.value.spoiler = media.spoiler
 }
 
-function removeSelectedMedia(media: SelectedMedia) {
+function removeSelectedMedia(media: MediaAttachmentPendingUpload) {
     const mediaIndex = selectedMedia.value.indexOf(media)
     URL.revokeObjectURL(media.previewObjectUrl)
     selectedMedia.value.splice(mediaIndex, 1)
+}
+
+function removeAllSelectedMedia() {
+    for (let media of selectedMedia.value) {
+        URL.revokeObjectURL(media.previewObjectUrl)
+    }
+    selectedMedia.value = []
 }
 
 /*-----------------------------*\
@@ -468,7 +498,10 @@ const replyToEventId = ref<string | undefined>()
 function onUpdateEditEventId(eventId: string | undefined) {
     replyToEventId.value = undefined
     editEventId.value = eventId
-    const event = props.room.replacements[eventId ?? '']?.[0] ?? getTimelineEventById(props.room.visibleTimeline, eventId)
+    let event = props.room.replacements[eventId ?? '']?.[0] ?? getTimelineEventById(props.room.visibleTimeline, eventId)
+    if (event?.type === 'm.room.encrypted') {
+        event = decryptedRoomEvents.value[event.eventId] ?? event
+    }
     if (event) {
         message.value = event.content?.['invalid.discortix.unredacted_body']
             ?? event.content?.body ?? ''
@@ -546,18 +579,34 @@ function onStopTyping() {
 \*---------------------*/
 
 async function onSubmitMessageForm() {
-    if (message.value.trim() === '') return
+    const mediaToUpload = editEventId.value == null ? selectedMedia.value : []
+    if (message.value.trim() === '' && mediaToUpload.length === 0) return
 
     await timelineEvents.value?.scrollToBottom()
 
+    const roomId = props.room.roomId
     const txnId = uuidv4()
     const { body, unredactedBody, formattedBody } = formatMessage(message.value, currentRoomCustomEmojiByCode.value, t)
 
-    const eventContent: EventTextContent = {
+    let editingEvent: ApiV3SyncClientEventWithoutRoomId | undefined
+    if (editEventId.value && !replyToEventId.value) {
+        editingEvent = props.room.replacements[editEventId.value ?? '']?.[0] ?? getTimelineEventById(props.room.visibleTimeline, editEventId.value)
+        if (editingEvent?.type === 'm.room.encrypted') {
+            editingEvent = decryptedRoomEvents.value[editingEvent.eventId]
+        }
+    }
+
+    let eventContent: EventTextContent | EventAudioContent | EventImageContent | EventVideoContent | EventFileContent = {
         body,
         format: formattedBody != body ? 'org.matrix.custom.html' : undefined,
         formattedBody: formattedBody != body ? formattedBody : undefined,
         msgtype: 'm.text',
+    }
+    if (editingEvent?.content) {
+        eventContent = editingEvent.content
+        eventContent.body = body
+        eventContent.format = formattedBody != body ? 'org.matrix.custom.html' : undefined
+        eventContent.formattedBody = formattedBody != body ? formattedBody : undefined
     }
 
     if (unredactedBody) {
@@ -597,37 +646,234 @@ async function onSubmitMessageForm() {
     message.value = ''
     replyToEventId.value = undefined
     editEventId.value = undefined
+    removeAllSelectedMedia()
 
-    populateSentMessageEvent(props.room.roomId, event)
+    // Send the main text event.
+    if (
+        (mediaToUpload.length > 0 && mediaToUpload[0]?.description)
+        || (mediaToUpload.length === 0)
+    ) {
+        populateSentMessageEvent(roomId, event)
+        try {
+            let groupSession: GroupSession | undefined = await getOutboundGroupSession(roomId)
+            const response = await sendMessageEvent<EventTextContent>(
+                roomId, 'm.room.message', txnId, event.content, groupSession
+            )
+            associateTransactionIdWithEventId(roomId, txnId, response.eventId)
+        } catch (error) {
+            log.error('Error sending message:', error)
+            event.sendError = true
+        }
+    }
+
+    // Create placeholder events in the timeline for each media event.
+    const mediaEvents: ApiV3SyncClientEventWithoutRoomId[] = []
+    for (const [mediaIndex, media] of mediaToUpload.entries()) {
+        const txnId = uuidv4()
+
+        const event: ApiV3SyncClientEventWithoutRoomId = reactive({
+            content: {},
+            eventId: `PLACEHOLDER_${txnId}`,
+            originServerTs: Date.now(),
+            sender: sessionUserId.value!,
+            type: 'm.room.message',
+            txnId,
+            sendError: false,
+        })
+
+        if (media.mediaInfo.type === 'image') {
+            event.content = {
+                body: media.filename,
+                filename: media.filename,
+                info: media.mediaInfo.info,
+                msgtype: 'm.image',
+            } satisfies EventImageContent
+        }
+
+        if (!media.description && mediaIndex === 0) {
+            event.content.body = body
+            if (formattedBody != body) {
+                event.content.format = 'org.matrix.custom.html'
+                event.content.formattedBody = formattedBody
+            }
+        }
+
+        if (media.spoiler) {
+            event.content['page.codeberg.everypizza.msc4193.spoiler'] = true
+        }
+
+        pendingMediaUploads.value[txnId] = media
+        populateSentMessageEvent(roomId, event)
+        mediaEvents.push(event)
+    }
+
+    // Upload the files and send the media events.
+    for (const mediaEvent of mediaEvents) {
+        const txnId = mediaEvent.txnId
+        if (!txnId) continue
+
+        await sendMediaEvent(mediaEvent)
+    }
+
+}
+
+async function sendMediaEvent(event: ApiV3SyncClientEventWithoutRoomId) {
+    const roomId = props.room.roomId
+    const media = pendingMediaUploads.value[event.txnId!] ?? pendingMediaUploads.value[event.eventId]
+
+    if (['m.audio', 'm.file', 'm.image', 'm.video'].includes(event.content?.msgtype) && !media && event.txnId) {
+        cancelUnsentMessageEvent(roomId, event.txnId)
+        return
+    }
+
+    let createdEventId: string | undefined
 
     try {
-        let groupSession: GroupSession | undefined = await getOutboundGroupSession(props.room.roomId)
-        const response = await sendMessageEvent<EventTextContent>(
-            props.room.roomId, 'm.room.message', txnId, event.content, groupSession
-        )
-        associateTransactionIdWithEventId(props.room.roomId, txnId, response.eventId)
+        let mediaUpload: ReturnType<typeof createLazyMediaUpload> | undefined = undefined
+        let thumbnailMediaUpload: ReturnType<typeof createLazyMediaUpload> | undefined = undefined
+
+        if (media) {
+            if (media.contentUri && !media.fileUploaded) {
+                mediaUpload = createLazyMediaUpload()
+                mediaUpload.useContentUri(media.contentUri)
+            } else if (!media.contentUri) {
+                mediaUpload = createLazyMediaUpload()
+                media.contentUri = await mediaUpload.useBlob(media.encryptedFileBlob ?? media.file)
+            }
+
+            const thumbnailBlob = media.encryptedThumbnailFileBlob
+                || (media.mediaInfo.type === 'image' || media.mediaInfo.type === 'video')
+                    ? (media.mediaInfo as MediaImageInfo).thumbnailBlob
+                    : undefined
+            if (media.thumbnailContentUri && !media.thumbnailUploaded) {
+                thumbnailMediaUpload = createLazyMediaUpload()
+                thumbnailMediaUpload.useContentUri(media.thumbnailContentUri)
+            } else if (!media.thumbnailContentUri && thumbnailBlob) {
+                thumbnailMediaUpload = createLazyMediaUpload()
+                media.thumbnailContentUri = await thumbnailMediaUpload.useBlob(thumbnailBlob)
+            }
+
+            if (event.content.msgtype === 'm.audio') {
+                if (media.encryptedFile) {
+                    (event.content as EventAudioContent).file = media.encryptedFile
+                    media.encryptedFile.url = media.contentUri
+                } else {
+                    (event.content as EventAudioContent).url = media.contentUri
+                }
+            } else if (event.content.msgtype === 'm.file') {
+                if (media.encryptedFile) {
+                    (event.content as EventFileContent).file = media.encryptedFile
+                    media.encryptedFile.url = media.contentUri
+                } else {
+                    (event.content as EventFileContent).url = media.contentUri
+                }
+            } else if (event.content.msgtype === 'm.image') {
+                if (media.encryptedFile) {
+                    (event.content as EventImageContent).file = media.encryptedFile
+                    media.encryptedFile.url = media.contentUri
+                    if (media.thumbnailContentUri && media.encryptedThumbnailFile) {
+                        (event.content as EventImageContent).info!.thumbnailFile = media.encryptedThumbnailFile
+                        media.encryptedThumbnailFile.url = media.thumbnailContentUri
+                    }
+                } else {
+                    (event.content as EventImageContent).url = media.contentUri
+                    if (media.thumbnailContentUri) {
+                        (event.content as EventImageContent).info!.thumbnailUrl = media.thumbnailContentUri
+                    }
+                }
+            } else if (event.content.msgtype === 'm.video') {
+                if (media.encryptedFile) {
+                    (event.content as EventVideoContent).file = media.encryptedFile
+                    media.encryptedFile.url = media.contentUri
+                    if (media.thumbnailContentUri && media.encryptedThumbnailFile) {
+                        (event.content as EventVideoContent).info!.thumbnailFile = media.encryptedThumbnailFile
+                        media.encryptedThumbnailFile.url = media.thumbnailContentUri
+                    }
+                } else {
+                    (event.content as EventVideoContent).url = media.contentUri
+                    if (media.thumbnailContentUri) {
+                        (event.content as EventVideoContent).info!.thumbnailUrl = media.thumbnailContentUri
+                    }
+                }
+            }
+        }
+
+        if (event.txnId) {
+            let groupSession: GroupSession | undefined = await getOutboundGroupSession(props.room.roomId)
+            const response = await sendMessageEvent(
+                roomId, event.type, event.txnId, event.content, groupSession
+            )
+            createdEventId = response.eventId
+            associateTransactionIdWithEventId(roomId, event.txnId, response.eventId)
+        }
+
+        if (media) {
+            await thumbnailMediaUpload?.upload()
+            media.thumbnailUploaded = true
+
+            mediaUpload?.upload()
+            media.fileUploaded = true
+        }
+
+        delete pendingMediaUploads.value[createdEventId!]
     } catch (error) {
-        log.error('Error sending message:', error)
-        event.sendError = true
+        if (error instanceof FileTooBigError || (error instanceof HttpError && error.isMatrixTooLarge())) {
+            if (createdEventId) {
+                redactEvent(roomId, createdEventId)
+            } else if (event.txnId) {
+                cancelUnsentMessageEvent(roomId, event.txnId)
+            }
+            toast.add({ severity: 'error', summary: t('errors.message.mediaTooLarge', { filename: media?.filename }), life: 6000 })
+        } else {
+            log.error('Error resending message:', error)
+            event.sendError = true
+        }
     }
+
 }
 
 async function retrySendMessage(eventId?: string) {
     const eventIndex = getTimelineEventIndexById(props.room.visibleTimeline, eventId)
     const event = props.room.visibleTimeline[eventIndex ?? -1]
-    if (!event?.txnId) return
+    if (!event) return
     event.sendError = false
 
-    try {
-        const response = await sendMessageEvent(
-            props.room.roomId, event.type, event.txnId, event.content
-        )
-        associateTransactionIdWithEventId(props.room.roomId, event.txnId, response.eventId)
-    } catch (error) {
-        log.error('Error resending message:', error)
-        event.sendError = true
+    if (['m.audio', 'm.file', 'm.image', 'm.video'].includes(event.content?.msgtype)) {
+        await sendMediaEvent(event)
+    } else if (event.txnId) {
+        try {
+            const roomId = props.room.roomId
+            const response = await sendMessageEvent(
+                roomId, event.type, event.txnId, event.content
+            )
+            associateTransactionIdWithEventId(roomId, event.txnId, response.eventId)
+        } catch (error) {
+            log.error('Error resending message:', error)
+            event.sendError = true
+        }
     }
 }
+
+/*-------------*\
+|               |
+|   Lifecycle   |
+|               |
+\*-------------*/
+
+function clearSharedState() {
+    message.value = ''
+    replyToEventId.value = undefined
+    editEventId.value = undefined
+    removeAllSelectedMedia()
+}
+
+watch(() => props.room.roomId, () => {
+    clearSharedState()
+})
+
+onUnmounted(() => {
+    clearSharedState()
+})
 
 </script>
 
@@ -742,7 +988,7 @@ async function retrySendMessage(eventId?: string) {
     overflow: hidden;
     position: relative;
 
-    > img {
+    > img, > video {
         display: flex;
         flex-grow: 1;
         height: 100%;
@@ -750,6 +996,16 @@ async function retrySendMessage(eventId?: string) {
         object-fit: contain;
         width: 100%;
     }
+}
+.joined-room__attachment-bar__media-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    height: 100%;
+    color: var(--blurple-14);
+    --p-icon-size: 5rem;
 }
 .joined-room__attachment-bar__media-preview__spoiler-overlay {
     position: absolute;
@@ -760,7 +1016,7 @@ async function retrySendMessage(eventId?: string) {
     cursor: pointer;
     z-index: 1;
 
-    ~ img {
+    ~ img, ~ video {
         filter: blur(2.75rem);
     }
 
@@ -798,6 +1054,7 @@ async function retrySendMessage(eventId?: string) {
     font-size: 0.875rem;
     font-weight: 400;
     margin-top: 0.5rem;
+    flex-shrink: 0;
 }
 .joined-room__attachment-bar__controls {
     position: absolute;

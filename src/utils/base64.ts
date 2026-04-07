@@ -9,7 +9,7 @@ export interface Uint8ArrayFromBase64Options {
     lastChunkHandling?: 'loose';
 }
 
-function toBase64(uint8Array: Uint8Array, options: Uint8ArrayToBase64Options): string {
+export function toBase64(uint8Array: Uint8Array, options: Uint8ArrayToBase64Options): string {
     if ((typeof uint8Array as any).toBase64 === 'function') {
         return (uint8Array as any).toBase64(options)
     }

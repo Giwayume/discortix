@@ -24,6 +24,14 @@ export class EncryptionVerificationError extends Error {
     }
 }
 
+export class FileTooBigError extends Error {
+    constructor(message?: string) {
+        const defaultMessage = 'The file exceeds the maximum file size limit.'
+        super(message ?? defaultMessage)
+        this.name = 'FileTooBigError'
+    }
+}
+
 export class HttpError extends Error {
     readonly response: Response
     readonly responseBody: any
@@ -70,6 +78,13 @@ export class HttpError extends Error {
         return (
             this.status === 429
             && this.responseBody?.errcode === 'M_LIMIT_EXCEEDED'
+        )
+    }
+
+    isMatrixTooLarge() {
+        return (
+            this.status === 413
+            && this.responseBody?.errcode === 'M_TOO_LARGE'
         )
     }
 

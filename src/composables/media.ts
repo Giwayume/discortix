@@ -1,10 +1,12 @@
 import { storeToRefs } from 'pinia'
 
 import { fetchJson, HttpError } from '@/utils/fetch'
+import { FileTooBigError } from '@/utils/error'
 
 import { useSessionStore } from '@/stores/session'
 
 import {
+    type ApiV1MediaConfigResponse, ApiV1MediaConfigResponseSchema,
     type ApiV3MediaCreateResponse, ApiV3MediaCreateResponseSchema,
     type ApiV3MediaUploadResponse, ApiV3MediaUploadResponseSchema,
     type MediaInfo,
@@ -23,7 +25,9 @@ const videoMediaTypes = [
     'video/mp4', 'video/ogg', 'video/quicktime', 'video/webm', 'video/x-matroska',
 ]
 
-export async function createMediaInfo(objectUrlOrBlob: string | Blob): Promise<MediaInfo> {
+const thumbnailMaxDimension = 800
+
+export async function createMediaInfo(objectUrlOrBlob: string | Blob, generateThumbnail?: boolean): Promise<MediaInfo> {
     let objectUrl = (typeof objectUrlOrBlob === 'string') ? objectUrlOrBlob : undefined
     let blob: Blob | null
     try {
@@ -58,18 +62,51 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob): Promise<M
                 }
                 image.src = objectUrl
             })
+            let thumbnailBlob: Blob | undefined = undefined
+            let thumbnailWidth: number = 0
+            let thumbnailHeight: number = 0
+            if (generateThumbnail && Math.max(image.width, image.height) >= thumbnailMaxDimension) {
+                const thumbnailScale = thumbnailMaxDimension / Math.max(image.width, image.height)
+                const canvas = document.createElement('canvas')
+                canvas.width = Math.floor(image.width * thumbnailScale)
+                canvas.height = Math.floor(image.height * thumbnailScale)
+                thumbnailWidth = canvas.width
+                thumbnailHeight = canvas.height
+                const ctx = canvas.getContext('2d')
+                if (ctx) {
+                    ctx.scale(thumbnailScale, thumbnailScale)
+                    ctx.drawImage(image, 0, 0)
+                }
+                thumbnailBlob = await new Promise<Blob | null>((resolve) => {
+                    try {
+                        canvas.toBlob(resolve, 'image/jpeg', 0.95)
+                    } catch (error) {
+                        resolve(null)
+                    }
+                }) ?? undefined
+            }
             if (shouldRevokeObjectUrl) {
                 URL.revokeObjectURL(objectUrl!)
             }
-            return {
+            const mediaInfo: MediaInfo = {
                 type: 'image',
                 info: {
                     h: image.height,
                     mimetype: blob.type,
                     size: blob.size,
                     w: image.width,
+                },
+                thumbnailBlob,
+            }
+            if (thumbnailBlob) {
+                mediaInfo.info!.thumbnailInfo = {
+                    h: thumbnailHeight,
+                    mimetype: 'image/jpeg',
+                    size: thumbnailBlob.size,
+                    w: thumbnailWidth,
                 }
             }
+            return mediaInfo
         } catch (error) {
             if (shouldRevokeObjectUrl) {
                 URL.revokeObjectURL(objectUrl!)
@@ -79,7 +116,7 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob): Promise<M
                 info: {
                     mimetype: blob.type,
                     size: blob.size,
-                }
+                },
             }
         }
     } else if (videoMediaTypes.includes(blob.type)) {
@@ -87,6 +124,9 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob): Promise<M
             const video = await new Promise<HTMLVideoElement>((resolve, reject) => {
                 const video = document.createElement('video')
                 video.preload = 'metadata'
+                if (generateThumbnail) {
+                    video.playsInline = true
+                }
                 const onLoad = () => {
                     video.removeEventListener('loadedmetadata', onLoad)
                     video.removeEventListener('error', onError)
@@ -105,10 +145,58 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob): Promise<M
                 }
                 video.src = objectUrl
             });
+            let thumbnailBlob: Blob | undefined = undefined
+            let thumbnailWidth: number = 0
+            let thumbnailHeight: number = 0
+            if (generateThumbnail && Math.max(video.videoWidth, video.videoHeight) >= thumbnailMaxDimension) {
+                await new Promise<void>((resolve) => {
+                    let isResolved = false
+                    function onLoadedData() {
+                        if (isResolved) return
+                        video.currentTime = 0.001
+                        video.addEventListener('seeked', onSeeked, { once: true })
+                    }
+                    function onSeeked() {
+                        if (isResolved) return
+                        resolve()
+                        isResolved = true
+                        video.pause()
+                    }
+                    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+                        onLoadedData()
+                    } else {
+                        video.addEventListener('loadeddata', onLoadedData, { once: true })
+                    }
+                    setTimeout(() => {
+                        if (isResolved) return
+                        resolve()
+                        isResolved = true
+                    }, 1000)
+                })
+
+                const thumbnailScale = thumbnailMaxDimension / Math.max(video.videoWidth, video.videoHeight)
+                const canvas = document.createElement('canvas')
+                canvas.width = Math.floor(video.videoWidth * thumbnailScale)
+                canvas.height = Math.floor(video.videoHeight * thumbnailScale)
+                thumbnailWidth = canvas.width
+                thumbnailHeight = canvas.height
+                const ctx = canvas.getContext('2d')
+                if (ctx) {
+                    ctx.scale(thumbnailScale, thumbnailScale)
+                    ctx.drawImage(video, 0, 0)
+                }
+                thumbnailBlob = await new Promise<Blob | null>((resolve) => {
+                    try {
+                        canvas.toBlob(resolve, 'image/jpeg', 0.95)
+                    } catch (error) {
+                        resolve(null)
+                    }
+                }) ?? undefined
+            }
             if (shouldRevokeObjectUrl) {
                 URL.revokeObjectURL(objectUrl!)
             }
-            return {
+            const mediaInfo: MediaInfo = {
                 type: 'video',
                 info: {
                     duration: video.duration,
@@ -117,7 +205,17 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob): Promise<M
                     size: blob.size,
                     w: video.videoWidth,
                 },
+                thumbnailBlob,
             }
+            if (thumbnailBlob) {
+                mediaInfo.info!.thumbnailInfo = {
+                    h: thumbnailHeight,
+                    mimetype: 'image/jpeg',
+                    size: thumbnailBlob.size,
+                    w: thumbnailWidth,
+                }
+            }
+            return mediaInfo
         } catch (error) {
             if (shouldRevokeObjectUrl) {
                 URL.revokeObjectURL(objectUrl!)
@@ -127,7 +225,7 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob): Promise<M
                 info: {
                     mimetype: blob.type,
                     size: blob.size,
-                }
+                },
             }
         }
     } else if (audioMediaTypes.includes(blob.type)) {
@@ -162,7 +260,7 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob): Promise<M
                     duration: audio.duration,
                     mimetype: blob.type,
                     size: blob.size,
-                }
+                },
             }
         } catch (error) {
             if (shouldRevokeObjectUrl) {
@@ -173,12 +271,16 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob): Promise<M
                 info: {
                     mimetype: blob.type,
                     size: blob.size,
-                }
+                },
             }
         }
     }
     return { type: 'unknown' }
 }
+
+const maxUploadSizeCheckFrequency = 1.8e+6 // 30 minutes
+let lastMaxUploadSizeRequestTimestamp: number = 0
+let maxUploadSize: number = Infinity
 
 export function createLazyMediaUpload() {
     const { homeserverBaseUrl } = storeToRefs(useSessionStore())
@@ -189,12 +291,46 @@ export function createLazyMediaUpload() {
 
     let queuedBlob: Blob | null = null
 
+    async function useContentUri(uri: string) {
+        contentUri = uri
+    }
+
     async function useObjectUrl(objectUrl: string): Promise<string> {
         const blob = await (await fetch(objectUrl)).blob()
         return useBlob(blob)
     }
 
     async function useBlob(blob: Blob): Promise<string> {
+        if (Date.now() - maxUploadSizeCheckFrequency > lastMaxUploadSizeRequestTimestamp) {
+            lastMaxUploadSizeRequestTimestamp = Date.now()
+            try {
+                const response = await fetchJson<ApiV1MediaConfigResponse>(
+                    `${homeserverBaseUrl.value}/_matrix/client/v1/media/config`,
+                    {
+                        useAuthorization: true,
+                        jsonSchema: ApiV1MediaConfigResponseSchema,
+                    }
+                )
+                maxUploadSize = response['m.upload.size'] ?? Infinity
+            } catch (error) {
+                try {
+                    // Try the deprecated API
+                    const response = await fetchJson<ApiV1MediaConfigResponse>(
+                        `${homeserverBaseUrl.value}/_matrix/media/v3/config`,
+                        {
+                            useAuthorization: true,
+                            jsonSchema: ApiV1MediaConfigResponseSchema,
+                        }
+                    )
+                    maxUploadSize = response['m.upload.size'] ?? Infinity
+                } catch (error) { /* Ignore */ }
+            }
+        }
+
+        if (blob.size > maxUploadSize) {
+            throw new FileTooBigError()
+        }
+
         if (isMsc2246Supported) {
             try {
                 ({ contentUri, unusedExpiresAt } = await fetchJson<ApiV3MediaCreateResponse>(
@@ -281,6 +417,7 @@ export function createLazyMediaUpload() {
     }
 
     return {
+        useContentUri,
         useObjectUrl,
         useBlob,
         discard,

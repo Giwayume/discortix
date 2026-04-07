@@ -99,7 +99,8 @@
         "message": {
             "pendingReaction": "This reaction is still being sent. Please wait.",
             "guestReaction": "Guest reactions are not allowed.",
-            "forbidden": "You do not have permissions to react to this message."
+            "forbidden": "You do not have permissions to react to this message.",
+            "mediaTooLarge": "Your media upload \"{filename}\" was rejected because it is too large."
         },
         "profiles": {
             "missingSessionData": "This session is missing required data in order to load the user profile. We recommend logging in again in order to fix this issue."

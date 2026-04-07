@@ -276,6 +276,7 @@ export const useMegolmStore = defineStore('megolm', () => {
             senderClaimedEd25519Key: otherDeviceEd25519Key,
             session: new InboundGroupSession(content.sessionKey),
         }
+        saveInboundMegolmSession(roomId, otherDeviceCurveKey, inboundMegolmSessions.value[sessionKey].session)
     }
 
     function populateRoomKeysFromForwardedRoomKeyEvent(content: EventForwardedRoomKeyContent) {

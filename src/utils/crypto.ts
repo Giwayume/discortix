@@ -1,16 +1,9 @@
 import { stringify as canonicalJsonStringify } from '@/utils/canonical-json'
-import {
-    InboundGroupSession,
-    // MegolmMessage,
-} from 'vodozemac-wasm-bindings'
 
-import { decodeBase64, encodeUnpaddedBase64 } from './base64'
-import { camelizeApiResponse } from '@/utils/zod'
+import { decodeBase64, toBase64, encodeUnpaddedBase64 } from './base64'
 
-import {
-    eventContentSchemaByType,
-    type EventRoomEncryptedContent, type EventForwardedRoomKeyContent,
-    type EncryptedFile,
+import type {
+    EncryptedFile,
 } from '@/types'
 
 export interface Ed25519KeyPair {
@@ -106,6 +99,54 @@ export async function verifyEd25519Signature(message: string, signature: Uint8Ar
 export async function createSigningJson(value: any, signingPrivateKey: Uint8Array) {
     const canonicalJson = canonicalJsonStringify(value, ['signatures', 'unsigned'])
     return await signWithEd25519Key(canonicalJson, signingPrivateKey)
+}
+
+export async function encryptFile(
+    input: Blob,
+): Promise<{ encryptedData: Uint8Array, encryptedFile: EncryptedFile }> {
+    const plainBytes = new Uint8Array(await input.arrayBuffer())
+
+    const cryptoKey = await crypto.subtle.generateKey(
+        { name: 'AES-CTR', length: 256 },
+        true,
+        ['encrypt'],
+    )
+    const rawKey = new Uint8Array(
+        await crypto.subtle.exportKey('raw', cryptoKey),
+    )
+
+    const iv = crypto.getRandomValues(new Uint8Array(16))
+
+    const cipherBuffer = await crypto.subtle.encrypt(
+        {
+            name: 'AES-CTR',
+            counter: iv,
+            length: 64, // same as in decryptFile
+        },
+        cryptoKey,
+        plainBytes,
+    )
+    const cipherBytes = new Uint8Array(cipherBuffer)
+
+    const hashBuffer = await crypto.subtle.digest('SHA-256', cipherBytes)
+
+    const encryptedFile: EncryptedFile = {
+        url: '',
+        key: {
+            kty: 'oct',
+            keyOps: ['encrypt', 'decrypt'],
+            alg: 'A256CTR',
+            ext: true,
+            k: toBase64(rawKey, { alphabet: 'base64url', omitPadding: true }),
+        },
+        iv: encodeUnpaddedBase64(iv),
+        hashes: {
+            'sha256': encodeUnpaddedBase64(new Uint8Array(hashBuffer)),
+        },
+        v: 'v2',
+    }
+
+    return { encryptedData: cipherBytes, encryptedFile }
 }
 
 export async function decryptFile(

@@ -36,6 +36,7 @@ import {
     type ApiV3SyncTimeline,
     type EventRoomEncryptedContent,
     type EventRoomRedactionContent,
+    type MediaAttachmentPendingUpload,
 } from '@/types'
 
 const { isEventVisible, redactEvent } = useEventTimeline()
@@ -296,9 +297,7 @@ async function addJoinedOrLeftRoomTimelineEvent(
     }
 
     // Decrypt and store unencrypted text
-    console.log('new event' ,event.type)
     if (event.type === 'm.room.encrypted' && event.content) {
-        console.log('decrypting event!')
         if (!decryptMegolmEvent) {
             ({ decryptEvent: decryptMegolmEvent } = (await import('@/stores/megolm')).useMegolmStore())
         }
@@ -309,8 +308,7 @@ async function addJoinedOrLeftRoomTimelineEvent(
                 ...decrypted,
             }
             decryptedRoomEvents.value[event.eventId] = decryptedEvent
-            console.log('decrypted', decryptedEvent)
-        } catch (error) { console.log(error) /* Ignore. Other code will try again later. */ }
+        } catch (error) { /* Ignore. Other code will try again later. */ }
     }
 
     // Insert event into timeline
@@ -492,6 +490,7 @@ export const useRoomStore = defineStore('room', () => {
     const joined = ref<Record<string, JoinedRoom>>({})
     const left = ref<Record<string, LeftRoom>>({})
     const decryptedRoomEvents = ref<Record<string, ApiV3SyncClientEventWithoutRoomId>>({})
+    const pendingMediaUploads = ref<Record<string, MediaAttachmentPendingUpload>>({})
 
     async function initialize() {
         try {
@@ -831,10 +830,25 @@ export const useRoomStore = defineStore('room', () => {
 
     }
 
+    // This is mostly used to create temporary events for a waiting animation (before sync overrides it)
     async function populateSentMessageEvent(roomId: string, event: ApiV3SyncClientEventWithoutRoomId) {
         const room = joined.value[roomId]
         if (!room) return
         await addJoinedOrLeftRoomTimelineEvent(room, event, decryptedRoomEvents)
+
+        updateJoinedRoomDatabase(roomId)
+    }
+
+    async function cancelUnsentMessageEvent(roomId: string, txnId: string) {
+        const room = joined.value[roomId]
+        if (!room) return
+        for (let i = room.visibleTimeline.length - 1; i >= 0; i--) {
+            const event = room.visibleTimeline[i]
+            if (event?.txnId === txnId) {
+                room.visibleTimeline.splice(i, 1)
+                return
+            }
+        }
 
         updateJoinedRoomDatabase(roomId)
     }
@@ -858,7 +872,12 @@ export const useRoomStore = defineStore('room', () => {
                 delete room.visibleTimeline[transactionEventIndex].txnId
             }
         }
-
+        if (pendingMediaUploads.value[txnId]) {
+            if (!pendingMediaUploads.value[txnId].fileUploaded) {
+                pendingMediaUploads.value[roomId] = pendingMediaUploads.value[txnId]
+            }
+            delete pendingMediaUploads.value[txnId]
+        }
         updateJoinedRoomDatabase(roomId)
     }
 
@@ -1155,6 +1174,7 @@ export const useRoomStore = defineStore('room', () => {
         currentRoomEncryptionEnabledTimestamp,
         currentRoomPermissions,
         decryptedRoomEvents,
+        pendingMediaUploads,
         invitedDirectMessageRooms,
         joinedDirectMessageRooms,
         serverNoticeRooms,
@@ -1162,6 +1182,7 @@ export const useRoomStore = defineStore('room', () => {
         getTimelineEventById,
         associateTransactionIdWithEventId,
         populateSentMessageEvent,
+        cancelUnsentMessageEvent,
         populateFromApiV3SyncResponse,
         populateFromApiV3RoomMessagesResponse,
         updateJoinedRoomDatabase,

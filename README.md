@@ -1,6 +1,6 @@
 # Discortix - Discord Inspired Matrix Chat Client
 
-This project is a **WORK IN PROGRESS** Matrix chat client, designed for web. Should be mobile app friendly.
+This project is a **WORK IN PROGRESS** Matrix chat client, designed for web. Should be mobile app friendly via Capacitor/Cordova integration.
 
 Since I have been dissatisfied with the general bugginess and lack of feature parity with Discord found in other Matrix chat clients, I am writing yet another Matrix chat client to do it right.
 

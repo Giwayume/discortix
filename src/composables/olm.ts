@@ -337,12 +337,17 @@ export function useOlm() {
                     if (inboundSession) {
                         const sessionKey = inboundSession.session.export_at(inboundSession.session.first_known_index)
                         if (!sessionKey) break
+                        const forwardingCurve25519KeyChain = [...inboundSession.forwardingCurve25519KeyChain]
+                        const myDeviceCurveKey = olmAccount.value?.curve25519_key
+                        if (myDeviceCurveKey && !forwardingCurve25519KeyChain.includes(myDeviceCurveKey)) {
+                            forwardingCurve25519KeyChain.push(myDeviceCurveKey)
+                        }
                         sendMessageToDevices<EventForwardedRoomKeyContent>(
                             [[event.sender, eventContent.requestingDeviceId]],
                             'm.forwarded_room_key',
                             {
                                 algorithm: eventContent.body?.algorithm ?? megolmAlgorithm,
-                                forwardingCurve25519KeyChain: inboundSession.forwardingCurve25519KeyChain,
+                                forwardingCurve25519KeyChain,
                                 roomId: room.roomId,
                                 senderClaimedEd25519Key: inboundSession.senderClaimedEd25519Key,
                                 senderKey,

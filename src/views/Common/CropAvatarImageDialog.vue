@@ -156,13 +156,17 @@ async function apply() {
             )
 
             const blob = await new Promise<Blob>((resolve, reject) => {
-                canvas.toBlob((blob) => {
-                    if (blob) {
-                        resolve(blob)
-                    } else {
-                        reject()
-                    }
-                }, 'image/jpeg', 95)
+                try {
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            resolve(blob)
+                        } else {
+                            reject()
+                        }
+                    }, 'image/jpeg', 0.95)
+                } catch (error) {
+                    reject()
+                }
             })
 
             emit('apply', blob)

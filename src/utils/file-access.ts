@@ -62,7 +62,8 @@ export function pickFile(options: PickFileOptions = {}): any {
     });
 }
 
-export function downloadFile(blob: Blob, filename: string) {
+export function downloadFile(blob: Blob | null | undefined, filename: string) {
+    if (blob == null) return
     const objectUrl = URL.createObjectURL(blob)
 
     const a = document.createElement('a')
