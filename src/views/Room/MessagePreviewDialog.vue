@@ -118,6 +118,7 @@ const eventRenderInfo = computed<EventWithRenderInfo | undefined>(() => {
         headerTime: isToday
             ? originDate.toLocaleString(undefined, { hour: 'numeric', minute: 'numeric' })
             : originDate.toLocaleString(undefined, { year: '2-digit', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }),
+        isSpoiler: !!event.content?.['page.codeberg.everypizza.msc4193.spoiler'],
         time: originDate.toLocaleString(undefined, { hour: 'numeric', minute: 'numeric' }),
         isoTimestamp: originDate.toISOString(),
         avatarUrl: profiles.value[event.sender]?.avatarUrl,

@@ -681,13 +681,34 @@ async function onSubmitMessageForm() {
             sendError: false,
         })
 
-        if (media.mediaInfo.type === 'image') {
+         if (media.mediaInfo.type === 'audio') {
+            event.content = {
+                body: media.filename,
+                filename: media.filename,
+                info: media.mediaInfo.info,
+                msgtype: 'm.audio',
+            }
+        } else if (media.mediaInfo.type === 'image') {
             event.content = {
                 body: media.filename,
                 filename: media.filename,
                 info: media.mediaInfo.info,
                 msgtype: 'm.image',
             } satisfies EventImageContent
+        } else if (media.mediaInfo.type === 'video') {
+            event.content = {
+                body: media.filename,
+                filename: media.filename,
+                info: media.mediaInfo.info,
+                msgtype: 'm.video',
+            }
+        } else if (media.mediaInfo.type === 'unknown') {
+            event.content = {
+                body: media.filename,
+                filename: media.filename,
+                info: media.mediaInfo.info,
+                msgtype: 'm.file',
+            }
         }
 
         if (!media.description && mediaIndex === 0) {

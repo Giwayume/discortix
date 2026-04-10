@@ -158,6 +158,7 @@ export interface EventWithRenderInfo {
     displayHeader: boolean;
     displayname: string;
     headerTime: string;
+    isSpoiler: boolean;
     time: string;
     isoTimestamp: string;
     avatarUrl?: string;

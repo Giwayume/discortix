@@ -66,6 +66,15 @@
         </template>
         <template v-if="e.event.type === 'm.room.message' && e.event.content">
             <!-- Message -->
+            <div v-if="e.event.content.msgtype === 'm.text' || (e.event.content.body && e.event.content.filename && e.event.content.body !== e.event.content.filename)" class="p-chattimeline-event-content">
+                <div
+                    v-if="formattedBody"
+                    :class="e.event.content.format === 'org.matrix.custom.html' ? 'p-chattimeline-event-content-formatted' : ''"
+                    v-dompurify-html="formattedBody"
+                />
+                <template v-else>{{ e.event.content.body }}</template>
+                <span v-if="e.replacementEvent" v-tooltip.top="{ value: isTouchEventsDetected ? undefined : e.replacementDate }" class="p-chattimeline-edited">{{ i18nText.messageEditedIndicator }}</span>
+            </div>
             <template v-if="e.event.content.msgtype === 'm.audio'">
                 <!-- Audio -->
                 {{ e.event.content.msgtype }}
@@ -79,39 +88,69 @@
                 <AuthenticatedImage
                     :mxcUri="e.event.content.url"
                     :encryptedFile="e.event.content.info?.thumbnailFile || e.event.content.file"
+                    :mimetype="e.event.content.info?.mimetype"
                     type="download"
                 >
                     <template v-slot="{ src }">
-                        <img
-                            :src="src"
-                            :alt="e.event.content.body"
+                        <div
                             class="p-chattimeline-event-image"
-                            tabindex="0"
+                            :class="{
+                                'p-chattimeline-spoiler': e.isSpoiler,
+                                'p-chattimeline-spoiler-visible': spoilerVisible,
+                            }"
                             :style="{
                                 '--image-target-height': (e.event.content.info?.thumbnailInfo?.h || e.event.content.info?.h || 16) + 'px',
                                 '--image-aspect-ratio': (e.event.content.info?.thumbnailInfo?.w || e.event.content.info?.w || 16) / (e.event.content.info?.thumbnailInfo?.h || e.event.content.info?.h || 16),
                             }"
-                            @dragstart.prevent
-                            @click="emit('viewPhoto', e.event)"
+                            @click="spoilerVisible = true"
                         >
+                            <img
+                                :src="src"
+                                :alt="e.event.content.body"
+                                tabindex="0"
+                                @dragstart.prevent
+                                @click="emit('viewPhoto', e.event)"
+                            >
+                        </div>
                     </template>
+                    <template #error></template>
                 </AuthenticatedImage>
             </template>
             <template v-else-if="e.event.content.msgtype === 'm.text' || e.event.content.msgtype === 'm.notice'">
                 <!-- Text -->
-                <div class="p-chattimeline-event-content">
-                    <div
-                        v-if="formattedBody"
-                        :class="props.e.event.content.format === 'org.matrix.custom.html' ? 'p-chattimeline-event-content-formatted' : ''"
-                        v-dompurify-html="formattedBody"
-                    />
-                    <template v-else>{{ e.event.content.body }}</template>
-                    <span v-if="e.replacementEvent" v-tooltip.top="{ value: isTouchEventsDetected ? undefined : e.replacementDate }" class="p-chattimeline-edited">{{ i18nText.messageEditedIndicator }}</span>
-                </div>
             </template>
             <template v-else-if="e.event.content.msgtype === 'm.video'">
                 <!-- Video -->
-                {{ e.event.content.msgtype }}
+                <AuthenticatedVideo
+                    :mxcUri="e.event.content.url"
+                    :encryptedFile="e.event.content.file"
+                    :mimetype="e.event.content.info?.mimetype"
+                    :thumbnailMxcUri="e.event.content.info?.thumbnailUrl"
+                    :thumbnailEncryptedFile="e.event.content.info?.thumbnailFile"
+                    :thumbnailMimetype="e.event.content.info?.thumbnailInfo?.mimetype"
+                >
+                    <template v-slot="{ src, poster }">
+                        <div
+                            class="p-chattimeline-event-video"
+                            :class="{
+                                'p-chattimeline-spoiler': e.isSpoiler,
+                                'p-chattimeline-spoiler-visible': spoilerVisible,
+                            }"
+                            :style="{
+                                '--video-target-height': (e.event.content.info?.thumbnailInfo?.h || e.event.content.info?.h || 16) + 'px',
+                                '--video-aspect-ratio': (e.event.content.info?.thumbnailInfo?.w || e.event.content.info?.w || 16) / (e.event.content.info?.thumbnailInfo?.h || e.event.content.info?.h || 16),
+                            }"
+                            @click="spoilerVisible = true"
+                        >
+                            <video
+                                controls
+                                :poster="poster"
+                            >
+                                <source :src="src" :type="e.event.content.info?.mimetype" />
+                            </video>
+                        </div>
+                    </template>
+                </AuthenticatedVideo>
             </template>
         </template>
         <template v-else-if="e.event.type === 'm.sticker'">
@@ -278,7 +317,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, type PropType } from 'vue'
+import { computed, ref, type PropType } from 'vue'
 import 'linkifyjs'
 import linkifyHtml from 'linkify-html'
 
@@ -289,6 +328,7 @@ import { useApplication } from '@/composables/application'
 import { useRoomStore } from '@/stores/room'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
+import AuthenticatedVideo from '@/views/Common/AuthenticatedVideo.vue'
 import MessageBeginning from './MessageBeginning.vue'
 
 import Message from 'primevue/message'
@@ -300,6 +340,7 @@ import {
     type EventWithRenderInfo,
     type EmojiPickerEmojiItem,
 } from '@/types'
+import { VideoPlayer } from '@videojs-player/vue'
 
 const { isTouchEventsDetected } = useApplication()
 const { currentRoomPermissions } = useRoomStore()
@@ -344,6 +385,8 @@ const props = defineProps({
 const emit = defineEmits<{
     (e: 'viewPhoto', event: ApiV3SyncClientEventWithoutRoomId): void
 }>()
+
+const spoilerVisible = ref<boolean>(false)
 
 const formattedBody = computed<string | undefined>(() => {
     if (

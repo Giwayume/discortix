@@ -455,18 +455,101 @@
 }
 
 .p-chattimeline-event-image {
-    height: var(--image-target-height, auto);
-    width: auto;
-    max-height: 21.875rem;
-    max-width: 100%;
-    text-indent: -9999px;
-    overflow: hidden;
-    aspect-ratio: var(--image-aspect-ratio, auto);
-    border-radius: 0.5rem;
-    padding: 0.125rem 0;
-    object-fit: cover;
-    cursor: pointer;
+    display: block;
+    width: fit-content;
+    margin: 0.125rem 0;
+
+    img {
+        height: var(--image-target-height, auto);
+        width: auto;
+        max-height: 21.875rem;
+        max-width: 100%;
+        text-indent: -9999px;
+        overflow: hidden;
+        aspect-ratio: var(--image-aspect-ratio, auto);
+        border-radius: 0.5rem;
+        object-fit: cover;
+        cursor: pointer;
+    }
 }
+
+.p-chattimeline-event-video {
+    display: block;
+    width: fit-content;
+    margin: 0.125rem 0;
+
+    video {
+        height: var(--video-target-height, auto);
+        width: auto;
+        max-height: 21.875rem;
+        max-width: 100%;
+        overflow: hidden;
+        aspect-ratio: var(--video-aspect-ratio, auto);
+        border-radius: 0.5rem;
+        object-fit: cover;
+        cursor: pointer;
+    }
+}
+
+.p-chattimeline-event-image,
+.p-chattimeline-event-video {
+    &.p-chattimeline-spoiler {
+        position: relative;
+        overflow: hidden;
+        border-radius: 0.5rem;
+
+        &:not(.p-chattimeline-spoiler-visible) {
+            min-width: 6rem;
+            min-height: 2rem;
+        }
+
+        img, video {
+            filter: blur(2.75rem);
+        }
+        &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            cursor: pointer;
+            z-index: 1;
+        }
+        &::after {
+            content: 'Spoiler';
+            background-color: color-mix(in oklab, var(--spoiler-hidden-background) 60%, rgba(0, 0, 0, 0.8));
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: .5px;
+            text-transform: uppercase;
+            align-items: center;
+            color: var(--spoiler-hidden-color);
+            display: flex;
+            flex-direction: column;
+            inset-inline-start: 50%;
+            line-height: 1;
+            padding: 0.5rem 0.75rem;
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            user-select: none;
+            z-index: 1;
+        }
+
+        &.p-chattimeline-spoiler-visible {
+            img, .video-js {
+                filter: none !important;
+            }
+            &::before, &::after {
+                display: none !important;
+            }
+        }
+    }
+}
+
 
 .p-chattimeline-event-sticker {
     width: auto;

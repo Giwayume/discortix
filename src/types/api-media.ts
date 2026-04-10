@@ -1,7 +1,7 @@
 import * as z from 'zod'
 import { camelizeSchema } from '@/utils/zod'
 import type { EncryptedFile } from '@/types/encryption'
-import type { EventAudioContent, EventImageContent, EventVideoContent } from '@/types/api-events'
+import type { EventAudioContent, EventFileContent, EventImageContent, EventVideoContent } from '@/types/api-events'
 
 /** @see https://spec.matrix.org/v1.18/client-server-api/#get_matrixclientv1mediaconfig */
 export const ApiV1MediaConfigResponseSchema = camelizeSchema(z.object({
@@ -38,6 +38,7 @@ export interface MediaVideoInfo {
 }
 export interface MediaUnknownInfo {
     type: 'unknown';
+    info: EventFileContent['info'];
 }
 export type MediaInfo = MediaAudioInfo | MediaImageInfo | MediaVideoInfo | MediaUnknownInfo
 

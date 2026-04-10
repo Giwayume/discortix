@@ -6,10 +6,7 @@
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
         @update:visible="(visible) => emit('update:visible', visible)"
     >
-        <div v-if="messageHasRoomKey">
-            {{ t('fixDecryption.roomKeyFound') }}
-        </div>
-        <div v-else-if="!isMessageEncrypted" v-html="micromark(t('fixDecryption.messageNotEncryptedInEncryptedRoom', { messageSenderDisplayname }))" />
+        <div v-if="!isMessageEncrypted" v-html="micromark(t('fixDecryption.messageNotEncryptedInEncryptedRoom', { messageSenderDisplayname }))" />
         <template v-else-if="encryptionNotSupported">
             <template v-if="isSecureContext">
                 {{ t('fixDecryption.deviceEncryptionNotSupported') }}
@@ -39,8 +36,9 @@
                 <Button :label="t('fixDecryption.requestKeysButton')" class="ml-auto" @click="requestKeys" />
             </div>
         </template>
+        <div v-else-if="!messageHasDecryptedEvent" v-html="micromark(t('fixDecryption.decryptionFailed'))" />
         <template v-else>
-            {{ t('fixDecryption.unknownError') }}
+            {{ t('fixDecryption.roomKeyFound') }}
         </template>
 
         <!-- <p class="text-(--text-default)">{{ t('identityVerification.subtitle') }}</p>
@@ -108,6 +106,7 @@ const { profiles } = storeToRefs(useProfileStore())
 const { userId: sessionUserId, deviceId: sessionDeviceId } = storeToRefs(useSessionStore())
 const {
     joined: joinedRooms,
+    decryptedRoomEvents,
 } = storeToRefs(roomStore)
 const {
     getTimelineEventById,
@@ -168,6 +167,11 @@ const messageHasRoomKey = computed<boolean>(() => {
         return megolmSessionExists(props.roomId!, eventContent.sessionId!, eventContent.senderKey!)
     }
     return false
+})
+
+const messageHasDecryptedEvent = computed<boolean>(() => {
+    if (!event.value) return false
+    return !!decryptedRoomEvents.value[event.value.eventId]
 })
 
 /*----------------*\
@@ -238,6 +242,7 @@ async function requestKeys() {
 
         isWaitingForForwardedKeys.value = true
         await until(() => messageHasRoomKey.value, 5000)
+        await until(() => messageHasDecryptedEvent.value, 100)
         isWaitingForForwardedKeys.value = false
 
         if (!messageHasRoomKey.value) {

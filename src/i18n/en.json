@@ -139,6 +139,7 @@
         "roomKeyRequestDiscoveringUsers": "Discovering users...",
         "roomKeyRequestRequestingKeys": "Requesting keys...",
         "roomKeyRequestWaitingForKeys": "Waiting for responses...",
+        "decryptionFailed": "It is not possible to decrypt this message.\n\nWe have the keys necessary to decrypt this message, but decryption has failed anyways. This could be a bug in the client that sent this message, or the decrypted message itself is not in a valid message format.",
         "roomKeyFound": "Another user sent the key. The message should be decrypted now!",
         "requestKeysButton": "Request Keys"
     },

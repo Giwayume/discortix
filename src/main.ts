@@ -4,12 +4,14 @@ import { i18n } from '@/i18n'
 import PrimeVue from 'primevue/config'
 import ToastService from 'primevue/toastservice'
 import VueDOMPurifyHTML from 'vue-dompurify-html'
+import VueVideoPlayer from '@videojs-player/vue'
 import { useMediaCache } from '@/composables/media-cache'
 import { v4 as uuidv4 } from 'uuid'
 
 import './tailwind.css'
 import 'primeicons/primeicons.css'
 import './themes/dark/index.scss'
+import 'video.js/dist/video-js.css'
 
 import App from './App.vue'
 import router from './router'
@@ -81,6 +83,7 @@ app.use(VueDOMPurifyHTML, {
         },
     },
 })
+app.use(VueVideoPlayer)
 
 app.mount('#app')
 

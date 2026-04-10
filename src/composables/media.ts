@@ -35,9 +35,9 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob, generateTh
             ? await (await fetch(objectUrlOrBlob)).blob()
             : objectUrlOrBlob
     } catch (error) {
-        return { type: 'unknown' }
+        return { type: 'unknown', info: {} }
     }
-    if (!blob) return { type: 'unknown' }
+    if (!blob) return { type: 'unknown', info: {} }
 
     let shouldRevokeObjectUrl = false
     if (imageMediaTypes.includes(blob.type)) {
@@ -91,19 +91,19 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob, generateTh
             const mediaInfo: MediaInfo = {
                 type: 'image',
                 info: {
-                    h: image.height,
+                    h: Math.round(image.height),
                     mimetype: blob.type,
                     size: blob.size,
-                    w: image.width,
+                    w: Math.round(image.width),
                 },
                 thumbnailBlob,
             }
             if (thumbnailBlob) {
                 mediaInfo.info!.thumbnailInfo = {
-                    h: thumbnailHeight,
+                    h: Math.round(thumbnailHeight),
                     mimetype: 'image/jpeg',
                     size: thumbnailBlob.size,
-                    w: thumbnailWidth,
+                    w: Math.round(thumbnailWidth),
                 }
             }
             return mediaInfo
@@ -199,20 +199,20 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob, generateTh
             const mediaInfo: MediaInfo = {
                 type: 'video',
                 info: {
-                    duration: video.duration,
-                    h: video.videoHeight,
+                    duration: Math.round(video.duration * 1000),
+                    h: Math.round(video.videoHeight),
                     mimetype: blob.type,
                     size: blob.size,
-                    w: video.videoWidth,
+                    w: Math.round(video.videoWidth),
                 },
                 thumbnailBlob,
             }
             if (thumbnailBlob) {
                 mediaInfo.info!.thumbnailInfo = {
-                    h: thumbnailHeight,
+                    h: Math.round(thumbnailHeight),
                     mimetype: 'image/jpeg',
                     size: thumbnailBlob.size,
-                    w: thumbnailWidth,
+                    w: Math.round(thumbnailWidth),
                 }
             }
             return mediaInfo
@@ -257,7 +257,7 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob, generateTh
             return {
                 type: 'audio',
                 info: {
-                    duration: audio.duration,
+                    duration: Math.round(audio.duration * 1000),
                     mimetype: blob.type,
                     size: blob.size,
                 },
@@ -275,7 +275,13 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob, generateTh
             }
         }
     }
-    return { type: 'unknown' }
+    return {
+        type: 'unknown',
+        info: {
+            mimetype: blob.type,
+            size: blob.size,
+        },
+    }
 }
 
 const maxUploadSizeCheckFrequency = 1.8e+6 // 30 minutes

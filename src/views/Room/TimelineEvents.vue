@@ -414,6 +414,7 @@ const loadingEventChunks = computed<EventChunk[]>(() => {
                 headerTime: isToday
                     ? originDate.toLocaleString(undefined, { hour: 'numeric', minute: 'numeric' })
                     : originDate.toLocaleString(undefined, { year: '2-digit', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }),
+                isSpoiler: !!event.content?.['page.codeberg.everypizza.msc4193.spoiler'],
                 time: originDate.toLocaleString(undefined, { hour: 'numeric', minute: 'numeric' }),
                 isoTimestamp: originDate.toISOString(),
                 avatarUrl: profiles.value[event.sender]?.avatarUrl,
@@ -451,10 +452,6 @@ const loadingEventChunks = computed<EventChunk[]>(() => {
                         decryptedRoomEvents.value[event.event.eventId] = decryptedEvent
                         event.replacementEvent = decryptedEvent
                         event.event.content = decryptedEvent.content['m.new_content']
-                    }).catch((error) => {
-                        if (!(error instanceof MissingEncryptionKeyError)) {
-                            console.error(error)
-                        }
                     })
                 )
             } else if (event.event.type === 'm.room.encrypted') {
@@ -470,17 +467,16 @@ const loadingEventChunks = computed<EventChunk[]>(() => {
                         }
                         decryptedRoomEvents.value[event.event.eventId] = decryptedEvent
                         event.event = decryptedEvent
-                    }).catch((error) => {
-                        if (!(error instanceof MissingEncryptionKeyError)) {
-                            console.error(error)
-                        }
+                        event.isSpoiler = !!decryptedEvent.content?.['page.codeberg.everypizza.msc4193.spoiler']
                     })
                 )
             }
-            
         }
         Promise.allSettled(decryptPromises).then(() => {
             isAllLoadingEventChunksReady.value = true
+            for (const event of chunk.events) {
+                event.isSpoiler = !!event.event.content?.['page.codeberg.everypizza.msc4193.spoiler']
+            }
         })
         chunks.push(chunk)
     }
@@ -826,9 +822,11 @@ async function scrollToBottom() {
     await nextTick()
 }
 
-/*---------------*\
-| Message Actions |
-\*---------------*/
+/*-------------------*\
+|                     |
+|   Message Actions   |
+|                     |
+\*-------------------*/
 
 const messageActionsContainer = ref<HTMLDivElement>()
 const messageActionsTargetEventId = ref<string>()
