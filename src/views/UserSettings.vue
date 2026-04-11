@@ -33,7 +33,7 @@
                                     </template>
                                 </AuthenticatedImage>
                                 <div class="flex flex-col items-start grow-1 ml-4 overflow-hidden">
-                                    <div class="text-(--text-strong) overflow-hidden text-ellipsis w-full text-left">
+                                    <div class="text-strong overflow-hidden text-ellipsis w-full text-left">
                                         {{ authenticatedUserDisplayName }}
                                     </div>
                                     <div class="text-sm">
@@ -144,7 +144,7 @@
             maxWidth: '400px',
         }"
     >
-        <p class="text-(--text-muted) pb-2">{{ t('logout.confirm.content') }}</p>
+        <p class="text-muted pb-2">{{ t('logout.confirm.content') }}</p>
         <template #footer>
             <Button :label="t('logout.confirm.cancelButton')" class="grow-1" severity="secondary" @click="logoutConfirmVisible = false" autofocus />
             <Button :label="t('logout.confirm.logOutButton')" class="grow-1" severity="danger" @click="confirmLogout" autofocus />

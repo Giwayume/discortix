@@ -13,7 +13,7 @@
         </div>
         <template v-else>
             <section class="px-3 py-5" role="group" aria-labelledby="user-settings-devices-current-device-heading">
-                <div id="user-settings-devices-current-device-heading" class="text-(--text-strong) text-xl mb-3">
+                <div id="user-settings-devices-current-device-heading" class="text-strong text-xl mb-3">
                     {{ t('userSettings.devices.currentDeviceHeading') }}
                 </div>
                 <div class="py-4 flex gap-6 items-center">
@@ -26,12 +26,12 @@
                             <Skeleton width="10rem"></Skeleton>
                         </template>
                         <template v-else-if="currentDevice">
-                            <h3 class="text-(--text-strong) text-xs font-bold">
+                            <h3 class="text-strong text-xs font-bold">
                                 <span class="uppercase">{{ currentDevice.displayName ?? t('userSettings.devices.unnamedDevice') }}</span>
                                 <span class="mx-1">·</span>
-                                <span class="text-(--text-muted)">{{ currentDevice.deviceId.substring(0, 10) }}</span>
+                                <span class="text-muted">{{ currentDevice.deviceId.substring(0, 10) }}</span>
                             </h3>
-                            <div class="text-(--text-strong) text-xs">
+                            <div class="text-strong text-xs">
                                 <a v-if="currentDevice.lastSeenIp" :href="'https://whatismyipaddress.com/ip/' + currentDevice.lastSeenIp" target="_blank">{{ currentDevice.lastSeenIp }}</a>
                                 <span v-else>{{ t('userSettings.devices.unknownIp') }}</span>
                             </div>
@@ -40,7 +40,7 @@
                 </div>
             </section>
             <section v-if="loading || otherDevices.length > 0" class="px-3 py-5" role="group" aria-labelledby="user-settings-devices-other-devices-heading">
-                <div id="user-settings-devices-other-devices-heading" class="text-(--text-strong) text-xl mb-3">
+                <div id="user-settings-devices-other-devices-heading" class="text-strong text-xl mb-3">
                     {{ t('userSettings.devices.otherDevicesHeading') }}
                 </div>
                 <template v-if="loading">
@@ -83,12 +83,12 @@
                                 <Skeleton width="10rem"></Skeleton>
                             </template>
                             <template v-else-if="device">
-                                <h3 class="text-(--text-strong) text-xs font-bold">
+                                <h3 class="text-strong text-xs font-bold">
                                     <span class="uppercase">{{ device.displayName ?? t('userSettings.devices.unnamedDevice') }}</span>
                                     <span class="mx-1">·</span>
-                                    <span class="text-(--text-muted)">{{ device.deviceId.substring(0, 10) }}</span>
+                                    <span class="text-muted">{{ device.deviceId.substring(0, 10) }}</span>
                                 </h3>
-                                <div class="text-(--text-strong) text-xs">
+                                <div class="text-strong text-xs">
                                     <a v-if="device.lastSeenIp" :href="'https://whatismyipaddress.com/ip/' + device.lastSeenIp" target="_blank">{{ device.lastSeenIp }}</a>
                                     <span v-else>{{ t('userSettings.devices.unknownIp') }}</span>
                                     <span class="mx-1">·</span>
@@ -103,8 +103,8 @@
             <!-- TODO - unsure how to implement this, considering the API needs one-by-one authentication. -->
             <!--section v-if="!loading" class="px-3 pb-5">
                 <h2 class="font-medium text-(--text-primary)">{{ t('userSettings.devices.logOutAllHeading') }}</h2>
-                <p class="text-sm text-(--text-subtle) !mt-0 !mb-6">{{ t('userSettings.devices.logOutAllDescription') }}</p>
-                <Button :label="t('userSettings.devices.logOutAllButton')" severity="secondary" size="small" class="!text-(--text-feedback-critical)" />
+                <p class="text-sm text-subtle !mt-0 !mb-6">{{ t('userSettings.devices.logOutAllDescription') }}</p>
+                <Button :label="t('userSettings.devices.logOutAllButton')" severity="secondary" size="small" class="!text-feedback-critical" />
             </section-->
         </template>
     </div>

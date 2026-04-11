@@ -54,6 +54,8 @@ let thumbnailFetchAbortController: AbortController | undefined
 
 const loading = ref<boolean>(false)
 const loadError = ref<Error | null>(null)
+const loadingThumbnail = ref<boolean>(false)
+const loadThumbnailError = ref<Error | null>(null)
 const src = ref<string | undefined>('')
 const poster = ref<string | undefined>('/assets/images/image-loading.png')
 
@@ -110,15 +112,15 @@ watch(() => props.encryptedFile, (encryptedFile) => {
 }, { immediate: true })
 
 watch(() => props.thumbnailMxcUri, (thumbnailMxcUri) => {
-    loading.value = true
-    loadError.value = null
+    loadingThumbnail.value = true
+    loadThumbnailError.value = null
     thumbnailFetchAbortController?.abort()
     thumbnailFetchAbortController = new AbortController()
 
     if (!thumbnailMxcUri) {
-        loading.value = false
+        loadingThumbnail.value = false
         if (!props.encryptedFile) {
-            loadError.value = new Error('Missing URI')
+            loadThumbnailError.value = new Error('Missing URI')
         }
         return
     }
@@ -128,22 +130,22 @@ watch(() => props.thumbnailMxcUri, (thumbnailMxcUri) => {
         poster.value = url
     }).catch((error) => {
         poster.value = '/assets/images/image-load-error.svg'
-        loadError.value = error
+        loadThumbnailError.value = error
     }).finally(() => {
-        loading.value = false
+        loadingThumbnail.value = false
     })
 }, { immediate: true })
 
 watch(() => props.thumbnailEncryptedFile, (thumbnailEncryptedFile) => {
     if (!thumbnailEncryptedFile) return
-    loading.value = true
-    loadError.value = null
+    loadingThumbnail.value = true
+    loadThumbnailError.value = null
     thumbnailFetchAbortController?.abort()
     thumbnailFetchAbortController = new AbortController()
 
     if (!thumbnailEncryptedFile.url) {
-        loading.value = false
-        loadError.value = new Error('Missing URI')
+        loadingThumbnail.value = false
+        loadThumbnailError.value = new Error('Missing URI')
         return
     }
 
@@ -155,9 +157,9 @@ watch(() => props.thumbnailEncryptedFile, (thumbnailEncryptedFile) => {
         poster.value = url
     }).catch((error) => {
         poster.value = '/assets/images/image-load-error.svg'
-        loadError.value = error
+        loadThumbnailError.value = error
     }).finally(() => {
-        loading.value = false
+        loadingThumbnail.value = false
     })
 }, { immediate: true })
 

@@ -11,7 +11,7 @@
                     </template>
                 </AuthenticatedImage>
             </div>
-            <h3 class="font-bold text-[2rem] text-(--text-strong) leading-10 my-2">
+            <h3 class="font-bold text-[2rem] text-strong leading-10 my-2">
                 {{ t('room.spaceMessageHistoryBeginningTitle', { roomName: roomName ?? t('room.untitledRoom') }) }}
             </h3>
             <p>
@@ -35,10 +35,10 @@
                     </template>
                 </AuthenticatedImage>
             </div>
-            <h3 v-if="otherMembersDisplayed[0]?.displayname" class="font-bold text-[2rem] text-(--text-strong) leading-10 my-2">
+            <h3 v-if="otherMembersDisplayed[0]?.displayname" class="font-bold text-[2rem] text-strong leading-10 my-2">
                 {{ otherMembersDisplayed[0]!.displayname }}
             </h3>
-            <h3 class="font-medium text-2xl text-(--text-strong) leading-[1.25] mb-5">{{ otherMembersDisplayed[0]!.userId }}</h3>
+            <h3 class="font-medium text-2xl text-strong leading-[1.25] mb-5">{{ otherMembersDisplayed[0]!.userId }}</h3>
             <I18nT tag="p" keypath="room.directMessageHistoryBeginning" scope="global">
                 <template #displayname>
                     <strong>{{ otherMembersDisplayed[0]!.displayname ?? otherMembersDisplayed[0]!.userId }}</strong>
@@ -90,7 +90,7 @@
                     <span class="pi pi-pencil" aria-hidden="true" />
                 </div>
             </div>
-            <h3 class="font-bold text-[2rem] text-(--text-strong) leading-10 my-2">
+            <h3 class="font-bold text-[2rem] text-strong leading-10 my-2">
                 <template v-if="roomName">{{ roomName }}</template>
                 <template v-else>
                     <template v-for="(otherMember, otherMemberIndex) of otherMembers">

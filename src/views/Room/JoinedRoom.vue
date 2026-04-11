@@ -30,7 +30,7 @@
                     </template>
                 </AvatarGroup>
             </template>
-            <h1 class="font-medium text-(--text-strong) mr-2">
+            <h1 class="font-medium text-strong mr-2">
                 <template v-if="roomName">{{ roomName }}</template>
                 <template v-else>{{ roomMemberListDisplay }}</template>
             </h1>
@@ -99,7 +99,7 @@
                         <video v-else-if="media.mediaInfo.type === 'video'" :src="media.previewObjectUrl" />
                     </div>
                     <div v-else class="joined-room__attachment-bar__media-icon">
-                        <span class="pi pi-file" aria-hidden="true" />
+                        <span class="pi" :class="media.mediaInfo.type === 'audio' ? 'pi-headphones' : 'pi-file'" aria-hidden="true" />
                     </div>
                     <span class="joined-room__attachment-bar__attachment__filename">
                         {{ media.filename }}
@@ -764,7 +764,7 @@ async function sendMediaEvent(event: ApiV3SyncClientEventWithoutRoomId) {
 
             const thumbnailBlob = media.encryptedThumbnailFileBlob
                 || (media.mediaInfo.type === 'image' || media.mediaInfo.type === 'video')
-                    ? (media.mediaInfo as MediaImageInfo).thumbnailBlob
+                    ? (media.encryptedThumbnailFileBlob ?? (media.mediaInfo as MediaImageInfo).thumbnailBlob)
                     : undefined
             if (media.thumbnailContentUri && !media.thumbnailUploaded) {
                 thumbnailMediaUpload = createLazyMediaUpload()

@@ -9,7 +9,7 @@
         <slot name="subtitle" />
         <form id="homeserver-change-form" novalidate @submit.prevent="submitHomeserver">
             <div class="p-staticlabel flex flex-col gap-2 mt-4">
-                <label for="homeserver-host" class="text-(--text-strong)">{{ t('homeserverSelectionDialog.hostnameLabel') }}</label>
+                <label for="homeserver-host" class="text-strong">{{ t('homeserverSelectionDialog.hostnameLabel') }}</label>
                 <InputText
                     id="homeserver-host"
                     v-model.trim="formData.homeserverBaseUrl"
@@ -28,7 +28,7 @@
                     {{ serverDiscoveryErrorMessage }}
                 </Message>
             </div>
-            <p class="text-(--text-muted) text-sm mt-2">{{ t('homeserverSelectionDialog.hostnameHelp') }}</p>
+            <p class="text-muted text-sm mt-2">{{ t('homeserverSelectionDialog.hostnameHelp') }}</p>
         </form>
         <template #footer>
             <div class="flex items-center justify-between w-full">

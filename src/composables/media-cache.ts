@@ -37,20 +37,17 @@ export function useMediaCache() {
     const { homeserverBaseUrl } = storeToRefs(useSessionStore())
     const usedMxcUris = new Set<string>()
 
-    /** Fetch media from the server and store the blob as an object URL */
-    async function getMxcObjectUrl(
+    async function getMxcBlob(
         mxcUriOrFile: EncryptedFile | string,
         options: GetMxcObjectUrlOptions,
         abortController?: AbortController,
-    ): Promise<string> {
+    ): Promise<Blob> {
         if (!options.type) options.type = 'download'
-        const optionsId = JSON.stringify(options)
         const mxcUri = typeof mxcUriOrFile === 'string' ? mxcUriOrFile : mxcUriOrFile.url
         const encryptionInfo: EncryptedFile | undefined = typeof mxcUriOrFile === 'string' ? undefined : mxcUriOrFile
-        const mxcStoreId = mxcUri + '::' + optionsId
-        let objectUrl = mxcObjectUrls.get(mxcStoreId)
+        let blob: Blob | undefined = undefined
         fetchMedia:
-        if (!objectUrl) {
+        if (!blob) {
             const { serverName, mediaId } = parseMxcUri(mxcUri)
             if (!serverName || !mediaId) break fetchMedia
             const mimetype = options.mimetype
@@ -92,15 +89,30 @@ export function useMediaCache() {
             if (encryptionInfo) {
                 const encryptedData = new Uint8Array(await response.arrayBuffer())
                 if (abortController?.signal?.aborted) break fetchMedia
-                const blob = await decryptFile(encryptedData, encryptionInfo, mimetype)
+                blob = await decryptFile(encryptedData, encryptionInfo, mimetype)
                 if (abortController?.signal?.aborted) break fetchMedia
-                objectUrl = URL.createObjectURL(blob)
             } else {
-                const blob = await response.blob()
-                objectUrl = URL.createObjectURL(blob)
+                blob = await response.blob()
             }
+        }
+        if (!blob) throw new DOMException('Unable to find the media.')
+        return blob
+    }
 
-            mxcObjectUrls.set(mxcStoreId, objectUrl)
+    /** Fetch media from the server and store the blob as an object URL */
+    async function getMxcObjectUrl(
+        mxcUriOrFile: EncryptedFile | string,
+        options: GetMxcObjectUrlOptions,
+        abortController?: AbortController,
+    ): Promise<string> {
+        if (!options.type) options.type = 'download'
+        const optionsId = JSON.stringify(options)
+        const mxcUri = typeof mxcUriOrFile === 'string' ? mxcUriOrFile : mxcUriOrFile.url
+        const mxcStoreId = mxcUri + '::' + optionsId
+        let objectUrl = mxcObjectUrls.get(mxcStoreId)
+        if (!objectUrl) {
+            const blob = await getMxcBlob(mxcUriOrFile, options, abortController)
+            objectUrl = URL.createObjectURL(blob)
         }
         if (objectUrl && !usedMxcUris.has(mxcStoreId)) {
             mxcObjectUrlUserCount.set(mxcStoreId, (mxcObjectUrlUserCount.get(mxcStoreId) ?? 0) + 1)
@@ -131,6 +143,7 @@ export function useMediaCache() {
     }
 
     return {
+        getMxcBlob,
         getMxcObjectUrl,
         clearUsers,
     }

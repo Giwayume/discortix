@@ -6,11 +6,11 @@
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
         @update:visible="(visible) => emit('update:visible', visible)"
     >
-        <p class="text-(--text-muted)">{{ t('enterRecoveryKey.subtitle') }}</p>
+        <p class="text-muted">{{ t('enterRecoveryKey.subtitle') }}</p>
         <form id="recovery-key-entry-dialog-form" novalidate @submit.prevent="submit">
             
             <div class="p-staticlabel grow-1 flex flex-col gap-2 mt-5 mb-5">
-                <label for="recovery-key-entry" class="text-(--text-strong)">{{ t('enterRecoveryKey.recoveryKey') }}</label>
+                <label for="recovery-key-entry" class="text-strong">{{ t('enterRecoveryKey.recoveryKey') }}</label>
                 <div class="flex items-stretch">
                     <InputText
                         id="recovery-key-entry"

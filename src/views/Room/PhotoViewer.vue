@@ -20,8 +20,8 @@
                         </AuthenticatedImage>
                     </div>
                     <div class="flex flex-col text-nowrap justify-center">
-                        <div class="text-(--text-strong) leading-4 relative">{{ posterDisplayName }}</div>
-                        <div class="text-(--text-subtle) text-xs leading-4 mt-[2px] ml-1">{{ postDate }}</div>
+                        <div class="text-strong leading-4 relative">{{ posterDisplayName }}</div>
+                        <div class="text-subtle text-xs leading-4 mt-[2px] ml-1">{{ postDate }}</div>
                     </div>
                 </div>
                 <div class="flex">
@@ -426,18 +426,23 @@ function onPointerUpHandle(event: PointerEvent) {
     }
 }
 
-function onWindowPointerLeave() {
-    // pointersDown = []
+function onDocumentKeydown(event: KeyboardEvent) {
+    if (!props.visible) return
+    if (event.key === 'Escape') {
+        emit('update:visible', false);
+        event.preventDefault();
+        event.stopPropagation();
+    }
 }
 
 onMounted(() => {
-    window.addEventListener('pointerout', onWindowPointerLeave, true)
+    document.addEventListener('keydown', onDocumentKeydown, true)
     window.addEventListener('pointerup', onPointerUpViewer, true)
     window.addEventListener('touchend', onTouchEndViewer, true)
 })
 
 onUnmounted(() => {
-    window.removeEventListener('pointerout', onWindowPointerLeave, true)
+    document.removeEventListener('keydown', onDocumentKeydown, true)
     window.removeEventListener('pointerup', onPointerUpViewer, true)
     window.removeEventListener('touchend', onTouchEndViewer, true)
 

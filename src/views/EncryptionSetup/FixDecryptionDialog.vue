@@ -41,7 +41,7 @@
             {{ t('fixDecryption.roomKeyFound') }}
         </template>
 
-        <!-- <p class="text-(--text-default)">{{ t('identityVerification.subtitle') }}</p>
+        <!-- <p class="text-default">{{ t('identityVerification.subtitle') }}</p>
         <div class="flex items-stretch justify-center gap-2 my-5">
             <Button severity="secondary">
                 <div class="flex flex-col items-center">
@@ -56,7 +56,7 @@
                 </div>
             </Button>
         </div>
-        <p class="text-sm text-(--text-muted)">
+        <p class="text-sm text-muted">
             {{ t('identityVerification.lostRecoveryMethods') }}
             <a href="#">{{ t('identityVerification.resetIdentityLink') }}</a>
         </p> -->

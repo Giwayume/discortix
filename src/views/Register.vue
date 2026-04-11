@@ -2,10 +2,10 @@
     <div class="register-page">
         <img class="register-page__logo" src="/assets/images/logo-light.svg">
         <form class="register-form p-8" novalidate @submit.prevent="registerSubmit">
-            <h1 class="text-2xl text-center text-(--text-strong) mb-2">{{ t('register.title') }}</h1>
+            <h1 class="text-2xl text-center text-strong mb-2">{{ t('register.title') }}</h1>
             <!-- Homeserver Selection -->
             <div class="p-staticlabel flex flex-col gap-2 mt-5">
-                <label for="register-homeserver" class="text-(--text-strong)">{{ t('register.homeserverLabel') }}</label>
+                <label for="register-homeserver" class="text-strong">{{ t('register.homeserverLabel') }}</label>
                 <div class="flex gap-2">
                     <span>{{ selectedServerHomeserverName }}</span>
                     <a href="#" @click.prevent="homeserverSelectionDialogVisible = true">Edit</a>

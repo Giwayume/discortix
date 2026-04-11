@@ -11,9 +11,9 @@
         @update:visible="emit('update:visible', $event)"
     >
         <img v-if="media?.mediaInfo.type === 'image'" :src="media?.previewObjectUrl" class="modify-attachment__media-preview">
-        <label for="modify-attachment-filename-input" class="block text-(--text-strong) pb-2">{{ t('modifyAttachmentDialog.filename') }}</label>
+        <label for="modify-attachment-filename-input" class="block text-strong pb-2">{{ t('modifyAttachmentDialog.filename') }}</label>
         <InputText id="modify-attachment-filename-input" v-model="formData.filename" class="w-full mb-4" />
-        <label for="modify-attachment-description-input" class="block text-(--text-strong) pb-2">{{ t('modifyAttachmentDialog.description') }}</label>
+        <label for="modify-attachment-description-input" class="block text-strong pb-2">{{ t('modifyAttachmentDialog.description') }}</label>
         <InputText id="modify-attachment-description-input" v-model="formData.description" :placeholder="t('modifyAttachmentDialog.descriptionPlaceholder')" class="w-full mb-6" />
         <label class="flex items-center mb-2">
             <Checkbox v-model="formData.spoiler" binary />

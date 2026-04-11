@@ -100,7 +100,9 @@
             "pendingReaction": "This reaction is still being sent. Please wait.",
             "guestReaction": "Guest reactions are not allowed.",
             "forbidden": "You do not have permissions to react to this message.",
-            "mediaTooLarge": "Your media upload \"{filename}\" was rejected because it is too large."
+            "mediaTooLarge": "Your media upload \"{filename}\" was rejected because it is too large.",
+            "downloadFileFailed": "We failed to download the file. This could be a temporary issue. You can try again later.",
+            "audioLoadFailed": "Audio file failed to load. You can still try to download and play it."
         },
         "profiles": {
             "missingSessionData": "This session is missing required data in order to load the user profile. We recommend logging in again in order to fix this issue."

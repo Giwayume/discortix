@@ -12,8 +12,8 @@
                 </AuthenticatedImage>
             </OverlayStatus>
             <div class="flex flex-col text-nowrap">
-                <div class="text-(--text-strong) leading-4 relative">{{ username }}</div>
-                <div class="text-(--text-subtle) text-xs  relative top-px">{{ t(`presence.status.${onlineStatus}`) }}</div>
+                <div class="text-strong leading-4 relative">{{ username }}</div>
+                <div class="text-subtle text-xs  relative top-px">{{ t(`presence.status.${onlineStatus}`) }}</div>
             </div>
         </Button>
         <div class="application__user-status-settings__actions">

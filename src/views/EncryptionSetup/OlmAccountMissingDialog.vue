@@ -7,16 +7,16 @@
         @update:visible="(visible) => emit('update:visible', visible)"
     >
         <template v-if="step === 'introduction'">
-            <p class="text-(--text-muted)">{{ t('olmAccountMissingDialog.description') }}</p>
+            <p class="text-muted">{{ t('olmAccountMissingDialog.description') }}</p>
         </template>
         <template v-else-if="step === 'exportKeys'">
-            <div class="text-(--text-feedback-critical) mt-4">{{ t('olmAccountMissingDialog.beforeResetWarning') }}</div>
+            <div class="text-feedback-critical mt-4">{{ t('olmAccountMissingDialog.beforeResetWarning') }}</div>
             <div class="border-t border-(--border-subtle) my-4" />
-            <h2 class="text-lg text-(--text-strong)">{{ t('olmAccountMissingDialog.identityRecoveryKeyHeading') }}</h2>
-            <p class="text-(--text-muted)">{{ t('olmAccountMissingDialog.identityRecoveryKeyWarning') }}</p>
+            <h2 class="text-lg text-strong">{{ t('olmAccountMissingDialog.identityRecoveryKeyHeading') }}</h2>
+            <p class="text-muted">{{ t('olmAccountMissingDialog.identityRecoveryKeyWarning') }}</p>
             <div class="border-t border-(--border-subtle) my-4" />
-            <h2 class="text-lg text-(--text-strong)">{{ t('olmAccountMissingDialog.roomKeysHeading') }}</h2>
-            <p class="text-(--text-muted)">{{ t('olmAccountMissingDialog.roomKeysBackupWarning') }}</p>
+            <h2 class="text-lg text-strong">{{ t('olmAccountMissingDialog.roomKeysHeading') }}</h2>
+            <p class="text-muted">{{ t('olmAccountMissingDialog.roomKeysBackupWarning') }}</p>
             <Button severity="secondary" size="small" class="mt-4" @click="exportRoomKeysDialogVisible = true">
                 <span class="pi pi-download !text-sm" aria-hidden="true" />
                 <span class="p-button-label">{{ t('olmAccountMissingDialog.exportRoomKeysButton') }}</span>

@@ -10,7 +10,7 @@
         </template>
         <MainHeader>
             <div class="flex pl-4 py-2 pr-2 items-center">
-                <h1 class="font-medium text-(--text-strong) mr-2">
+                <h1 class="font-medium text-strong mr-2">
                     {{ t('createRoom.title') }}
                 </h1>
             </div>

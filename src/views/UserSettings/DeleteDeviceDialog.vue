@@ -20,9 +20,9 @@
             {{ t('userSettings.devices.deleteDevice.deleteErrorDescription') }}
         </template>
         <form v-else-if="deleteAuthenticationStep === 'm.login.password'" id="delete-device-password-auth-form" novalidate @submit.prevent="submitDeleteAuthenticationForm">
-            <p class="text-sm text-(--text-muted)">{{ t('userSettings.devices.deleteDevice.authenticationDescription') }}</p>
+            <p class="text-sm text-muted">{{ t('userSettings.devices.deleteDevice.authenticationDescription') }}</p>
             <div class="p-staticlabel flex flex-col gap-2 mt-5 mb-1">
-                <label for="delete-device-auth-password" class="text-(--text-strong)">
+                <label for="delete-device-auth-password" class="text-strong">
                     {{ t('userSettings.devices.deleteDevice.passwordLabel') }}
                 </label>
                 <InputText

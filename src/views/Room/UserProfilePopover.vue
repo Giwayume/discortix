@@ -140,12 +140,12 @@ const contextMenuItems = computed(() => {
         {
             key: 'block',
             label: t('userProfilePopover.moreMenu.block'),
-            labelClassName: 'text-(--text-feedback-critical)',
+            labelClassName: 'text-feedback-critical',
         },
         {
             key: 'reportUserProfile',
             label: t('userProfilePopover.moreMenu.reportUserProfile'),
-            labelClassName: 'text-(--text-feedback-critical)',
+            labelClassName: 'text-feedback-critical',
         },
     ]
     if (settings.isDeveloperMode) {

@@ -1,5 +1,5 @@
 <template>
-    <p class="text-(--text-strong) mt-5 mb-2">{{ t('register.guestRegistrationAllowed') }}</p>
+    <p class="text-strong mt-5 mb-2">{{ t('register.guestRegistrationAllowed') }}</p>
     <SelectButton v-model="registerKind" :options="['guest', 'user']" class="w-full">
         <template #option="slotProps">
             <div class="flex flex-col gap-2 h-full">

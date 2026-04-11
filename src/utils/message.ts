@@ -31,3 +31,13 @@ export function formatMessage(
         formattedBody: html,
     }
 }
+
+export function formatBytes(bytes: number | undefined, dec = 2) {
+    if (!bytes || bytes === 0) return '0 B'
+    const k = 1024
+    const dm = Math.max(dec, 0)
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    const num = parseFloat((bytes / Math.pow(k, i)).toFixed(dm))
+    return `${num} ${sizes[i]}`
+}

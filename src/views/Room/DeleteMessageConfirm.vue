@@ -12,7 +12,7 @@
         <template #header>
             <div class="flex flex-col">
                 <div class="p-dialog-title">{{ t('deleteMessageConfirm.title') }}</div>
-                <p class="text-(--text-subtle) mt-1">{{ t('deleteMessageConfirm.content') }}</p>
+                <p class="text-subtle mt-1">{{ t('deleteMessageConfirm.content') }}</p>
             </div>
         </template>
         <div class="delete-message-confirm__message-preview">
@@ -25,8 +25,8 @@
             />
         </div>
         <template v-if="!isTouchEventsDetected">
-            <h3 class="text-(--text-feedback-positive) text-sm uppercase font-bold leading-4">{{ t('deleteMessageConfirm.protipTitle') }}</h3>
-            <p class="text-(--text-default) text-sm pb-2" v-html="micromark(t('deleteMessageConfirm.protipContent'))" />
+            <h3 class="text-feedback-positive text-sm uppercase font-bold leading-4">{{ t('deleteMessageConfirm.protipTitle') }}</h3>
+            <p class="text-default text-sm pb-2" v-html="micromark(t('deleteMessageConfirm.protipContent'))" />
         </template>
         <Message v-if="hasDeletionError" severity="error" size="small" variant="simple">
             <template #icon>

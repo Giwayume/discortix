@@ -1,6 +1,6 @@
 <template>
     <div class="p-staticlabel flex flex-col gap-2 mt-5">
-        <label for="register-username" class="text-(--text-strong)">{{ t('register.usernameLabel') }}</label>
+        <label for="register-username" class="text-strong">{{ t('register.usernameLabel') }}</label>
         <InputText id="register-username" v-model.trim="formData.username" type="text" :invalid="v$.username.$invalid && v$.$dirty" required autocomplete="off" />
         <Message v-if="(v$.username.$invalid && v$.$dirty)" severity="error" size="small" variant="simple">
             <template #icon>
@@ -18,7 +18,7 @@
         </Message>
     </div>
     <div class="p-staticlabel flex flex-col gap-2 mt-5">
-        <label for="register-password" class="text-(--text-strong)">{{ t('register.passwordLabel') }}</label>
+        <label for="register-password" class="text-strong">{{ t('register.passwordLabel') }}</label>
         <InputText id="register-password" v-model.trim="formData.password" type="password" :invalid="v$.password.$invalid && v$.$dirty" required autocomplete="off" />
         <Message v-if="(v$.password.$invalid && v$.$dirty)" severity="error" size="small" variant="simple">
             <template #icon>

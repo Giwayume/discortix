@@ -6,7 +6,7 @@
         <MainHeader>
             <div class="flex pl-4 py-2 pr-2 items-center">
                 <span class="pi pi-envelope w-8 text-center text-(--channel-icon)" />
-                <h1 class="font-medium text-(--text-strong) mr-2">{{ t('messageRequests.title') }}</h1>
+                <h1 class="font-medium text-strong mr-2">{{ t('messageRequests.title') }}</h1>
             </div>
         </MainHeader>
         <MainBody>
@@ -22,12 +22,12 @@
                     </AuthenticatedImage>
                     <div class="grow-1">
                         <div>
-                            <span class="text-(--text-strong)">{{ room.name || room.displayname }}</span>
-                            <time class="text-xs text-(--text-muted) ml-2" :datetime="room.datetime">
+                            <span class="text-strong">{{ room.name || room.displayname }}</span>
+                            <time class="text-xs text-muted ml-2" :datetime="room.datetime">
                                 {{ room.displayTime }}
                             </time>
                         </div>
-                        <div class="text-xs text-(--text-muted)">{{ room.heroes.join(', ') }}</div>
+                        <div class="text-xs text-muted">{{ room.heroes.join(', ') }}</div>
                     </div>
                     <Button severity="primary" size="small" :loading="room.loadingJoinRoom" :disabled="room.loadingIgnoreRoom" @click="tryJoinRoom(room.roomId)">
                         <div class="p-button-label">{{ i18nText.acceptDmButton }}</div>

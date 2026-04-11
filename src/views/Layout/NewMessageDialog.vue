@@ -11,7 +11,7 @@
         }"
         @update:visible="(visible) => emit('update:visible', visible)"
     >
-        <p :class="{ 'text-(--text-subtle)': remainingSelectionCount > 0, 'text-(--text-feedback-critical)': remainingSelectionCount === 0 }">{{ t('newMessageDialog.addCountLimit', { count: remainingSelectionCount }) }}</p>
+        <p :class="{ 'text-subtle': remainingSelectionCount > 0, 'text-feedback-critical': remainingSelectionCount === 0 }">{{ t('newMessageDialog.addCountLimit', { count: remainingSelectionCount }) }}</p>
         <div class="p-inputtext flex flex-wrap items-center w-full !px-1 !py-1 !gap-1 mt-6 mb-3">
             <Chip
                 v-for="userId of selectedUserIds"
@@ -51,8 +51,8 @@
                     </AuthenticatedImage>
                 </OverlayStatus>
                 <div class="flex flex-col grow-1">
-                    <strong class="text-(--text-strong) text-medium">{{ user.displayname ?? user.userId }}</strong>
-                    <span class="text-xs text-(--text-muted)">{{ user.userId }}</span>
+                    <strong class="text-strong text-medium">{{ user.displayname ?? user.userId }}</strong>
+                    <span class="text-xs text-muted">{{ user.userId }}</span>
                 </div>
                 <Checkbox
                     v-model="selectedUserIds"
@@ -60,17 +60,17 @@
                     :disabled="!selectedUserIds.includes(user.userId) && remainingSelectionCount === 0"
                 />
             </label>
-            <div v-if="isSearchingForMoreUsers" class="mx-2 my-4 text-(--text-muted) text-sm text-center">
+            <div v-if="isSearchingForMoreUsers" class="mx-2 my-4 text-muted text-sm text-center">
                 {{ t('newMessageDialog.searchingDirectory') }}
             </div>
             <div
                 v-else-if="filteredContactList.length === 0"
                 v-html="micromark(t('newMessageDialog.noUsersFound', { defaultUserIdHomeserver }))"
-                class="mx-10 my-4 text-(--text-muted) text-sm text-center" />
+                class="mx-10 my-4 text-muted text-sm text-center" />
             <div
                 v-else-if="userSearchText"
                 v-html="micromark(t('newMessageDialog.someUsersFound', { defaultUserIdHomeserver }))"
-                class="mx-10 mt-8 mb-4 text-(--text-muted) text-sm text-center" />
+                class="mx-10 mt-8 mb-4 text-muted text-sm text-center" />
         </ScrollPanel>
         <template #footer>
             <div class="flex flex-col w-full">
@@ -90,7 +90,7 @@
                         </div>
                     </div>
                     <div class="flex flex-col grow-1">
-                        <label for="new-message-dialog-group-name-input" class="text-sm text-(--text-muted) mb-3">{{ t('newMessageDialog.groupNameLabel') }}</label>
+                        <label for="new-message-dialog-group-name-input" class="text-sm text-muted mb-3">{{ t('newMessageDialog.groupNameLabel') }}</label>
                         <InputText v-model="groupName" :placeholder="defaultGroupName" id="new-message-dialog-group-name-input" class="w-full" @keydown.prevent.enter="createRoomConfirm()" />
                     </div>
                 </div>

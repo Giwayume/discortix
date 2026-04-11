@@ -2,17 +2,17 @@
     <div class="flex items-center justify-center h-dvh">
         <div class="mx-auto max-w-100">
             <div class="text-center mt-6 mb-2">
-                <h1 class="text-3xl text-(--text-strong) mb-2">{{ t('errors.crash.title') }}</h1>
-                <p class="text-(--text-muted) my-5">{{ t('errors.crash.subtitle') }}</p>
+                <h1 class="text-3xl text-strong mb-2">{{ t('errors.crash.title') }}</h1>
+                <p class="text-muted my-5">{{ t('errors.crash.subtitle') }}</p>
                 <template v-if="props.detailsMessage">
-                    <h2 class="text-md text-(--text-feedback-critical) font-bold m-0">{{ t('errors.crash.errorDetails') }}</h2>
-                    <p class="text-(--text-feedback-critical)">{{ props.detailsMessage }}</p>
+                    <h2 class="text-md text-feedback-critical font-bold m-0">{{ t('errors.crash.errorDetails') }}</h2>
+                    <p class="text-feedback-critical">{{ props.detailsMessage }}</p>
                 </template>
                 <div class="flex items-center justify-center flex-wrap mt-6">
                     <Button @click="emit('reload')">
                         {{ t('errors.crash.reloadButton') }}
                     </Button>
-                    <span class="m-4 text-(--text-muted)">
+                    <span class="m-4 text-muted">
                         {{ t('errors.crash.or') }}
                     </span>
                     <RouterLink :to="{ name: 'login' }" @click.prevent="logout">

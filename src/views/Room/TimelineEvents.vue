@@ -96,7 +96,7 @@
             <template #item="{ item, props }">
                 <a class="p-contextmenu-item-link" v-bind="props.action">
                     <span class="p-contextmenu-item-label" :class="item.labelClassName">{{ item.label }}</span>
-                    <span v-if="item.icon" :class="item.icon" class="ml-auto px-1 text-(--text-subtle)" aria-hidden="true" />
+                    <span v-if="item.icon" :class="item.icon" class="ml-auto px-1 text-subtle" aria-hidden="true" />
                     <i v-if="item.items" class="pi pi-angle-right ml-auto"></i>
                 </a>
             </template>
@@ -112,20 +112,21 @@
 
 <script setup lang="ts">
 import {
-    computed, defineAsyncComponent, nextTick,
-    onUpdated, onMounted, onUnmounted, ref, watch, type PropType,
+    computed, defineAsyncComponent, nextTick, onUpdated,
+    onMounted, onUnmounted, provide, ref, watch, type PropType,
  } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { v4 as uuidv4 } from 'uuid'
 import { useFloating, offset as floatingOffset, autoUpdate as floatingAutoUpdate } from '@floating-ui/vue'
 
-import { MissingEncryptionKeyError } from '@/utils/error'
 import { throttle } from '@/utils/timing'
+import { downloadFile } from '@/utils/file-access'
 
 import { useApplication } from '@/composables/application'
 import { useEmoji } from '@/composables/emoji'
 import { useKeyboard } from '@/composables/keyboard'
+import { useMediaCache } from '@/composables/media-cache'
 import { useRooms } from '@/composables/rooms'
 import { attachmentEventMessageTypes, messageEventTypes, settingsEventTypes } from '@/composables/event-timeline'
 
@@ -154,6 +155,7 @@ import type { MenuItem, MenuItemCommandEvent } from 'primevue/menuitem'
 import {
     type JoinedRoom, type RoomEventReactionRender,
     type ApiV3SyncClientEventWithoutRoomId,
+    type EventFileContent,
     type EventImageContent,
     type EventWithRenderInfo,
     type EmojiPickerEmojiItem,
@@ -172,13 +174,14 @@ const { settings } = useClientSettingsStore()
 const { isTouchEventsDetected } = useApplication()
 const { currentRoomCustomEmojiByCode } = useEmoji()
 const { isShiftKeyPressed } = useKeyboard()
+const { getMxcBlob } = useMediaCache()
 const { getMessageEvent, getPreviousMessages, redactEvent } = useRooms()
 
 const { decryptEvent: decryptMegolmEvent } = useMegolmStore()
 const { profiles } = storeToRefs(useProfileStore())
 const roomStore = useRoomStore()
 const { currentRoomEncryptionEnabledTimestamp, currentRoomPermissions, decryptedRoomEvents } = storeToRefs(roomStore)
-const { getTimelineEventById, getTimelineEventIndexById } = useRoomStore()
+const { getTimelineEventById, getTimelineEventIndexById } = roomStore
 const { userId: sessionUserId } = storeToRefs(useSessionStore())
 
 const props = defineProps({
@@ -232,6 +235,7 @@ const i18nText = {
     replyToNoMessagePreview: t('room.replyToNoMessagePreview'),
     replyToNoAttachmentPreview: t('room.replyToNoAttachmentPreview'),
     unknownUserDisplayname: t('room.unknownUserDisplayname'),
+    audioLoadFailed: t('errors.message.audioLoadFailed'),
 }
 
 const eventChunkSwapReadyUuid = ref<string | undefined>()
@@ -930,8 +934,8 @@ const moreMessageActionsContextMenuItems = computed(() => {
         contextMenuItems.push({
             key: 'deleteMessage',
             label: t('room.moreMessageActions.deleteMessage'),
-            icon: 'pi pi-trash !text-(--text-feedback-critical)',
-            labelClassName: 'text-(--text-feedback-critical)',
+            icon: 'pi pi-trash !text-feedback-critical',
+            labelClassName: 'text-feedback-critical',
             command: runMoreMessageActionsContextMenuCommand,
         })
         contextMenuItems.push({ separator: true })
@@ -990,7 +994,7 @@ async function runMoreMessageActionsContextMenuCommand(event: MenuItemCommandEve
                 await navigator.clipboard.writeText(eventId)
                 toast.add({ severity: 'success', summary: t('room.copyMessageIdConfirm', { eventId }), life: 3000 })
             } catch (error) {
-                toast.add({ severity: 'error', summary: t('room.clipboardApiNotSupported'), life: 4000 })
+                toast.add({ severity: 'error', summary: t('errors.clipboardApiNotSupported'), life: 4000 })
             }
             break
     }
@@ -1127,6 +1131,13 @@ function onPointerUpTimeline(event: PointerEvent) {
                     })
                 }
                 return
+            case 'downloadFile': {
+                if (!props.room.visibleTimeline) return
+                const event = getTimelineEventById(props.room.visibleTimeline, eventId)
+                if (!event) return
+                downloadFileFromEvent(event)
+                return
+            }
             case 'editGroup':
                 editGroupDialogVisible.value = true
                 return
@@ -1171,6 +1182,49 @@ function viewPhoto(event: ApiV3SyncClientEventWithoutRoomId<EventImageContent>) 
     photoViewerImageEvent.value = event
     photoViewerVisible.value = true
 }
+
+function downloadFileFromEvent(event: ApiV3SyncClientEventWithoutRoomId<EventFileContent>) {
+    getMxcBlob(event.content.file ?? event.content.url!, {
+        type: 'download',
+        mimetype: event.content.info?.mimetype
+    }).then((blob) => {
+        downloadFile(blob, event.content.filename ?? '')
+    }).catch(() => {
+        toast.add({ severity: 'error', summary: t('errors.message.downloadFileFailed'), life: 4000 })
+    })
+}
+
+/*----------------------------*\
+|                              |
+|   Pause Videos Out of View   |
+|                              |
+\*----------------------------*/
+
+const videoIntersectionObserver = ref<IntersectionObserver>()
+provide('videoIntersectionObserver', videoIntersectionObserver)
+
+function onIntersectVideo(entries: IntersectionObserverEntry[]) {
+    for (const entry of entries) {
+        if (!entry.isIntersecting) {
+            (entry.target as HTMLVideoElement)?.pause()
+        }
+    }
+}
+
+onMounted(() => {
+    const observerRoot = (scrollPanel.value as any).$el
+    if (!observerRoot) return
+    videoIntersectionObserver.value = new IntersectionObserver(onIntersectVideo, {
+        root: observerRoot,
+        rootMargin: '0px',
+        threshold: 0.0,
+    })
+})
+
+onUnmounted(() => {
+    videoIntersectionObserver.value?.disconnect()
+    videoIntersectionObserver.value = undefined
+})
 
 /*------------------------*\
 |                          |
@@ -1234,9 +1288,11 @@ async function jumpToMessage(eventId?: string) {
     }
 }
 
-/*--------------*\
-| Expose Methods |
-\*--------------*/
+/*------------------*\
+|                    |
+|   Expose Methods   |
+|                    |
+\*------------------*/
 
 defineExpose({
     resetMessageActionsContextMenuTargetEventId,

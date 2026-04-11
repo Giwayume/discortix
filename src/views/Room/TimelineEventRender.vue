@@ -77,11 +77,48 @@
             </div>
             <template v-if="e.event.content.msgtype === 'm.audio'">
                 <!-- Audio -->
-                {{ e.event.content.msgtype }}
+                 <div class="p-chattimeline-event-audio">
+                    <div class="flex overflow-hidden">
+                        <span class="pi pi-headphones text-4xl! mr-2" aria-hidden="true" />
+                        <div class="flex flex-col justify-center overflow-hidden">
+                            <div data-link-id="downloadFile" class="link block overflow-hidden text-nowrap text-ellipsis" role="button" tabindex="0">{{ e.event.content.filename }}</div>
+                            <span class="block text-muted text-nowrap text-xs leading-3">{{ formatBytes(e.event.content.info?.size) }}</span>
+                        </div>
+                    </div>
+                    <AuthenticatedAudio
+                        :mxcUri="e.event.content.url"
+                        :encryptedFile="e.event.content.info?.thumbnailFile || e.event.content.file"
+                        :mimetype="e.event.content.info?.mimetype"
+                    >
+                        <template v-slot="{ src }">
+                            <SlotCache
+                                :cacheId="`${e.event.eventId}_audio`"
+                            >
+                                <audio controls>
+                                    <source :src="src" :type="e.event.content.info?.mimetype" />
+                                </audio>
+                            </SlotCache>
+                        </template>
+                        <template #error>
+                            <div class="mt-2">
+                                <span class="pi pi-exclamation-triangle mr-2 !text-sm" aria-hidden="true" /><span class="text-(--channels-default)">{{ i18nText.audioLoadFailed }}</span>
+                            </div>
+                        </template>
+                    </AuthenticatedAudio>
+                </div>
             </template>
             <template v-else-if="e.event.content.msgtype === 'm.file'">
                 <!-- File -->
-                {{ e.event.content.msgtype }}
+                <div class="p-chattimeline-event-file">
+                    <span class="pi pi-file text-4xl! mr-2" aria-hidden="true" />
+                    <div class="flex flex-col justify-center overflow-hidden">
+                        <div data-link-id="downloadFile" class="link block overflow-hidden text-nowrap text-ellipsis" role="button" tabindex="0">{{ e.event.content.filename }}</div>
+                        <span class="block text-muted text-nowrap text-xs leading-3">{{ formatBytes(e.event.content.info?.size) }}</span>
+                    </div>
+                    <div data-link-id="downloadFile" role="button" tabindex="0" class="p-chattimeline-event-file-download">
+                        <span class="pi pi-download" aria-hidden="true" />
+                    </div>
+                </div>
             </template>
             <template v-else-if="e.event.content.msgtype === 'm.image'">
                 <!-- Image -->
@@ -142,12 +179,20 @@
                             }"
                             @click="spoilerVisible = true"
                         >
-                            <video
-                                controls
-                                :poster="poster"
+                            <SlotCache
+                                v-if="src"
+                                ref="videoSlotCache"
+                                :cacheId="`${e.event.eventId}_video`"
                             >
-                                <source :src="src" :type="e.event.content.info?.mimetype" />
-                            </video>
+                                <video
+                                    controls
+                                    :poster="poster"
+                                >
+                                    <source :src="src" :type="e.event.content.info?.mimetype" />
+                                </video>
+                            </SlotCache>
+                            <img v-else-if="poster" :src="poster" class="p-chattimeline-video-placeholder">
+                            <div v-else class="p-chattimeline-video-placeholder" />
                         </div>
                     </template>
                 </AuthenticatedVideo>
@@ -317,19 +362,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, type PropType } from 'vue'
+import { computed, inject, nextTick, onUnmounted, ref, type PropType, type Ref, watch } from 'vue'
 import 'linkifyjs'
 import linkifyHtml from 'linkify-html'
 
 import '@/utils/linkify'
+import { formatBytes } from '@/utils/message'
 
 import { useApplication } from '@/composables/application'
 
 import { useRoomStore } from '@/stores/room'
 
+import AuthenticatedAudio from '@/views/Common/AuthenticatedAudio.vue'
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 import AuthenticatedVideo from '@/views/Common/AuthenticatedVideo.vue'
 import MessageBeginning from './MessageBeginning.vue'
+import SlotCache from '@/views/Common/SlotCache.vue'
 
 import Message from 'primevue/message'
 import vTooltip from 'primevue/tooltip'
@@ -340,7 +388,6 @@ import {
     type EventWithRenderInfo,
     type EmojiPickerEmojiItem,
 } from '@/types'
-import { VideoPlayer } from '@videojs-player/vue'
 
 const { isTouchEventsDetected } = useApplication()
 const { currentRoomPermissions } = useRoomStore()
@@ -386,6 +433,12 @@ const emit = defineEmits<{
     (e: 'viewPhoto', event: ApiV3SyncClientEventWithoutRoomId): void
 }>()
 
+/*--------------*\
+|                |
+|   Formatting   |
+|                |
+\*--------------*/
+
 const spoilerVisible = ref<boolean>(false)
 
 const formattedBody = computed<string | undefined>(() => {
@@ -406,4 +459,39 @@ const formattedBody = computed<string | undefined>(() => {
     }
 })
 
+/*----------------------------*\
+|                              |
+|   Pause Videos Out of View   |
+|                              |
+\*----------------------------*/
+
+const videoIntersectionObserver: Ref<IntersectionObserver> | undefined = inject('videoIntersectionObserver')
+const videoSlotCache = ref<InstanceType<typeof SlotCache>>()
+
+watch(() => videoSlotCache.value, async (newSlotCache, oldSlotCache) => {
+    if (!videoIntersectionObserver?.value) return
+    if (oldSlotCache) {
+        const video = oldSlotCache.$el?.querySelector?.('video')
+        if (video) {
+            videoIntersectionObserver.value.unobserve(video)
+        }
+    }
+    await nextTick()
+    await nextTick()
+    if (newSlotCache) {
+        const video = newSlotCache.$el?.querySelector?.('video')
+        if (video) {
+            videoIntersectionObserver.value.observe(video)
+        }
+    }
+})
+
+onUnmounted(() => {
+    if (videoIntersectionObserver?.value && videoSlotCache.value) {
+        const video = videoSlotCache.value.$el?.querySelector?.('video')
+        if (video) {
+            videoIntersectionObserver.value.unobserve(video)
+        }
+    }
+})
 </script>

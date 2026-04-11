@@ -2,11 +2,11 @@
     <div class="login-page">
         <img class="login-page__logo" src="/assets/images/logo-light.svg">
         <form class="login-form p-8" novalidate @submit.prevent="loginSubmit">
-            <h1 class="text-2xl text-center text-(--text-strong) mb-2">{{ t('login.title') }}</h1>
-            <p class="text-center text-(--text-default)">{{ t('login.subtitle') }}</p>
+            <h1 class="text-2xl text-center text-strong mb-2">{{ t('login.title') }}</h1>
+            <p class="text-center text-default">{{ t('login.subtitle') }}</p>
             <!-- Homeserver Selection -->
             <div class="p-staticlabel flex flex-col gap-2 mt-5">
-                <label for="login-homeserver" class="text-(--text-strong)">{{ t('login.homeserverLabel') }}</label>
+                <label for="login-homeserver" class="text-strong">{{ t('login.homeserverLabel') }}</label>
                 <div class="flex gap-2">
                     <span id="login-selected-homeserver-name">{{ selectedServerHomeserverName }}</span>
                     <a id="login-edit-homeserver" href="#" @click.prevent="homeserverSelectionDialogVisible = true">Edit</a>

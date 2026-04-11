@@ -6,7 +6,7 @@
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
         @update:visible="(visible) => emit('update:visible', visible)"
     >
-        <p class="text-(--text-muted)">{{ t('importRoomKeysDialog.subtitle') }}</p>
+        <p class="text-muted">{{ t('importRoomKeysDialog.subtitle') }}</p>
         <form id="import-room-keys-dialog-form" novalidate @submit.prevent="submit">
             <div class="flex gap-4 items-center mt-5">
                 <Button severity="secondary" class="shrink-1 text-nowrap" @click="selectBackupFile">{{ t('importRoomKeysDialog.backupFile') }}</Button>
@@ -24,7 +24,7 @@
                 </template>
             </Message>
             <div class="p-staticlabel grow-1 flex flex-col gap-2 mt-5 mb-5">
-                <label for="room-keys-backup-passphrase-entry" class="text-(--text-strong)">{{ t('importRoomKeysDialog.passphrase') }}</label>
+                <label for="room-keys-backup-passphrase-entry" class="text-strong">{{ t('importRoomKeysDialog.passphrase') }}</label>
                 <InputText
                     id="room-keys-backup-passphrase-entry"
                     v-model.trim="formData.passphrase"

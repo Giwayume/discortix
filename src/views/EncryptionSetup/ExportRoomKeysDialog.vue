@@ -6,10 +6,10 @@
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
         @update:visible="(visible) => emit('update:visible', visible)"
     >
-        <p class="text-(--text-muted)" v-html="micromark(t('exportRoomKeysDialog.subtitle'))" />
+        <p class="text-muted" v-html="micromark(t('exportRoomKeysDialog.subtitle'))" />
         <form id="export-room-keys-dialog-form" novalidate @submit.prevent="submit">
             <div class="p-staticlabel grow-1 flex flex-col gap-2 mt-5 mb-5">
-                <label for="export-room-keys-backup-passphrase-entry" class="text-(--text-strong)">{{ t('exportRoomKeysDialog.passphrase') }}</label>
+                <label for="export-room-keys-backup-passphrase-entry" class="text-strong">{{ t('exportRoomKeysDialog.passphrase') }}</label>
                 <InputText
                     id="export-room-keys-backup-passphrase-entry"
                     v-model.trim="formData.passphrase"

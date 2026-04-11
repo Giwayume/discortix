@@ -4,7 +4,7 @@
             <Button
                 severity="secondary"
                 variant="text"
-                class="font-semibold !py-0 !px-2 !h-8 !text-(--text-strong) !gap-1"
+                class="font-semibold !py-0 !px-2 !h-8 !text-strong !gap-1"
             >
                 <span class="text-nowrap text-ellipsis overflow-hidden">{{ spaceName }}</span>
                 <span class="pi pi-chevron-down !text-xs" aria-hidden="true" />
@@ -14,7 +14,7 @@
                 icon="pi pi-user-plus"
                 severity="secondary"
                 variant="text"
-                class="!w-8 !h-8 !text-(--text-strong)"
+                class="!w-8 !h-8 !text-strong"
                 :style="{ '--p-icon-size': '1.125rem' }"
             />
         </div>

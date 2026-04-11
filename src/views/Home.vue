@@ -6,7 +6,7 @@
         <MainHeader>
             <div class="flex px-4 py-2 items-center overflow-hidden w-full">
                 <span class="pi pi-users w-8 text-center text-(--channel-icon)" />
-                <h1 class="font-medium text-(--text-strong) mr-3">{{ t('home.title') }}</h1>
+                <h1 class="font-medium text-strong mr-3">{{ t('home.title') }}</h1>
                 <div class="rounded-full w-1 h-1 bg-(--border-subtle) mr-3"></div>
                 <div class="flex gap-4">
                     <Button :label="t('home.friendFilters.online')" :aria-pressed="activeTab === 'online'" severity="secondary" variant="text" size="small" @click="activeTab = 'online'" />
@@ -33,7 +33,7 @@
                         />
                     </IconField>
                 </div>
-                <h2 class="pt-4 ml-6 mr-5 pb-4 text-(--text-default) text-sm border-b border-(--border-subtle)">
+                <h2 class="pt-4 ml-6 mr-5 pb-4 text-default text-sm border-b border-(--border-subtle)">
                     {{ activeTab === 'online' ? t('home.onlineFriendCount', onlineFriendCount) : t('home.allFriendCount', allFriendCount) }}
                 </h2>
                 <div class="px-3 relative -top-[1px]">
@@ -57,8 +57,8 @@
                                 </AuthenticatedImage>
                             </OverlayStatus>
                             <div class="grow-1">
-                                <div class="text-(--text-strong)">{{ friend.displayname ?? friend.userId }}</div>
-                                <div class="text-xs text-(--text-muted)">{{ friend.statusMessage ?? t('presence.status.' + friend.presence) }}</div>
+                                <div class="text-strong">{{ friend.displayname ?? friend.userId }}</div>
+                                <div class="text-xs text-muted">{{ friend.statusMessage ?? t('presence.status.' + friend.presence) }}</div>
                             </div>
                             <Button
                                 v-tooltip.top="{ value: isTouchEventsDetected ? undefined : t('home.messageTooltip') }"
@@ -75,16 +75,16 @@
                         </div>
                     </template>
                 </div>
-                <div v-if="activeTab === 'online' && onlineFriendCount === 0" class="text-sm px-6 py-4 text-(--text-muted)">
+                <div v-if="activeTab === 'online' && onlineFriendCount === 0" class="text-sm px-6 py-4 text-muted">
                     {{ t('home.noOnlineFriends') }}
                 </div>
-                <div v-if="activeTab === 'all' && allFriendCount === 0" class="text-sm px-6 py-4 text-(--text-muted)">
+                <div v-if="activeTab === 'all' && allFriendCount === 0" class="text-sm px-6 py-4 text-muted">
                     {{ t('home.noFriends') }}
                 </div>
             </template>
             <template v-else-if="activeTab === 'addFriend'">
                 <form class="pt-5 pl-7 pr-7 pb-5 border-b border-(--border-subtle)" novalidate @submit.prevent="tryAddFriend">
-                    <h2 class="text-xl font-semibold text-(--text-strong) mb-2">{{ t('home.addFriendHeading') }}</h2>
+                    <h2 class="text-xl font-semibold text-strong mb-2">{{ t('home.addFriendHeading') }}</h2>
                     <label for="home-add-friend-username-input">{{ t('home.addFriendLabel') }}</label>
                     <div class="relative mt-4">
                         <InputText v-model="addFriendUsername" id="home-add-friend-username-input" class="w-full h-13 !pr-30" :placeholder="t('home.addFriendPlaceholder')" @input="addFriendStatus = undefined" />
@@ -112,7 +112,7 @@
                     </template>
                 </Dialog>
                 <div class="pt-5 pl-7 pr-7 pb-5">
-                    <h2 class="text-xl font-semibold text-(--text-strong) mb-2">{{ t('home.otherPlacesMakeFriendsHeading') }}</h2>
+                    <h2 class="text-xl font-semibold text-strong mb-2">{{ t('home.otherPlacesMakeFriendsHeading') }}</h2>
                     <p class="leading-5 mb-6">{{ t('home.otherPlacesMakeFriendsDescription') }}</p>
                     <Button severity="secondary" variant="outlined" class="max-w-full !h-13 !px-[0.625rem] !py-2" @click="router.push({ name: 'discover' })">
                         <div class="flex items-center justify-center rounded-sm w-9 h-9 bg-(--green-360)">
@@ -365,7 +365,7 @@ const contextMenuItems = ref([
     },
     */
     {
-        labelClass: 'text-(--text-feedback-critical)',
+        labelClass: 'text-feedback-critical',
         label: t('home.contextMenu.removeFriend'),
         command() {
             if (!contextMenuSelectedFriend.value) return
