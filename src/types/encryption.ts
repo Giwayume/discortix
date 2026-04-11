@@ -32,9 +32,18 @@ export interface InboundMegolmSessionWithUsage {
     session: InboundGroupSession;
 }
 
+export interface PickledInboundMegolmSessionWithUsage extends Omit<InboundMegolmSessionWithUsage, 'session'> {
+    pickle: string;
+}
+
 export interface OutboundMegolmSessionWithUsage {
     createdTs: number;
+    initialSessionKey?: string;
     session: GroupSession;
+}
+
+export interface PickledOutboundMegolmSessionWithUsage extends Omit<OutboundMegolmSessionWithUsage, 'session'> {
+    pickle: string;
 }
 
 export interface RoomMegolmMetadata {

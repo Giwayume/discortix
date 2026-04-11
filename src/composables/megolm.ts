@@ -11,7 +11,7 @@ import { useMegolmStore } from '@/stores/megolm'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
-import type { EventRoomKeyContent } from '@/types'
+import type { EventRoomKeyContent, EventForwardedRoomKeyContent } from '@/types'
 
 export function useMegolm() {
     const { fetchUserKeys } = useCryptoKeys()
@@ -20,6 +20,7 @@ export function useMegolm() {
     const cryptoKeysStore = useCryptoKeysStore()
     const { deviceKeys, olmAccount } = storeToRefs(cryptoKeysStore)
     const {
+        getForwardedRoomKeysForRoom,
         addInboundMegolmSession,
         getOutboundMegolmSession,
         addOutboundMegolmSession,
@@ -40,8 +41,7 @@ export function useMegolm() {
 
         const session = new GroupSession()
         const initialSessionKey = session.session_key
-        await addInboundMegolmSession(roomId, myDeviceCurveKey, new InboundGroupSession(initialSessionKey))
-        await addOutboundMegolmSession(roomId, session)
+        await addOutboundMegolmSession(roomId, session, initialSessionKey)
         await saveRoomMegolmMetadata(roomId, {
             outboundSessionId: session.session_id,
         })
@@ -113,8 +113,41 @@ export function useMegolm() {
         return sessionInfo.session
     }
 
+    async function sendRoomKeysToUsers(roomId: string, userIds: string[]) {
+        const room = joinedRooms.value[roomId]
+        if (!room) return
+
+        await fetchUserKeys(userIds)
+
+        const forwardedRoomKeys = await getForwardedRoomKeysForRoom(roomId)
+        console.log(forwardedRoomKeys)
+
+        const limiter = new ConcurrencyLimiter(10)
+        for (const userId of userIds) {
+            const userDeviceIds: Array<[string, string]> = []
+            for (const deviceId in deviceKeys.value[userId]) {
+                if (userId === sessionUserId.value && deviceId === sessionDeviceId.value) continue
+                userDeviceIds.push([userId, deviceId])
+            }
+            for (const forwardedRoomKey of forwardedRoomKeys) {
+                await limiter.available()
+                if ((forwardedRoomKey as EventForwardedRoomKeyContent).forwardingCurve25519KeyChain) {
+                    limiter.add(
+                        sendMessageToDevices<EventForwardedRoomKeyContent>(userDeviceIds, 'm.forwarded_room_key', forwardedRoomKey as EventForwardedRoomKeyContent)
+                    )
+                } else {
+                    limiter.add(
+                        sendMessageToDevices<EventRoomKeyContent>(userDeviceIds, 'm.room_key', forwardedRoomKey as EventRoomKeyContent)
+                    )
+                }
+            }
+        }
+        await limiter.waitForIdle()
+    }
+
     return {
         createGroupSession,
         getOutboundGroupSession,
+        sendRoomKeysToUsers,
     }
 }

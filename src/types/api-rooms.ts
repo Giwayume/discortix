@@ -165,6 +165,12 @@ export const ApiV3RoomCreateResponseSchema = camelizeSchema(z.object({
 }))
 export type ApiV3RoomCreateResponse = z.infer<typeof ApiV3RoomCreateResponseSchema>
 
+/** @see https://spec.matrix.org/v1.18/client-server-api/#post_matrixclientv3roomsroomidinvite */
+export interface ApiV3RoomInviteRequest {
+    reason?: string;
+    user_id: string;
+}
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#put_matrixclientv3roomsroomidstateeventtypestatekey */
 export const ApiV3RoomSendStateEventResponseSchema = camelizeSchema(z.object({
     event_id: z.string(),

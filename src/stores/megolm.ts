@@ -1,4 +1,4 @@
-import { ref, toRaw } from 'vue'
+import { readonly, ref } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
 import { GroupSession, InboundGroupSession } from 'vodozemac-wasm-bindings'
 
@@ -25,7 +25,9 @@ import {
     type EventRoomEncryptedContent,
     type EventForwardedRoomKeyContent,
     type InboundMegolmSessionWithUsage,
+    type PickledInboundMegolmSessionWithUsage,
     type OutboundMegolmSessionWithUsage,
+    type PickledOutboundMegolmSessionWithUsage,
     type RoomMegolmMetadata,
 } from '@/types'
 
@@ -33,7 +35,7 @@ const log = createLogger(import.meta.url)
 
 export const useMegolmStore = defineStore('megolm', () => {
     const { broadcastMessageFromTab, onTabMessage } = useBroadcast()
-    const { deviceKeys, olmSecretKey } = storeToRefs(useCryptoKeysStore())
+    const { deviceKeys, olmAccount, olmSecretKey } = storeToRefs(useCryptoKeysStore())
     const { userId: sessionUserId, deviceId: sessionDeviceId } = storeToRefs(useSessionStore())
 
     /*--------------------*\
@@ -44,17 +46,17 @@ export const useMegolmStore = defineStore('megolm', () => {
 
     const inboundMegolmSessions = ref<
         Record<
-            string, // `${roomId}:${sessionId}:${senderKey}`
+            string, // `${roomId},${sessionId},${senderKey}`
             InboundMegolmSessionWithUsage
         >
     >({})
 
     async function loadInboundMegolmSession(roomId: string, sessionId: string, senderKey: string) {
-        const sessionKey = `${roomId}:${sessionId}:${senderKey}`
-        const value = await loadDiscortixTableKey('megolm', ['inboundSessions', sessionKey])
+        const sessionKey = `${roomId},${sessionId},${senderKey}`
+        const value: PickledInboundMegolmSessionWithUsage | undefined = await loadDiscortixTableKey('megolm', ['inboundSessions', sessionKey])
         if (!value || !olmSecretKey.value) return
         inboundMegolmSessions.value[sessionKey] = {
-            forwardingCurve25519KeyChain: value.forwardingCurve25519KeyChain,
+            forwardingCurve25519KeyChain: value.forwardingCurve25519KeyChain ?? [],
             senderClaimedEd25519Key: value.senderClaimedEd25519Key,
             session: InboundGroupSession.from_pickle(value.pickle, olmSecretKey.value)
         }
@@ -62,7 +64,7 @@ export const useMegolmStore = defineStore('megolm', () => {
 
     async function getInboundMegolmSession(roomId: string, sessionId: string, senderKey: string) {
         await loadInboundMegolmSession(roomId, sessionId, senderKey)
-        return inboundMegolmSessions.value[`${roomId}:${sessionId}:${senderKey}`]
+        return inboundMegolmSessions.value[`${roomId},${sessionId},${senderKey}`]
     }
 
     async function addInboundMegolmSession(
@@ -73,7 +75,7 @@ export const useMegolmStore = defineStore('megolm', () => {
     ) {
         if (!olmSecretKey.value) return
 
-        const sessionKey = `${roomId}:${session.session_id}:${senderKey}`
+        const sessionKey = `${roomId},${session.session_id},${senderKey}`
         inboundMegolmSessions.value[sessionKey] = {
             forwardingCurve25519KeyChain: forwardingCurve25519KeyChain ?? [],
             senderClaimedEd25519Key: senderKey,
@@ -81,8 +83,10 @@ export const useMegolmStore = defineStore('megolm', () => {
         }
 
         await saveDiscortixTableKey('megolm', ['inboundSessions', sessionKey], deepToRaw({
+            forwardingCurve25519KeyChain: forwardingCurve25519KeyChain ?? [],
+            senderClaimedEd25519Key: senderKey,
             pickle: session.pickle(olmSecretKey.value)
-        }))
+        } satisfies PickledInboundMegolmSessionWithUsage))
         broadcastMessageFromTab({
             type: 'updateInboundMegolmSession',
             data: {
@@ -95,10 +99,12 @@ export const useMegolmStore = defineStore('megolm', () => {
 
     async function saveInboundMegolmSession(roomId: string, senderKey: string, session: InboundGroupSession) {
         if (!olmSecretKey.value) return
-        const sessionKey = `${roomId}:${session.session_id}:${senderKey}`
+        const sessionKey = `${roomId},${session.session_id},${senderKey}`
         await saveDiscortixTableKey('megolm', ['inboundSessions', sessionKey], deepToRaw({
+            forwardingCurve25519KeyChain: [],
+            senderClaimedEd25519Key: senderKey,
             pickle: session.pickle(olmSecretKey.value)
-        }))
+        } satisfies PickledInboundMegolmSessionWithUsage))
         broadcastMessageFromTab({
             type: 'updateInboundMegolmSession',
             data: {
@@ -123,32 +129,36 @@ export const useMegolmStore = defineStore('megolm', () => {
     >({})
 
     async function loadOutboundMegolmSession(roomId: string, sessionId: string) {
-        const sessionKey = `${roomId}:${sessionId}`
-        const value = await loadDiscortixTableKey('megolm', ['outboundSessions', sessionKey])
+        const sessionKey = `${roomId},${sessionId}`
+        const value: PickledOutboundMegolmSessionWithUsage | undefined = await loadDiscortixTableKey('megolm', ['outboundSessions', sessionKey])
         if (!value || !olmSecretKey.value) return
         outboundMegolmSessions.value[sessionKey] = {
             createdTs: value.createdTs ?? Date.now(),
+            initialSessionKey: value.initialSessionKey,
             session: GroupSession.from_pickle(value.pickle, olmSecretKey.value)
         }
     }
 
     async function getOutboundMegolmSession(roomId: string, sessionId: string) {
         await loadOutboundMegolmSession(roomId, sessionId)
-        return outboundMegolmSessions.value[`${roomId}:${sessionId}`]
+        return outboundMegolmSessions.value[`${roomId},${sessionId}`]
     }
 
-    async function addOutboundMegolmSession(roomId: string, session: GroupSession) {
+    async function addOutboundMegolmSession(roomId: string, session: GroupSession, initialSessionKey: string) {
         if (!olmSecretKey.value) return
 
-        const sessionKey = `${roomId}:${session.session_id}`
+        const sessionKey = `${roomId},${session.session_id}`
         outboundMegolmSessions.value[sessionKey] = {
             createdTs: Date.now(),
+            initialSessionKey,
             session,
         }
 
         await saveDiscortixTableKey('megolm', ['outboundSessions', sessionKey], deepToRaw({
+            createdTs: Date.now(),
+            initialSessionKey,
             pickle: session.pickle(olmSecretKey.value)
-        }))
+        } satisfies PickledOutboundMegolmSessionWithUsage))
         broadcastMessageFromTab({
             type: 'updateOutboundMegolmSession',
             data: {
@@ -160,10 +170,13 @@ export const useMegolmStore = defineStore('megolm', () => {
 
     async function saveOutboundMegolmSession(roomId: string, session: GroupSession) {
         if (!olmSecretKey.value) return
-        const sessionKey = `${roomId}:${session.session_id}`
+        const sessionKey = `${roomId},${session.session_id}`
+        const existingOutboundSession = outboundMegolmSessions.value[sessionKey]
         await saveDiscortixTableKey('megolm', ['outboundSessions', sessionKey], deepToRaw({
+            createdTs: existingOutboundSession?.createdTs ?? Date.now(),
+            initialSessionKey: existingOutboundSession?.initialSessionKey,
             pickle: session.pickle(olmSecretKey.value)
-        }))
+        } satisfies PickledOutboundMegolmSessionWithUsage))
         broadcastMessageFromTab({
             type: 'updateOutboundMegolmSession',
             data: {
@@ -225,9 +238,9 @@ export const useMegolmStore = defineStore('megolm', () => {
     async function loadAllMegolmSessions() {
         inboundMegolmSessions.value = {}
         const keys: [[string, string]] = await getAllDiscortixTableKeys('megolm')
-        for (const [megolmType, megolmId] of keys) {
+        for (let [megolmType, megolmId] of keys) {
             if (megolmType === 'inboundSessions') {
-                const value = await loadDiscortixTableKey('megolm', [megolmType, megolmId])
+                const value: PickledInboundMegolmSessionWithUsage | undefined = await loadDiscortixTableKey('megolm', [megolmType, megolmId])
                 if (!value || !olmSecretKey.value) continue
                 inboundMegolmSessions.value[megolmId] = {
                     forwardingCurve25519KeyChain: value.forwardingCurve25519KeyChain,
@@ -235,14 +248,15 @@ export const useMegolmStore = defineStore('megolm', () => {
                     session: InboundGroupSession.from_pickle(value.pickle, olmSecretKey.value)
                 }
             } else if (megolmType === 'outboundSessions') {
-                const value = await loadDiscortixTableKey('megolm', [megolmType, megolmId])
+                const value: PickledOutboundMegolmSessionWithUsage | undefined = await loadDiscortixTableKey('megolm', [megolmType, megolmId])
                 if (!value || !olmSecretKey.value) continue
                 outboundMegolmSessions.value[megolmId] = {
                     createdTs: value.createdTs ?? Date.now(),
+                    initialSessionKey: value.initialSessionKey,
                     session: GroupSession.from_pickle(value.pickle, olmSecretKey.value)
                 }
             } else if (megolmType === 'roomMetadata') {
-                const value: RoomMegolmMetadata = await loadDiscortixTableKey('megolm', [megolmType, megolmId])
+                const value: RoomMegolmMetadata | undefined = await loadDiscortixTableKey('megolm', [megolmType, megolmId])
                 if (!value) continue
                 roomMegolmMetadata.value[megolmId] = {
                     outboundSessionId: value.outboundSessionId,
@@ -252,11 +266,61 @@ export const useMegolmStore = defineStore('megolm', () => {
     }
 
     function megolmSessionExists(roomId: string, sessionId: string, senderKey: string): boolean {
-        const myDeviceCurveKey = deviceKeys.value[sessionUserId.value!]?.[sessionDeviceId.value!]?.keys[`curve25519:${sessionDeviceId.value!}`] ?? ''
+        const myDeviceCurveKey = olmAccount.value?.curve25519_key
         return !!(
-            inboundMegolmSessions.value[`${roomId}:${sessionId}:${senderKey}`]
-            || (senderKey === myDeviceCurveKey && outboundMegolmSessions.value[`${roomId}:${sessionId}`])
+            inboundMegolmSessions.value[`${roomId},${sessionId},${senderKey}`]
+            || (senderKey === myDeviceCurveKey && outboundMegolmSessions.value[`${roomId},${sessionId}`])
         )
+    }
+
+    async function getForwardedRoomKeysForRoom(checkRoomId: string): Promise<Array<EventRoomKeyContent | EventForwardedRoomKeyContent>> {
+        const myDeviceCurveKey = olmAccount.value?.curve25519_key
+        if (!myDeviceCurveKey) throw new Error('Can\'t find my own device curve key.')
+        await loadAllMegolmSessions()
+        const forwardedRoomKeys: Array<EventRoomKeyContent | EventForwardedRoomKeyContent> = []
+        for (const sessionKey in inboundMegolmSessions.value) {
+            try {
+                const [roomId, sessionId, senderKey] = sessionKey.split(',')
+                if (roomId !== checkRoomId || !sessionId || !senderKey) continue
+                const session = inboundMegolmSessions.value[sessionKey]
+                if (!session) continue
+                const forwardingCurve25519KeyChain = session.forwardingCurve25519KeyChain ?? []
+                if (senderKey !== myDeviceCurveKey && !forwardingCurve25519KeyChain.includes(myDeviceCurveKey)) {
+                    forwardingCurve25519KeyChain.push(myDeviceCurveKey)
+                }
+                const sessionExportKey = session.session.export_at(session.session.first_known_index)
+                if (!sessionExportKey) continue
+                forwardedRoomKeys.push({
+                    algorithm: 'm.megolm.v1.aes-sha2',
+                    forwardingCurve25519KeyChain,
+                    roomId,
+                    senderClaimedEd25519Key: session.senderClaimedEd25519Key ?? myDeviceCurveKey,
+                    senderKey,
+                    sessionId,
+                    sessionKey: sessionExportKey,
+                })
+            } catch (error) {
+                log.error('An error occurred when generating a forwarded room key: ', error)
+            }
+        }
+        for (const sessionKey in outboundMegolmSessions.value) {
+            try {
+                const [roomId, sessionId] = sessionKey.split(',')
+                if (roomId !== checkRoomId || !sessionId) continue
+                const session = outboundMegolmSessions.value[sessionKey]
+                if (!session) continue
+                const sessionExportKey = session.initialSessionKey ?? session.session.session_key
+                forwardedRoomKeys.push({
+                    algorithm: 'm.megolm.v1.aes-sha2',
+                    roomId,
+                    sessionId,
+                    sessionKey: sessionExportKey,
+                })
+            } catch (error) {
+                log.error('An error occurred when generating a room key: ', error)
+            }
+        }
+        return forwardedRoomKeys
     }
 
     /*------------------------*\
@@ -269,7 +333,7 @@ export const useMegolmStore = defineStore('megolm', () => {
         const roomId: string = content.roomId
         const sessionId: string = content.sessionId
         if (!roomId || !sessionId || !otherDeviceCurveKey) return
-        const sessionKey = `${roomId}:${sessionId}:${otherDeviceCurveKey}`
+        const sessionKey = `${roomId},${sessionId},${otherDeviceCurveKey}`
         if (inboundMegolmSessions.value[sessionKey]) return
         inboundMegolmSessions.value[sessionKey] = {
             forwardingCurve25519KeyChain: [],
@@ -284,7 +348,7 @@ export const useMegolmStore = defineStore('megolm', () => {
         const sessionId: string = content.sessionId
         const senderKey: string = content.senderKey
         if (!roomId || !sessionId || !senderKey) return
-        const sessionKey = `${roomId}:${sessionId}:${senderKey}`
+        const sessionKey = `${roomId},${sessionId},${senderKey}`
         if (inboundMegolmSessions.value[sessionKey]) return
         inboundMegolmSessions.value[sessionKey] = {
             forwardingCurve25519KeyChain: content.forwardingCurve25519KeyChain,
@@ -301,7 +365,7 @@ export const useMegolmStore = defineStore('megolm', () => {
                 const sessionId: string = backupEvent.session_id
                 const senderKey: string = backupEvent.sender_key
                 if (!roomId || !sessionId || !senderKey) continue
-                const sessionKey = `${roomId}:${sessionId}:${senderKey}`
+                const sessionKey = `${roomId},${sessionId},${senderKey}`
                 if (inboundMegolmSessions.value[sessionKey]) continue
 
                 inboundMegolmSessions.value[sessionKey] = {
@@ -331,7 +395,7 @@ export const useMegolmStore = defineStore('megolm', () => {
     function generateMegolmBackup() {
         const megolmBackup: any[] = []
         for (const sessionKey in inboundMegolmSessions.value) {
-            const [roomId, sessionId, senderKey] = sessionKey.split(':')
+            const [roomId, sessionId, senderKey] = sessionKey.split(',')
             const sessionInfo = inboundMegolmSessions.value[sessionKey]!
             megolmBackup.push({
                 room_id: roomId,
@@ -348,7 +412,7 @@ export const useMegolmStore = defineStore('megolm', () => {
         const myDeviceCurveKey = deviceKeys.value[sessionUserId.value!]?.[sessionDeviceId.value!]?.keys[`curve25519:${sessionDeviceId.value!}`] ?? ''
         const myDeviceEd25519Key = deviceKeys.value[sessionUserId.value!]?.[sessionDeviceId.value!]?.keys[`ed25519:${sessionDeviceId.value!}`] ?? ''
         for (const sessionKey in outboundMegolmSessions.value) {
-            const [roomId, sessionId] = sessionKey.split(':')
+            const [roomId, sessionId] = sessionKey.split(',')
             const sessionInfo = outboundMegolmSessions.value[sessionKey]!
             const inboundGroupSession = new InboundGroupSession(sessionInfo.session.session_key)
             megolmBackup.push({
@@ -385,12 +449,14 @@ export const useMegolmStore = defineStore('megolm', () => {
         if (typeof eventContent.ciphertext !== 'string') {
             throw new Error('Megolm ciphertext must be a base64 string.');
         }
-        const myDeviceCurveKey = deviceKeys.value[sessionUserId.value!]?.[sessionDeviceId.value!]?.keys[`curve25519:${sessionDeviceId.value!}`] ?? ''
-        let inboundGroupSession = inboundMegolmSessions.value[`${roomId}:${sessionId}:${senderKey}`]?.session
+        const myDeviceCurveKey = olmAccount.value?.curve25519_key
+        let inboundGroupSession = inboundMegolmSessions.value[`${roomId},${sessionId},${senderKey}`]?.session
         if (!inboundGroupSession && myDeviceCurveKey === senderKey) {
-            const outboundGroupSession = outboundMegolmSessions.value[`${roomId}:${sessionId}`]
+            const outboundGroupSession = outboundMegolmSessions.value[`${roomId},${sessionId}`]
             if (outboundGroupSession) {
-                inboundGroupSession = new InboundGroupSession(outboundGroupSession.session.session_key)
+                inboundGroupSession = new InboundGroupSession(
+                    outboundGroupSession.initialSessionKey ?? outboundGroupSession.session.session_key
+                )
             }
         }
 
@@ -440,7 +506,10 @@ export const useMegolmStore = defineStore('megolm', () => {
         roomMegolmMetadata.value = {}
     }, { permanent: true })
     
-    return {        
+    return {
+        inboundMegolmSessions: readonly(inboundMegolmSessions),
+        outboundMegolmSessions: readonly(outboundMegolmSessions),
+
         loadAllMegolmSessions,
         megolmSessionExists,
 
@@ -456,6 +525,7 @@ export const useMegolmStore = defineStore('megolm', () => {
 
         getRoomMegolmMetadata,
         saveRoomMegolmMetadata,
+        getForwardedRoomKeysForRoom,
 
         populateRoomKeysFromRoomKeyEvent,
         populateRoomKeysFromForwardedRoomKeyEvent,

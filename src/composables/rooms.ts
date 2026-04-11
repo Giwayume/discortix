@@ -33,6 +33,7 @@ import {
     type ApiV3RoomLeaveRequest,
     type EventReactionContent,
     type ApiV3RoomCreateRequest, ApiV3RoomCreateResponseSchema, type ApiV3RoomCreateResponse,
+    type ApiV3RoomInviteRequest,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
@@ -266,6 +267,26 @@ export function useRooms() {
         }
     }
 
+    async function inviteToRoom(roomId: string, userIds: string[]) {
+        const invitePromises: Promise<void>[] = []
+        for (const userId of userIds) {
+            const body: ApiV3RoomInviteRequest = {
+                user_id: userId,
+            }
+            invitePromises.push(
+                fetchJson(
+                    `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/invite`,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify(body),
+                        useAuthorization: true,
+                    },
+                )
+            )
+        }
+        return await Promise.allSettled(invitePromises)
+    }
+
     async function sendTypingNotification(roomId: string, typing: boolean) {
         if (!settings.sendTypingIndicators) return
         await fetchJson(
@@ -494,6 +515,7 @@ export function useRooms() {
         joinRoom,
         leaveRoom,
         forgetRoom,
+        inviteToRoom,
         sendTypingNotification,
         getMessageEvent,
         sendMessageEvent,

@@ -46,10 +46,21 @@ export class HttpError extends Error {
         this.status = response.status
     }
 
+    matrixReason() {
+        return this.responseBody?.error ?? 'No reason given.'
+    }
+
     isMatrixDuplicateAnnotation() {
         return (
             this.status === 400
-            &&  this.responseBody?.errcode === 'M_DUPLICATE_ANNOTATION'
+            && this.responseBody?.errcode === 'M_DUPLICATE_ANNOTATION'
+        )
+    }
+
+    isMatrixForbidden() {
+        return (
+            this.status === 403
+            && this.responseBody?.errcode === 'M_FORBIDDEN'
         )
     }
 
@@ -60,10 +71,10 @@ export class HttpError extends Error {
         )
     }
 
-    isMatrixForbidden() {
+    isMatrixInviteBlocked() {
         return (
             this.status === 403
-            && this.responseBody?.errcode === 'M_FORBIDDEN'
+            && this.responseBody?.errcode === 'M_INVITE_BLOCKED'
         )
     }
 
@@ -99,6 +110,13 @@ export class HttpError extends Error {
         return (
             this.status === 403
             && this.responseBody?.errcode === 'M_USER_DEACTIVATED'
+        )
+    }
+
+    isMatrixUnsupportedRoomVersion() {
+        return (
+            this.status === 400
+            && this.responseBody?.errcode === 'M_UNSUPPORTED_ROOM_VERSION'
         )
     }
 }

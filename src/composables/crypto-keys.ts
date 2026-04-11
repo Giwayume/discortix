@@ -694,10 +694,8 @@ export function useCryptoKeys() {
             uploadedKeys = await queryAuthenticatedUserKeys()
         }
 
-        console.log('GENERATE DEVICE KEYS ', olmSecretKey.value)
         // Generate Curve25519 identity key for OLM message encryption.
         if (!olmAccount.value && olmSecretKey.value) {
-            console.log('CREATING OLM ACCOUNT')
             olmAccount.value = new Account()
             saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.value.pickle(olmSecretKey.value))
         }

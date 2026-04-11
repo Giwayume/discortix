@@ -1,4 +1,13 @@
 {
+    "addFriendsToGroupDmDialog": {
+        "title": "Add Friends to Group DM",
+        "addCountLimit": "You can add {count} more people.",
+        "searchPlaceholder": "Search for people",
+        "searchingDirectory": "Searching for more people...",
+        "noUsersFound": "No results found.\n\nIf you are searching for someone you have not chatted with before, be sure to enter their **full username**.\n\nIf you know they are on a different homeserver, include the homeserver domain in your search, example: **{'@'}username:{defaultUserIdHomeserver}**",
+        "someUsersFound": "If you are searching for someone you have not chatted with before, be sure to enter their **full username**.\n\nIf you know they are on a different homeserver, include the homeserver domain in your search, example: **{'@'}username:{defaultUserIdHomeserver}**",
+        "addButton": "Add"
+    },
     "createRoom": {
         "title": "Create Chat Room",
         "inputPlaceholder": "Send your first message",
@@ -83,18 +92,24 @@
             "or": "or",
             "logoutLink": "Logout"
         },
-        "discoverHomeserver": {
-            "title": "Your homeserver is down.",
-            "schemaValidation": "We could not discover the server capabilities because the APIs responded in an unexpected format.",
-            "httpError": "The server rejected the request to discover its capabilities. This could be a temporary error.",
-            "serverDown": "The server is either currently down, or it is not a matrix chat server. This could be a temporary error."
-        },
         "cryptoKeys": {
             "encryptionNotSupported": "We failed to set up encryption keys for this device. Please use an updated browser that complies to the latest web standards.",
             "encryptionVerificationFailed": "We failed to verify some of the encryption keys actually work to decrypt messages.",
             "schemaValidation": "We failed to initialize encryption keys because one of the APIs responded in an unexpected format.",
             "httpError": "A network error occurred; we cannot determine the state of the encryption keys. This could be a temporary error.",
             "serverDown": "The server is currently down. This could be a temporary error."
+        },
+        "discoverHomeserver": {
+            "title": "Your homeserver is down.",
+            "schemaValidation": "We could not discover the server capabilities because the APIs responded in an unexpected format.",
+            "httpError": "The server rejected the request to discover its capabilities. This could be a temporary error.",
+            "serverDown": "The server is either currently down, or it is not a matrix chat server. This could be a temporary error."
+        },
+        "inviteToRoom": {
+            "inviteBlocked": "{userId} is blocking room invites.",
+            "inviteForbidden": "One or more users cannot be invited, including {userId}. Reason given by the server: {reason}.",
+            "unsupportedRoomVersion": "One or more users being invited to the room are residents of a homeserver which does not support the requested room version. The administrator of their homeserver will need to upgrade it in order for them to be invited.",
+            "unknown": "The invite failed for an unknown reason. You can try again later."
         },
         "message": {
             "pendingReaction": "This reaction is still being sent. Please wait.",

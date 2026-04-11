@@ -39,7 +39,7 @@ interface ProcessedSendToDeviceMessage {
 
 const olmAlgorithm = 'm.olm.v1.curve25519-aes-sha2'
 const megolmAlgorithm = 'm.megolm.v1.aes-sha2'
-const encryptedMessageTypes = ['m.dummy', 'm.room_key', 'm.forwarded_room_key', 'm.secret_send']
+const encryptedMessageTypes = ['m.dummy', 'm.room_key', 'm.forwarded_room_key']
 const toDeviceErroredEventRetainTimeout = 2.592e+9 // 30 days
 
 export function useOlm() {
@@ -317,7 +317,6 @@ export function useOlm() {
             event = camelizeApiResponse(event)
         }
 
-        console.log('Decrypted toDevice event', event)
         switch (event.type) {
             case 'm.room_key_request':
                 {
@@ -339,7 +338,7 @@ export function useOlm() {
                         if (!sessionKey) break
                         const forwardingCurve25519KeyChain = [...inboundSession.forwardingCurve25519KeyChain]
                         const myDeviceCurveKey = olmAccount.value?.curve25519_key
-                        if (myDeviceCurveKey && !forwardingCurve25519KeyChain.includes(myDeviceCurveKey)) {
+                        if (myDeviceCurveKey && senderKey !== myDeviceCurveKey && !forwardingCurve25519KeyChain.includes(myDeviceCurveKey)) {
                             forwardingCurve25519KeyChain.push(myDeviceCurveKey)
                         }
                         sendMessageToDevices<EventForwardedRoomKeyContent>(
@@ -387,7 +386,6 @@ export function useOlm() {
         if (syncResponse.toDevice?.events) {
             // The leader decrypts the messages, then broadcasts the state changes to other tabs.
             if (isLeader.value) {
-                console.log('Received toDevice events', syncResponse.toDevice.events)
 
                 // Sort so pre-key messages are processed first.
                 const myDeviceCurveKey = olmAccount.value?.curve25519_key!

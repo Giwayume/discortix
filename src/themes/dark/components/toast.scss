@@ -23,6 +23,9 @@
     --p-toast-error-shadow: var(--legacy-elevation-high);
 }
 
+.p-toast-message-content {
+    max-width: calc(100vw - 2.5rem);
+}
 .p-toast-message-content .p-icon:first-child {
     align-self: center;
 }

@@ -26,7 +26,6 @@ export default defineComponent({
     },
     setup(props) {
         const root = ref<HTMLDivElement>()
-        let originalFragment: DocumentFragment | undefined = undefined
         
         onMounted(async () => {
             if (!root.value) return
