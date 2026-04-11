@@ -1,5 +1,5 @@
-import { computed, ref, type Ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref, watch, type Ref } from 'vue'
+import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { defineStore, storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -491,6 +491,7 @@ export const useRoomStore = defineStore('room', () => {
     const left = ref<Record<string, LeftRoom>>({})
     const decryptedRoomEvents = ref<Record<string, ApiV3SyncClientEventWithoutRoomId>>({})
     const pendingMediaUploads = ref<Record<string, MediaAttachmentPendingUpload>>({})
+    const spoilersMarkedVisible = ref<Set<string>>(new Set())
 
     async function initialize() {
         try {
@@ -1146,6 +1147,10 @@ export const useRoomStore = defineStore('room', () => {
         updateLeftRoomDatabase(roomId)
     }
 
+    watch(() => route.name === 'room' && route.params?.roomId, () => {
+        spoilersMarkedVisible.value = new Set()
+    })
+
     onLogout(() => {
         roomsLoading.value = false
         roomsLoadError.value = null
@@ -1178,6 +1183,7 @@ export const useRoomStore = defineStore('room', () => {
         invitedDirectMessageRooms,
         joinedDirectMessageRooms,
         serverNoticeRooms,
+        spoilersMarkedVisible,
         getTimelineEventIndexById,
         getTimelineEventById,
         associateTransactionIdWithEventId,

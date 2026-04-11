@@ -1,5 +1,6 @@
 <template>
-    <div ref="root"><slot /></div>
+    <div v-if="untrustedHtml" ref="root" v-dompurify-html="untrustedHtml"></div>
+    <div v-else ref="root"><slot /></div>
 </template>
 
 <script lang="ts">
@@ -18,6 +19,10 @@ export default defineComponent({
             type: String,
             required: true,
         },
+        untrustedHtml: {
+            type: String,
+            default: undefined,
+        },
     },
     setup(props) {
         const root = ref<HTMLDivElement>()
@@ -35,8 +40,6 @@ export default defineComponent({
                 }
             }
 
-            await nextTick()
-            if (!root.value) return
             if (slotCacheMap.has(props.cacheId)) {
                 if (slotCacheMap.has(props.cacheId)) {
                     const { fragment } = slotCacheMap.get(props.cacheId)!
@@ -46,13 +49,6 @@ export default defineComponent({
                     }
                 }
                 slotCacheMap.delete(props.cacheId)
-            } else {
-                originalFragment = document.createDocumentFragment()
-                while (root.value.firstChild) {
-                    originalFragment.appendChild(root.value.firstChild)
-                }
-                slotCacheMap.set(props.cacheId, { fragment: originalFragment, unmountedTs: Infinity })
-                root.value.appendChild(originalFragment.cloneNode(true))
             }
         })
 

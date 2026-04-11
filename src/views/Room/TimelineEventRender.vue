@@ -67,10 +67,11 @@
         <template v-if="e.event.type === 'm.room.message' && e.event.content">
             <!-- Message -->
             <div v-if="e.event.content.msgtype === 'm.text' || (e.event.content.body && e.event.content.filename && e.event.content.body !== e.event.content.filename)" class="p-chattimeline-event-content">
-                <div
+                <SlotCache
                     v-if="formattedBody"
+                    :cacheId="`${e.event.eventId}_body`"
                     :class="e.event.content.format === 'org.matrix.custom.html' ? 'p-chattimeline-event-content-formatted' : ''"
-                    v-dompurify-html="formattedBody"
+                    :untrustedHtml="formattedBody"
                 />
                 <template v-else>{{ e.event.content.body }}</template>
                 <span v-if="e.replacementEvent" v-tooltip.top="{ value: isTouchEventsDetected ? undefined : e.replacementDate }" class="p-chattimeline-edited">{{ i18nText.messageEditedIndicator }}</span>
@@ -92,12 +93,14 @@
                     >
                         <template v-slot="{ src }">
                             <SlotCache
+                                v-if="src"
                                 :cacheId="`${e.event.eventId}_audio`"
                             >
-                                <audio controls>
+                                <audio :key="`${e.event.eventId}_loadedAudio`" controls>
                                     <source :src="src" :type="e.event.content.info?.mimetype" />
                                 </audio>
                             </SlotCache>
+                            <audio v-else key="audioPlaceholder" controls />
                         </template>
                         <template #error>
                             <div class="mt-2">
@@ -133,13 +136,13 @@
                             class="p-chattimeline-event-image"
                             :class="{
                                 'p-chattimeline-spoiler': e.isSpoiler,
-                                'p-chattimeline-spoiler-visible': spoilerVisible,
+                                'p-chattimeline-spoiler-visible': spoilersMarkedVisible.has(`${e.event.eventId}_image`),
                             }"
                             :style="{
                                 '--image-target-height': (e.event.content.info?.thumbnailInfo?.h || e.event.content.info?.h || 16) + 'px',
                                 '--image-aspect-ratio': (e.event.content.info?.thumbnailInfo?.w || e.event.content.info?.w || 16) / (e.event.content.info?.thumbnailInfo?.h || e.event.content.info?.h || 16),
                             }"
-                            @click="spoilerVisible = true"
+                            @click="spoilersMarkedVisible.add(`${e.event.eventId}_image`)"
                         >
                             <img
                                 :src="src"
@@ -171,13 +174,13 @@
                             class="p-chattimeline-event-video"
                             :class="{
                                 'p-chattimeline-spoiler': e.isSpoiler,
-                                'p-chattimeline-spoiler-visible': spoilerVisible,
+                                'p-chattimeline-spoiler-visible': spoilersMarkedVisible.has(`${e.event.eventId}_video`),
                             }"
                             :style="{
                                 '--video-target-height': (e.event.content.info?.thumbnailInfo?.h || e.event.content.info?.h || 16) + 'px',
                                 '--video-aspect-ratio': (e.event.content.info?.thumbnailInfo?.w || e.event.content.info?.w || 16) / (e.event.content.info?.thumbnailInfo?.h || e.event.content.info?.h || 16),
                             }"
-                            @click="spoilerVisible = true"
+                            @click="spoilersMarkedVisible.add(`${e.event.eventId}_video`)"
                         >
                             <SlotCache
                                 v-if="src"
@@ -363,6 +366,7 @@
 
 <script setup lang="ts">
 import { computed, inject, nextTick, onUnmounted, ref, type PropType, type Ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import 'linkifyjs'
 import linkifyHtml from 'linkify-html'
 
@@ -390,7 +394,9 @@ import {
 } from '@/types'
 
 const { isTouchEventsDetected } = useApplication()
-const { currentRoomPermissions } = useRoomStore()
+const roomStore = useRoomStore()
+const { spoilersMarkedVisible } = storeToRefs(roomStore)
+const { currentRoomPermissions } = roomStore
 
 // This component intentionally relies on the parent component to populate a lot of data,
 // because it needs to set up and render as quickly as possible in order to avoid main thread freeze.
