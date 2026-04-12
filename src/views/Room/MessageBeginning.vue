@@ -111,7 +111,7 @@
                 </template>
             </I18nT>
             <div v-if="room.roomId" class="flex flex-wrap gap-2 mt-4">
-                <Button v-if="currentRoomPermissions.invite" severity="primary" @click="addFriendsToGroupDmDialogVisible = true">
+                <Button v-if="currentRoomPermissions.invite" severity="primary" @click="emit('inviteUsers')">
                     <span class="pi pi-user-plus" aria-hidden="true" />
                     <span class="p-button-label">{{ t('room.inviteFriendsButton') }}</span>
                 </Button>
@@ -129,7 +129,6 @@
                     <ToggleSwitch v-model="settings.prefersEnableEncryption" inputId="message-beginning-enable-encryption-toggle" />
                 </div>
             </template>
-            <AddFriendsToGroupDmDialog v-model:visible="addFriendsToGroupDmDialogVisible" :roomId="props.room.roomId" />
             <EditGroup v-model:visible="editGroupDialogVisible" :roomId="props.room.roomId" />
             <EditGroupIcon v-model:visible="editGroupIconDialogVisible" :roomId="props.room.roomId" />
         </template>
@@ -152,7 +151,6 @@ import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
-const AddFriendsToGroupDmDialog = defineAsyncComponent(() => import('@/views/Layout/AddFriendsToGroupDmDialog.vue'))
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 const EditGroup = defineAsyncComponent(() => import('@/views/Room/EditGroup.vue'))
 const EditGroupIcon = defineAsyncComponent(() => import('@/views/Room/EditGroupIcon.vue'))
@@ -188,6 +186,10 @@ const props = defineProps({
         default: undefined,
     }
 })
+
+const emit = defineEmits<{
+    (e: 'inviteUsers'): void
+}>()
 
 const roomAvatarUrl = computed<string | undefined>(() => {
     const roomAvatarEvent = props.room.stateEventsByType['m.room.avatar']?.[0]
@@ -232,7 +234,6 @@ const isInsideSpace = computed<boolean>(() => {
     return isRoomPartOfSpace(props.room)
 })
 
-const addFriendsToGroupDmDialogVisible = ref<boolean>(false)
 const editGroupDialogVisible = ref<boolean>(false)
 const editGroupIconDialogVisible = ref<boolean>(false)
 

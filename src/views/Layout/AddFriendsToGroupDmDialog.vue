@@ -19,7 +19,7 @@
                     :key="userId"
                     :label="profiles[userId]?.displayname ?? userId"
                     removable
-                    class="h-9"
+                    class="h-8"
                     @remove="removeSelectedUser(userId)"
                 >
                     <template #removeicon="{ removeCallback, keydownCallback }">
@@ -28,15 +28,16 @@
                 </Chip>
                 <InputText
                     v-model.trim="userSearchText"
-                    class="p-inputtext-transparent w-32 grow-1 !py-2"
+                    class="p-inputtext-transparent w-32 grow-1 !py-[0.3125rem]"
                     :placeholder="selectedUserIds.length === 0 ? t('addFriendsToGroupDmDialog.searchPlaceholder') : ''"
                     @keydown="onKeydownUserSearch"
                     @input="onInputUserSearch"
                 />
             </div>
             <Button
-                class="shrink-0 min-w-20 h-12"
+                class="shrink-0 min-w-25 h-[2.625rem]"
                 :loading="isInvitingPeople" severity="primary"
+                :disabled="selectedUserIds.length === 0"
                 @click="inviteConfirm()"
             >
                 <div class="p-button-label">{{ t('addFriendsToGroupDmDialog.addButton') }}</div>
@@ -218,14 +219,16 @@ function onKeydownUserSearch(event: KeyboardEvent) {
         }
     } else if (event.key === 'Enter') {
         event.preventDefault()
-        const person = filteredContactList.value[Math.max(0, Math.min(filteredContactList.value.length - 1, userSearchSelectionIndex.value))]!
-        if (selectedUserIds.value.includes(person.userId)) {
-            const userIdIndex = selectedUserIds.value.indexOf(person.userId)
-            selectedUserIds.value.splice(userIdIndex, 1)
-        } else {
-            selectedUserIds.value.push(person.userId)
-            currentlyRunningUserDirectorySearchTerm = ''
-            userSearchText.value = ''
+        if (userSearchSelectionIndex.value > -1) {
+            const person = filteredContactList.value[Math.max(0, Math.min(filteredContactList.value.length - 1, userSearchSelectionIndex.value))]!
+            if (selectedUserIds.value.includes(person.userId)) {
+                const userIdIndex = selectedUserIds.value.indexOf(person.userId)
+                selectedUserIds.value.splice(userIdIndex, 1)
+            } else {
+                selectedUserIds.value.push(person.userId)
+                currentlyRunningUserDirectorySearchTerm = ''
+                userSearchText.value = ''
+            }
         }
     }
 }
@@ -401,6 +404,7 @@ watch(() => props.visible, (visible, wasVisible) => {
         isInvitingPeople.value = false
         currentlyRunningUserDirectorySearchTerm = ''
         userSearchText.value = ''
+        userSearchSelectionIndex.value = -1
         selectedUserIds.value = []
         populateContactList()
     } else if (!visible && wasVisible) {

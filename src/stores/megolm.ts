@@ -3,6 +3,7 @@ import { defineStore, storeToRefs } from 'pinia'
 import { GroupSession, InboundGroupSession } from 'vodozemac-wasm-bindings'
 
 import { MissingEncryptionKeyError } from '@/utils/error'
+import { decryptSecret, encryptSecret } from '@/utils/secret-storage'
 import { deepToRaw } from '@/utils/vue'
 import { camelizeApiResponse } from '@/utils/zod'
 
@@ -134,7 +135,7 @@ export const useMegolmStore = defineStore('megolm', () => {
         if (!value || !olmSecretKey.value) return
         outboundMegolmSessions.value[sessionKey] = {
             createdTs: value.createdTs ?? Date.now(),
-            initialSessionKey: value.initialSessionKey,
+            initialSessionKey: value.initialSessionKey ? await decryptSecret(olmSecretKey.value, value.initialSessionKey, 'initialSessionKey') : undefined,
             session: GroupSession.from_pickle(value.pickle, olmSecretKey.value)
         }
     }
@@ -156,7 +157,7 @@ export const useMegolmStore = defineStore('megolm', () => {
 
         await saveDiscortixTableKey('megolm', ['outboundSessions', sessionKey], deepToRaw({
             createdTs: Date.now(),
-            initialSessionKey,
+            initialSessionKey: await encryptSecret(olmSecretKey.value, initialSessionKey, 'initialSessionKey'),
             pickle: session.pickle(olmSecretKey.value)
         } satisfies PickledOutboundMegolmSessionWithUsage))
         broadcastMessageFromTab({
@@ -174,7 +175,9 @@ export const useMegolmStore = defineStore('megolm', () => {
         const existingOutboundSession = outboundMegolmSessions.value[sessionKey]
         await saveDiscortixTableKey('megolm', ['outboundSessions', sessionKey], deepToRaw({
             createdTs: existingOutboundSession?.createdTs ?? Date.now(),
-            initialSessionKey: existingOutboundSession?.initialSessionKey,
+            initialSessionKey: existingOutboundSession?.initialSessionKey
+                ? await encryptSecret(olmSecretKey.value, existingOutboundSession.initialSessionKey, 'initialSessionKey')
+                : undefined,
             pickle: session.pickle(olmSecretKey.value)
         } satisfies PickledOutboundMegolmSessionWithUsage))
         broadcastMessageFromTab({
@@ -252,7 +255,7 @@ export const useMegolmStore = defineStore('megolm', () => {
                 if (!value || !olmSecretKey.value) continue
                 outboundMegolmSessions.value[megolmId] = {
                     createdTs: value.createdTs ?? Date.now(),
-                    initialSessionKey: value.initialSessionKey,
+                    initialSessionKey: value.initialSessionKey ? await decryptSecret(olmSecretKey.value, value.initialSessionKey, 'initialSessionKey') : undefined,
                     session: GroupSession.from_pickle(value.pickle, olmSecretKey.value)
                 }
             } else if (megolmType === 'roomMetadata') {

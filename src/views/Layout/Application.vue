@@ -8,7 +8,7 @@
             <ProgressBar mode="indeterminate"></ProgressBar>
         </div>
     </div>
-    <div v-else ref="applicationContainer" class="application">
+    <div v-else class="application">
         <TitleBar :title="props.title" :titleIcon="props.titleIcon" :titleAvatar="props.titleAvatar" />
         <div
             v-if="isMobileView"
@@ -45,7 +45,7 @@
             </main>
         </div>
         <Splitter v-else>
-            <SplitterPanel class="flex items-center justify-center" :size="leftPanelSize" :minSize="10">
+            <SplitterPanel class="flex items-center justify-center min-w-75 max-w-107" :size="leftPanelSize" :minSize="10">
                 <aside class="application__sidebar-list">
                     <Spaces />
                     <div class="application__sidebar-list__content-container">
@@ -148,8 +148,6 @@ const props = defineProps({
         default: '',
     },
 })
-
-const applicationContainer = ref<HTMLDivElement>()
 
 const leftPanelSize = ref<number>(380 / window.innerWidth * 100)
 const mainPanelSize = ref<number>(100 - leftPanelSize.value)

@@ -361,6 +361,7 @@
     <MessageBeginning
         v-else-if="e.event.type === 'm.room.create'"
         :room="props.room"
+        @inviteUsers="emit('inviteUsers')"
     />
 </template>
 
@@ -436,6 +437,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits<{
+    (e: 'inviteUsers'): void
     (e: 'viewPhoto', event: ApiV3SyncClientEventWithoutRoomId): void
 }>()
 

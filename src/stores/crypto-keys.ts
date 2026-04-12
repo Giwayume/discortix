@@ -1,23 +1,19 @@
-import { computed, ref, toRaw, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
-import { Account, GroupSession, InboundGroupSession } from 'vodozemac-wasm-bindings'
+import { Account } from 'vodozemac-wasm-bindings'
 
 import { useBroadcast } from '@/composables/broadcast'
 import { onLogout } from '@/composables/logout'
 
 import {
-    getAllTableKeys as getAllDiscortixTableKeys,
     loadTableKey as loadDiscortixTableKey,
     saveTableKey as saveDiscortixTableKey,
 } from '@/stores/database/discortix'
-
-import { encryptSecret } from '@/utils/secret-storage'
 
 import type {
     ApiV3DeviceInformation,
     ApiV3KeysQueryResponse,
     ApiV3CrossSigningKey,
-    EventForwardedRoomKeyContent,
 } from '@/types'
 
 export const useCryptoKeysStore = defineStore('cryptoKeys', () => {

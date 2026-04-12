@@ -23,7 +23,13 @@
                 <aside class="p-dialog-sidebar flex flex-col">
                     <div class="pl-1 pr-4">
                         <div class="flex">
-                            <Button variant="text" severity="secondary" class="!p-2 mb-2 w-full !justify-start grow-1">
+                            <Button
+                                variant="text"
+                                severity="secondary"
+                                class="!p-2 mb-2 w-full !justify-start grow-1"
+                                :aria-pressed="selectedMenuItem.key === 'editProfile'"
+                                @click="selectMenuItem({ originalEvent: $event, item: editProfileMenuItem })"
+                            >
                                 <AuthenticatedImage :mxcUri="authenticatedUserAvatarUrl" type="thumbnail" :width="48" :height="48" method="scale">
                                     <template v-slot="{ src }">
                                         <Avatar :image="src" shape="circle" size="xlarge" :aria-label="t('layout.userAvatarImage')" class="shrink-0" />
@@ -32,7 +38,7 @@
                                         <Avatar icon="pi pi-user" shape="circle" size="xlarge" :aria-label="t('layout.userAvatarImage')" class="shrink-0" />
                                     </template>
                                 </AuthenticatedImage>
-                                <div class="flex flex-col items-start grow-1 ml-4 overflow-hidden">
+                                <div class="flex flex-col items-start grow-1 ml-1 overflow-hidden">
                                     <div class="text-strong overflow-hidden text-ellipsis w-full text-left">
                                         {{ authenticatedUserDisplayName }}
                                     </div>
@@ -157,7 +163,9 @@ import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } fr
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 
+import { useApplication } from '@/composables/application'
 import { useLogout } from '@/composables/logout'
+
 import { useProfileStore } from '@/stores/profile'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
@@ -177,7 +185,10 @@ import ScrollPanel from 'primevue/scrollpanel'
 import type { MenuItem, MenuItemCommandEvent } from 'primevue/menuitem'
 
 const { t } = useI18n()
+
+const { onOpenUserSettings } = useApplication()
 const { logout } = useLogout()
+
 const { authenticatedUserAvatarUrl, authenticatedUserDisplayName } = storeToRefs(useProfileStore())
 
 const props = defineProps({
@@ -209,6 +220,11 @@ watch(() => mainPanelVisible.value, () => {
 
 const mainPanelSidebarOffset = ref<number>(0)
 const isAnimatingSidebarToggle = ref<boolean>(false)
+
+const editProfileMenuItem: MenuItem = {
+    key: 'editProfile',
+    label: t('userSettings.editProfile')
+}
 
 const menuItems = ref([
     {
@@ -443,6 +459,21 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('pointerup', onPointerUpWindow, true)
+})
+
+onOpenUserSettings((menuItemKey) => {
+    emit('update:visible', true)
+    if (menuItemKey === editProfileMenuItem.key) {
+        selectedMenuItem.value = editProfileMenuItem
+        return
+    }
+    for (const category of menuItems.value) {
+        for (const item of category.items) {
+            if (item.key === menuItemKey) {
+                selectedMenuItem.value = item
+            }
+        }
+    }
 })
 
 </script>

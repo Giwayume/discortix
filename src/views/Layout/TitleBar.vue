@@ -83,14 +83,14 @@ const props = defineProps({
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.875rem;
+    gap: 0.5rem;
     position: absolute;
     top: 0;
     bottom: 0;
-    right: 0.75rem;
+    right: 0.5rem;
 
     .p-button {
-        --p-icon-size: 1.25rem;
+        --p-icon-size: 1.125rem;
         --p-button-padding-x: 0;
         --p-button-padding-y: 0;
         --p-button-text-secondary-hover-background: transparent;

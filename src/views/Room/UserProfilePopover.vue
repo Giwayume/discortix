@@ -4,8 +4,16 @@
         <header class="user-profile-popover__header">
             <div class="user-profile-popover__header-banner">
                 <Button
+                    v-if="isFriend"
+                    v-tooltip.top="t('userProfilePopover.friendButton')" icon="pi pi-user"
+                    severity="secondary" rounded :aria-label="t('userProfilePopover.friendButton')"
+                    @click="removeFriendDialogVisible = true"
+                />
+                <Button
+                    v-else
                     v-tooltip.top="t('userProfilePopover.addFriendButton')" icon="pi pi-user-plus"
                     severity="secondary" rounded :aria-label="t('userProfilePopover.addFriendButton')"
+                    @click="addFriend(props.userId!)"
                 />
                 <Button
                     v-tooltip.top="t('userProfilePopover.moreButton')" icon="pi pi-ellipsis-h"
@@ -36,7 +44,15 @@
             <p class="user-profile-popover__username">{{ props.userId }}</p>
         </div>
         <footer class="user-profile-popover__footer">
-            <InputText :placeholder="t('userProfilePopover.messagePlaceholder', { displayname })" class="w-full" />
+            <template v-if="isSelf">
+                <Button size="small" class="mt-2 w-full" @click="editProfile">
+                    <span class="pi pi-pencil text-xs!" aria-hidden="true" />
+                    <span class="p-button-label">{{ t('userProfilePopover.editProfileButton') }}</span>
+                </Button>
+            </template>
+            <template v-else>
+                <InputText :placeholder="t('userProfilePopover.messagePlaceholder', { displayname })" class="w-full" />
+            </template>
         </footer>
     </div>
     <ContextMenu ref="contextMenu" :model="contextMenuItems">
@@ -47,12 +63,30 @@
             </a>
         </template>
     </ContextMenu>
+    <Dialog
+        v-model:visible="removeFriendDialogVisible"
+        modal
+        :draggable="false"
+        :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
+    >
+        <template #header>
+            <div class="p-dialog-title">
+                {{ t('userProfilePopover.removeFriendConfirm.title') }}
+            </div>
+        </template>
+        <p v-html="micromark(t('userProfilePopover.removeFriendConfirm.subtitle', { displayname }))" />
+        <template #footer>
+            <Button :label="t('userProfilePopover.removeFriendConfirm.cancelButton')" class="grow-1 basis-1" severity="secondary" @click="removeFriendDialogVisible = false" autofocus />
+            <Button :label="t('userProfilePopover.removeFriendConfirm.removeButton')" class="grow-1 basis-1" severity="danger" @click="removeFriend(props.userId!); removeFriendDialogVisible = false" />
+        </template>
+    </Dialog>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
+import { micromark } from 'micromark'
 import {
     useFloating,
     offset as floatingOffset,
@@ -60,8 +94,13 @@ import {
     autoUpdate as floatingAutoUpdate,
 } from '@floating-ui/vue'
 
+import { useAccountData } from '@/composables/account-data'
+import { useApplication } from '@/composables/application'
+
+import { useAccountDataStore } from '@/stores/account-data'
 import { useClientSettingsStore } from '@/stores/client-settings'
 import { useProfileStore } from '@/stores/profile'
+import { useSessionStore } from '@/stores/session'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 import OverlayStatus from '@/views/Common/OverlayStatus.vue'
@@ -69,18 +108,35 @@ import OverlayStatus from '@/views/Common/OverlayStatus.vue'
 import Avatar from 'primevue/avatar'
 import Button from 'primevue/button'
 import ContextMenu from 'primevue/contextmenu'
+import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import vTooltip from 'primevue/tooltip'
 
+import type { EventInvalidDiscortixFriendsContent } from '@/types'
+
 const { t } = useI18n()
+
+const { addFriend, removeFriend } = useAccountData()
+const { openUserSettings } = useApplication()
+
+const { accountData } = storeToRefs(useAccountDataStore())
 const { settings } = useClientSettingsStore()
 const { profiles } = storeToRefs(useProfileStore())
+const { userId: sessionUserId } = storeToRefs(useSessionStore())
 
 const props = defineProps({
     userId: {
         type: String,
         default: undefined,
     },
+})
+
+const isSelf = computed(() => {
+    return sessionUserId.value === props.userId
+})
+
+const isFriend = computed(() => {
+    return (accountData.value['invalid.discortix.friends'] as EventInvalidDiscortixFriendsContent)?.friends?.includes(props.userId!)
 })
 
 const displayname = computed(() => {
@@ -175,6 +231,12 @@ onUnmounted(() => {
 })
 
 const visible = ref<boolean>(false)
+const removeFriendDialogVisible = ref<boolean>(false)
+
+function editProfile() {
+    openUserSettings('editProfile')
+    hide()
+}
 
 function hide() {
     visible.value = false

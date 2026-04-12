@@ -403,6 +403,33 @@
         "untitledRoom": "Untitled Room",
         "unknownRoom": "Unknown Room",
         "unknownRoomDescription": "You have been redirected to a chat room this client does not know anything about. Or maybe it's still loading, in which case you are free to wait here.",
+        "headerActions": {
+            "showMemberList": "Show Member List",
+            "hideMemberList": "Hide Member List",
+            "showUserProfile": "Show User Profile",
+            "hideUserProfile": "Hide User Profile",
+            "addFriends": "Add Friends to Group DM"
+        },
+        "groupMemberListAside": {
+            "memberCountHeading": "Members—{count}",
+            "inviteCountHeading": "Invited—{count}",
+            "contextMenu": {
+                "profile": "Profile",
+                "mention": "Mention",
+                "message": "Message",
+                "startCall": "Start a Call",
+                "addNote": "Add Note",
+                "addNoteSubtitle": "Only visible to you",
+                "addFriendNickname": "Add Friend Nickname",
+                "removeFromGroup": "Remove From Group",
+                "makeGroupAdmin": "Make Group Admin",
+                "inviteToServer": "Invite to Server",
+                "removeFriend": "Remove Friend",
+                "ignore": "Ignore",
+                "block": "Block",
+                "copyUserId": "Copy User ID"
+            }
+        },
         "invitedRoomTitle": "Chat Invite",
         "invitedRoomDescription": "**{displayname}** has invited you to join a chat.",
         "invitedRoomDescriptionWithUserId": "**{displayname}** *{userId}* has invited you to join a chat.",
@@ -501,7 +528,9 @@
     "userProfilePopover": {
         "messagePlaceholder": "Message {'@'}{displayname}",
         "moreButton": "More",
+        "friendButton": "Friend",
         "addFriendButton": "Add Friend",
+        "editProfileButton": "Edit Profile",
         "moreMenu": {
             "viewFullProfile": "View Full Profile",
             "inviteToSpace": "Invite to Space",
@@ -509,6 +538,12 @@
             "block": "Block",
             "reportUserProfile": "Report User Profile",
             "copyUserId": "Copy User ID"
+        },
+        "removeFriendConfirm": {
+            "title": "Remove Friend?",
+            "subtitle": "Are you sure you wish to remove **{displayname}** from your friend list?",
+            "cancelButton": "Cancel",
+            "removeButton": "Remove Friend"
         }
     },
     "userSettings": {

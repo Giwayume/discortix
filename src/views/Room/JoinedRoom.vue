@@ -1,6 +1,6 @@
 <template>
     <MainHeader>
-        <div class="flex pl-4 py-2 pr-2 items-center">
+        <div class="flex pl-4 py-2 pr-2 items-center w-full">
             <template v-if="isInsideSpace">
                 <span class="pi pi-hashtag w-4 mr-2 text-center text-(--channel-icon)" />
             </template>
@@ -34,9 +34,31 @@
                 <template v-if="roomName">{{ roomName }}</template>
                 <template v-else>{{ roomMemberListDisplay }}</template>
             </h1>
+            <div class="inline-flex gap-2 ml-auto">
+                <Button
+                    v-if="otherMembersDisplayed.length > 1 && currentRoomPermissions.invite"
+                    v-tooltip.bottom="{ value: isTouchEventsDetected ? undefined : t('room.headerActions.addFriends') }"
+                    icon="pi pi-user-plus" severity="secondary" variant="text" class="w-8! h-8!"
+                    @click="addFriendsToGroupDmDialogVisible = true"
+                />
+                <Button
+                    v-if="isInsideSpace || otherMembersDisplayed.length > 1"
+                    v-tooltip.bottom="{ value: isTouchEventsDetected ? undefined : t(settings.showChatAside ? 'room.headerActions.hideMemberList' : 'room.headerActions.showMemberList') }"
+                    icon="pi pi-users" severity="secondary" variant="text" class="w-8! h-8!"
+                    :class="{ 'text-strong!': settings.showChatAside }"
+                    @click="settings.showChatAside = !settings.showChatAside"
+                />
+                <Button
+                    v-else
+                    v-tooltip.bottom="{ value: isTouchEventsDetected ? undefined : t(settings.showChatAside ? 'room.headerActions.hideUserProfile' : 'room.headerActions.showUserProfile') }"
+                    icon="pi pi-user" severity="secondary" variant="text" class="w-8! h-8!"
+                    :class="{ 'text-strong!': settings.showChatAside }"
+                    @click="settings.showChatAside = !settings.showChatAside"
+                />
+            </div>
         </div>
     </MainHeader>
-    <MainBody :disableScrollbar="true">
+    <MainBody :disableScrollbar="true" :asideVisible="settings.showChatAside">
         <TimelineEvents
             ref="timelineEvents"
             :key="`TimelineEventsFor${props.room.roomId}`"
@@ -45,10 +67,19 @@
             @update:anchoredToBottom="isAnchoredToBottom = $event"
             @update:editEventId="onUpdateEditEventId"
             @update:replyToEventId="onUpdateReplyToEventId"
+            @inviteUsers="addFriendsToGroupDmDialogVisible = true"
             @retrySendMessage="retrySendMessage($event)"
             @selectEmoji="showExpressionPicker"
+            @showUserProfile="showUserProfile"
             @toggleEmoji="onEmojiSelected"
         />
+        <template #aside>
+            <GroupMemberListAside
+                v-if="otherMembersDisplayed.length > 1"
+                :roomId="props.room.roomId"
+                @showUserProfile="showUserProfile"
+            />
+        </template>
         <template #footer>
             <div v-if="typingDisplayNames.length > 0 && isAnchoredToBottom" class="relative">
                 <div class="joined-room__typing-indicator">
@@ -158,11 +189,19 @@
         :media="editingSelectedMedia"
         @update:media="onUpdateEditingSelectedMedia"
     />
+    <AddFriendsToGroupDmDialog
+        v-model:visible="addFriendsToGroupDmDialogVisible"
+        :roomId="props.room.roomId"
+    />
     <ExpressionPicker
         ref="expressionPicker"
         :emojiOnly="expressionPickerEmojiOnly"
         @selectEmoji="onEmojiSelected"
         @hidden="onExpressionPickerHidden"
+    />
+    <UserProfilePopover
+        ref="userProfilePopover"
+        :userId="viewingProfileForUserId"
     />
 </template>
 
@@ -190,16 +229,20 @@ import { createLazyMediaUpload, createMediaInfo } from '@/composables/media'
 import { useMegolm } from '@/composables/megolm'
 import { useRooms } from '@/composables/rooms'
 
+import { useClientSettingsStore } from '@/stores/client-settings'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
+const AddFriendsToGroupDmDialog = defineAsyncComponent(() => import('@/views/Layout/AddFriendsToGroupDmDialog.vue'))
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 const ExpressionPicker = defineAsyncComponent(() => import('@/views/Room/ExpressionPicker.vue'))
+const GroupMemberListAside = defineAsyncComponent(() => import('@/views/Room/GroupMemberListAside.vue'))
 import MainBody from '@/views/Layout/MainBody.vue'
 import MainHeader from '@/views/Layout/MainHeader.vue'
 const ModifyAttachmentDialog = defineAsyncComponent(() => import('@/views/Room/ModifyAttachmentDialog.vue'))
 import OverlayStatus from '@/views/Common/OverlayStatus.vue'
+const UserProfilePopover = defineAsyncComponent(() => import('./UserProfilePopover.vue'))
 
 import TimelineEvents from './TimelineEvents.vue'
 
@@ -237,9 +280,11 @@ const { currentRoomCustomEmojiByCode } = useEmoji()
 const { getOutboundGroupSession } = useMegolm()
 const { sendTypingNotification, sendMessageEvent, sendMessageReaction, redactEvent } = useRooms()
 
+const { settings } = useClientSettingsStore()
 const roomStore = useRoomStore()
 const {
     currentRoomEncryptionEnabledTimestamp,
+    currentRoomPermissions,
     decryptedRoomEvents,
     pendingMediaUploads,
 } = storeToRefs(roomStore)
@@ -435,6 +480,14 @@ function removeAllSelectedMedia() {
     selectedMedia.value = []
 }
 
+/*------------------*\
+|                    |
+|   Header Actions   |
+|                    |
+\*------------------*/
+
+const addFriendsToGroupDmDialogVisible = ref<boolean>(false)
+
 /*-----------------------------*\
 |                               |
 |   Expression / emoji picker   |
@@ -484,6 +537,20 @@ async function onEmojiSelected(emoji: EmojiPickerEmojiItem, referenceEventId?: s
 
 async function onExpressionPickerHidden() {
     timelineEvents.value?.resetMessageActionsContextMenuTargetEventId()
+}
+
+/*------------------------*\
+|                          |
+|   User Profile Popover   |
+|                          |
+\*------------------------*/
+
+const userProfilePopover = ref<InstanceType<typeof UserProfilePopover>>()
+const viewingProfileForUserId = ref<string>()
+
+function showUserProfile(event: Event, userId: string) {
+    viewingProfileForUserId.value = userId
+    userProfilePopover.value?.show(event)
 }
 
 /*---------------------------------*\

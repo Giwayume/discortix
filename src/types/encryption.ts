@@ -1,5 +1,6 @@
 import type { Session, GroupSession, InboundGroupSession } from 'vodozemac-wasm-bindings'
 import type { ApiV3SyncToDeviceEvent } from '@/types/api-events'
+import type { AesHmacSha2EncryptedData } from '@/types/secret-storage'
 
 import * as z from 'zod'
 
@@ -42,7 +43,8 @@ export interface OutboundMegolmSessionWithUsage {
     session: GroupSession;
 }
 
-export interface PickledOutboundMegolmSessionWithUsage extends Omit<OutboundMegolmSessionWithUsage, 'session'> {
+export interface PickledOutboundMegolmSessionWithUsage extends Omit<OutboundMegolmSessionWithUsage, 'initialSessionKey' | 'session'> {
+    initialSessionKey?: AesHmacSha2EncryptedData;
     pickle: string;
 }
 

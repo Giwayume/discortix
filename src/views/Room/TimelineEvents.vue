@@ -39,6 +39,7 @@
                                 :highlightEventId="highlightEventId"
                                 :referenceEventId="referenceEventId"
                                 :currentRoomCustomEmojiByCode="currentRoomCustomEmojiByCode"
+                                @inviteUsers="emit('inviteUsers')"
                                 @viewPhoto="viewPhoto($event)"
                             />
                         </template>
@@ -55,43 +56,43 @@
                     :key="`newMessagePlaceholderFor${room.roomId}`"
                 />
             </div>
+            <div
+                v-if="!isTouchEventsDetected"
+                ref="messageActionsContainer"
+                :hidden="!messageActionsTargetElement"
+                class="timeline-events__message-actions"
+                :style="messageActionsFloatingStyles"
+                @wheel="onWheelMessageActionsContainer"
+            >
+                <Button
+                    v-if="currentRoomPermissions.sendReaction"
+                    v-tooltip.top="{ value: i18nText.addReaction }"
+                    icon="pi pi-face-smile" :aria-label="i18nText.addReaction" severity="secondary" variant="text"
+                    data-link-id="addReaction"
+                />
+                <Button
+                    v-if="currentRoomPermissions.sendMessage && messageActionsTargetEventSender === sessionUserId"
+                    v-tooltip.top="{ value: i18nText.editMessage }"
+                    icon="pi pi-pencil" :aria-label="i18nText.editMessage" severity="secondary" variant="text"
+                    data-link-id="editMessage"
+                />
+                <Button
+                    v-if="currentRoomPermissions.sendMessage && messageActionsTargetEventSender !== sessionUserId"
+                    v-tooltip.top="{ value: i18nText.replyMessage }"
+                    icon="pi pi-reply -scale-x-100" :aria-label="i18nText.replyMessage" severity="secondary" variant="text"
+                    data-link-id="replyToMessage"
+                />
+                <Button
+                    v-tooltip.top="{ value: i18nText.forwardMessage }"
+                    icon="pi pi-reply" :aria-label="i18nText.forwardMessage" severity="secondary" variant="text"
+                />
+                <Button
+                    v-tooltip.top="{ value: i18nText.moreActionsMessage }"
+                    icon="pi pi-ellipsis-h" :aria-label="i18nText.moreActionsMessage" severity="secondary" variant="text"
+                    @click="showMoreMessageActions($event)"
+                />
+            </div>
         </ScrollPanel>
-        <div
-            v-if="!isTouchEventsDetected"
-            ref="messageActionsContainer"
-            :hidden="!messageActionsTargetElement"
-            class="timeline-events__message-actions"
-            :style="messageActionsFloatingStyles"
-            @wheel="onWheelMessageActionsContainer"
-        >
-            <Button
-                v-if="currentRoomPermissions.sendReaction"
-                v-tooltip.top="{ value: i18nText.addReaction }"
-                icon="pi pi-face-smile" :aria-label="i18nText.addReaction" severity="secondary" variant="text"
-                data-link-id="addReaction"
-            />
-            <Button
-                v-if="currentRoomPermissions.sendMessage && messageActionsTargetEventSender === sessionUserId"
-                v-tooltip.top="{ value: i18nText.editMessage }"
-                icon="pi pi-pencil" :aria-label="i18nText.editMessage" severity="secondary" variant="text"
-                data-link-id="editMessage"
-            />
-            <Button
-                v-if="currentRoomPermissions.sendMessage && messageActionsTargetEventSender !== sessionUserId"
-                v-tooltip.top="{ value: i18nText.replyMessage }"
-                icon="pi pi-reply -scale-x-100" :aria-label="i18nText.replyMessage" severity="secondary" variant="text"
-                data-link-id="replyToMessage"
-            />
-            <Button
-                v-tooltip.top="{ value: i18nText.forwardMessage }"
-                icon="pi pi-reply" :aria-label="i18nText.forwardMessage" severity="secondary" variant="text"
-            />
-            <Button
-                v-tooltip.top="{ value: i18nText.moreActionsMessage }"
-                icon="pi pi-ellipsis-h" :aria-label="i18nText.moreActionsMessage" severity="secondary" variant="text"
-                @click="showMoreMessageActions($event)"
-            />
-        </div>
         <ContextMenu ref="moreMessageActionsContextMenu" :model="moreMessageActionsContextMenuItems" @hide="onHideMoreMessageActionsContextMenu">
             <template #item="{ item, props }">
                 <a class="p-contextmenu-item-link" v-bind="props.action">
@@ -101,7 +102,6 @@
                 </a>
             </template>
         </ContextMenu>
-        <UserProfilePopover ref="userProfilePopover" :userId="viewingProfileForUserId" />
         <MessagePreviewDialog v-model:visible="messagePreviewDialogVisble" :room="props.room" :event="messagePreviewEvent" :i18nText="i18nText" />
         <DeleteMessageConfirm v-model:visible="deleteMessageConfirmVisible" :room="props.room" :eventRenderInfo="deleteMessageConfirmEventRenderInfo" :i18nText="i18nText" />
         <EditGroup v-model:visible="editGroupDialogVisible" :roomId="props.room.roomId" />
@@ -143,7 +143,6 @@ import MessagePlaceholder from './MessagePlaceholder.vue'
 const MessagePreviewDialog = defineAsyncComponent(() => import('./MessagePreviewDialog.vue'))
 const PhotoViewer = defineAsyncComponent(() => import('./PhotoViewer.vue'))
 import TimelineEventRender from './TimelineEventRender.vue'
-const UserProfilePopover = defineAsyncComponent(() => import('./UserProfilePopover.vue'))
 
 import Button from 'primevue/button'
 import ContextMenu from 'primevue/contextmenu'
@@ -199,8 +198,10 @@ const emit = defineEmits<{
     (e: 'update:anchoredToBottom', isAnchoredToBottom: boolean): void
     (e: 'update:editEventId', editEventId?: string): void
     (e: 'update:replyToEventId', replyToEventId?: string): void
+    (e: 'inviteUsers'): void
     (e: 'retrySendMessage', eventId?: string): void
     (e: 'selectEmoji', event: Event, referenceEventId: string): void
+    (e: 'showUserProfile', event: Event, userId: string): void
     (e: 'toggleEmoji', emoji: EmojiPickerEmojiItem, referenceEventId: string): void
 }>()
 
@@ -1103,7 +1104,7 @@ function onPointerUpTimeline(event: PointerEvent) {
                 }
             } else if (href.startsWith('https://matrix.to/#/@') || href.startsWith('https://matrix.to/#/%40')) {
                 const userId = href.replace('https://matrix.to/#/', '')
-                showUserProfile(event, userId.startsWith('%40') ? decodeURIComponent(userId) : userId)
+                emit('showUserProfile', event, userId.startsWith('%40') ? decodeURIComponent(userId) : userId)
             } else {
                 window.open(href, '_blank')
             }
@@ -1162,7 +1163,7 @@ function onPointerUpTimeline(event: PointerEvent) {
             case 'viewUserProfile':
                 const userId = link.getAttribute('data-user-id')
                 if (!userId) return
-                showUserProfile(event, userId)
+                emit('showUserProfile', event, userId)
                 return
             default:
                 break
@@ -1226,19 +1227,7 @@ onUnmounted(() => {
     videoIntersectionObserver.value = undefined
 })
 
-/*------------------------*\
-|                          |
-|   User Profile Popover   |
-|                          |
-\*------------------------*/
 
-const userProfilePopover = ref<InstanceType<typeof UserProfilePopover>>()
-const viewingProfileForUserId = ref<string>()
-
-function showUserProfile(event: Event, userId: string) {
-    viewingProfileForUserId.value = userId
-    userProfilePopover.value?.show(event)
-}
 
 /*-------------------*\
 |                     |

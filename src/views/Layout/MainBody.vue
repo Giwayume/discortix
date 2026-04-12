@@ -13,6 +13,9 @@
                 <slot name="footer" />
             </div>
         </div>
+        <div v-if="asideVisible" class="application__main__body__aside">
+            <slot name="aside" />
+        </div>
     </div>
 </template>
 
@@ -21,6 +24,10 @@ import ScrollPanel from 'primevue/scrollpanel'
 
 defineProps({
     disableScrollbar: {
+        type: Boolean,
+        default: false,
+    },
+    asideVisible: {
         type: Boolean,
         default: false,
     }
@@ -63,5 +70,9 @@ defineProps({
     flex-grow: 0;
     flex-shrink: 1;
     width: 100%;
+}
+.application__main__body__aside {
+    position: relative;
+    border-left: 1px solid var(--border-subtle);
 }
 </style>

@@ -1,4 +1,7 @@
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
+import mitt from 'mitt'
+
+const emitter = mitt()
 
 const isMobileView = ref<boolean>(window.innerWidth <= 800)
 const isTouchEventsDetected = ref<boolean>(false)
@@ -32,6 +35,19 @@ function toggleApplicationSidebar(visible?: boolean) {
     }, 300)
 }
 
+function openUserSettings(menuItemKey: string) {
+    emitter.emit('openUserSettings', menuItemKey)
+}
+
+function onOpenUserSettings(callback: (menuItemKey: string) => void) {
+    onMounted(() => {
+        emitter.on('openUserSettings', callback as never)
+    })
+    onUnmounted(() => {
+        emitter.off('openUserSettings', callback as never)
+    })
+}
+
 export function useApplication() {
     return {
         isMobileView,
@@ -40,5 +56,7 @@ export function useApplication() {
         sidebarOpenRightPadding,
         sidebarOpenOffset,
         toggleApplicationSidebar,
+        openUserSettings,
+        onOpenUserSettings,
     }
 }

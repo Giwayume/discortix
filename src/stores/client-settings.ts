@@ -29,6 +29,7 @@ export const useClientSettingsStore = defineStore('clientSettings', () => {
         prefersEnableEncryption: false,
         sendReadReceipts: true,
         sendTypingIndicators: true,
+        showChatAside: true,
         warnUnencryptedMessageInEncryptedRoom: true,
     })
 
