@@ -37,6 +37,7 @@ import { micromark } from 'micromark'
 
 import { useRooms } from '@/composables/rooms'
 
+import { useAccountDataStore } from '@/stores/account-data'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
@@ -55,6 +56,7 @@ const toast = useToast()
 
 const { joinRoom, leaveRoom, forgetRoom } = useRooms()
 
+const { userNicknames } = storeToRefs(useAccountDataStore())
 const { profiles } = storeToRefs(useProfileStore())
 const { deleteInvitedRoom } = useRoomStore()
 const { userId: sessionUserId } = storeToRefs(useSessionStore())
@@ -77,7 +79,7 @@ const invitedByUserId = computed(() => {
 })
 
 const invitedByUserDisplayname = computed(() => {
-    return profiles.value[invitedByUserId.value!]?.displayname ?? invitedByUserId.value
+    return userNicknames.value[invitedByUserId.value!] ?? profiles.value[invitedByUserId.value!]?.displayname ?? invitedByUserId.value
 })
 
 const invitedRoomName = computed(() => {

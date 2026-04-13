@@ -97,6 +97,8 @@ import { translateTouchEventToPointerEvents } from '@/utils/dom-event'
 
 import { useApplication } from '@/composables/application'
 import { useMediaCache } from '@/composables/media-cache'
+
+import { useAccountDataStore } from '@/stores/account-data'
 import { useProfileStore } from '@/stores/profile'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
@@ -115,7 +117,10 @@ import {
 
 const { t } = useI18n()
 const toast = useToast()
+
 const { isTouchEventsDetected } = useApplication()
+
+const { userNicknames } = storeToRefs(useAccountDataStore())
 const { profiles } = storeToRefs(useProfileStore())
 const { getMxcObjectUrl } = useMediaCache()
 
@@ -148,7 +153,8 @@ const posterProfile = computed(() => {
 })
 
 const posterDisplayName = computed(() => {
-    return posterProfile.value?.displayname ?? props.imageEvent?.sender ?? ''
+    const userId = props.imageEvent?.sender ?? ''
+    return userNicknames.value[userId] ?? posterProfile.value?.displayname ?? userId
 })
 
 const postDate = computed(() => {

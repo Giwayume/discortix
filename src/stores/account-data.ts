@@ -16,6 +16,8 @@ import {
 import {
     eventContentSchemaByType,
     type EventInvalidDiscortixHiddenRoomsContent,
+    type EventInvalidDiscortixUserNicknamesContent,
+    type EventInvalidDiscortixUserNotesContent,
     type ApiV3SyncAccountDataEvent,
     type ApiV3SyncResponse,
 } from '@/types'
@@ -31,6 +33,14 @@ export const useAccountDataStore = defineStore('accountData', () => {
 
     const hiddenRooms = computed<EventInvalidDiscortixHiddenRoomsContent['hiddenRooms']>(() => {
         return (accountData.value['invalid.discortix.hidden_rooms'] as EventInvalidDiscortixHiddenRoomsContent)?.hiddenRooms ?? {}
+    })
+
+    const userNicknames = computed<EventInvalidDiscortixUserNicknamesContent['nicknames']>(() => {
+        return (accountData.value['invalid.discortix.user_nicknames'] as EventInvalidDiscortixUserNicknamesContent)?.nicknames ?? {}
+    })
+
+    const userNotes = computed<EventInvalidDiscortixUserNotesContent['notes']>(() => {
+        return (accountData.value['invalid.discortix.user_notes'] as EventInvalidDiscortixUserNotesContent)?.notes ?? {}
     })
 
     async function initialize() {
@@ -116,6 +126,8 @@ export const useAccountDataStore = defineStore('accountData', () => {
         accountDataLoadError,
         accountData: computed(() => accountData.value),
         hiddenRooms,
+        userNicknames,
+        userNotes,
         populateFromApiV3SyncResponse,
         populateByType,
     }

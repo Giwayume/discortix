@@ -142,6 +142,7 @@ import { useKeyboard } from '@/composables/keyboard'
 import { createLogger } from '@/composables/logger'
 import { useRooms } from '@/composables/rooms'
 
+import { useAccountDataStore } from '@/stores/account-data'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 
@@ -169,6 +170,8 @@ const { toggleRoomVisibility } = useAccountData()
 const { isTouchEventsDetected, toggleApplicationSidebar } = useApplication()
 const { isShiftKeyPressed } = useKeyboard()
 const { leaveRoom, forgetRoom } = useRooms()
+
+const { userNicknames } = storeToRefs(useAccountDataStore())
 const { joinedDirectMessageRooms, invitedDirectMessageRooms, serverNoticeRooms } = storeToRefs(useRoomStore())
 const { profiles } = storeToRefs(useProfileStore())
 
@@ -219,7 +222,7 @@ const directChatItems = computed<MenuItem[]>(() => {
                 isDirect: room.heroes.length === 1,
                 heroes: room.heroes,
                 displayname: room.name || room.heroes.map(
-                    (userId) => profiles.value[userId ?? '']?.displayname ?? userId
+                    (userId) => userNicknames.value[userId] ?? profiles.value[userId ?? '']?.displayname ?? userId
                 ).filter((displayName) => !!displayName).join(', ') || t('layout.emptyRoom'),
                 avatarUrl: room.heroes.length > 1 ? undefined : profile?.avatarUrl,
                 presence: profile?.presence,

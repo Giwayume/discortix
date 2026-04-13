@@ -119,7 +119,7 @@ const { t } = useI18n()
 const { addFriend, removeFriend } = useAccountData()
 const { openUserSettings } = useApplication()
 
-const { accountData } = storeToRefs(useAccountDataStore())
+const { accountData, userNicknames } = storeToRefs(useAccountDataStore())
 const { settings } = useClientSettingsStore()
 const { profiles } = storeToRefs(useProfileStore())
 const { userId: sessionUserId } = storeToRefs(useSessionStore())
@@ -140,7 +140,8 @@ const isFriend = computed(() => {
 })
 
 const displayname = computed(() => {
-    return profiles.value[props.userId ?? '']?.displayname ?? props.userId?.split(':')[0] ?? ''
+    const userId = props.userId ?? ''
+    return userNicknames.value[userId] ?? profiles.value[userId]?.displayname ?? props.userId?.split(':')[0] ?? ''
 })
 
 const avatarUrl = computed(() => {

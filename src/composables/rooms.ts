@@ -1,4 +1,5 @@
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import type { GroupSession } from 'vodozemac-wasm-bindings'
@@ -47,6 +48,8 @@ const hierarchyFetchTimestamps = ref<Record<string, number>>({})
 const hierarcyFetchFrequency = 1.8e+6 // 30 minutes
 
 export function useRooms() {
+    const router = useRouter()
+
     const { onTabMessage, broadcastMessageFromTab } = useBroadcast()
     const { toggleRoomVisibility } = useAccountData()
     const { getCapabilities } = useServerCapabilities()
@@ -58,7 +61,7 @@ export function useRooms() {
     const { saveOutboundMegolmSession } = useMegolmStore()
     const { homeserverBaseUrl, userId: sessionUserId, deviceId: sessionDeviceId } = storeToRefs(useSessionStore())
     const roomStore = useRoomStore()
-    const { joined, left } = storeToRefs(roomStore)
+    const { draft: draftRoom, invited, joined, left } = storeToRefs(roomStore)
     const {
         getTimelineEventIndexById, populateFromApiV3RoomMessagesResponse, updateJoinedRoomDatabase,
         deleteInvitedRoom, deleteKnockedRoom, deleteJoinedRoom, deleteLeftRoom,
@@ -265,6 +268,78 @@ export function useRooms() {
             }
             throw error
         }
+    }
+
+    async function createOrJoinRoomWithUsers(userIds: string[], groupName?: string, groupAvatarBlob?: Blob) {
+        const selectedUserIdSet = new Set<string>(userIds)
+
+        // See if there is an existing joined room and navigate to it.
+        findJoinedRoom:
+        for (const roomId in joined.value) {
+            const room = joined.value[roomId]
+            if (!room) continue
+            if (room.accountData['m.tag']?.tags?.['m.server_notice']) continue
+            if (room.stateEventsByType['m.space.child'] || room.stateEventsByType['m.space.parent']) continue
+            const roomUserIds = new Set<string>((room.stateEventsByType['m.room.member'] ?? [])
+                .filter((memberEvent) => (
+                    (memberEvent.content.membership === 'join' && memberEvent.sender !== sessionUserId.value)
+                    || (memberEvent.content.membership === 'invite') && memberEvent.stateKey !== sessionUserId.value))
+                .map((memberEvent) => memberEvent.content.membership === 'invite' ? memberEvent.stateKey ?? memberEvent.sender : memberEvent.sender))
+            if (selectedUserIdSet.size !== roomUserIds.size) continue
+            for (const userId of roomUserIds) {
+                if (!selectedUserIdSet.has(userId)) {
+                    continue findJoinedRoom
+                }
+            }
+            if (hiddenRooms.value[roomId]) {
+                toggleRoomVisibility(roomId, true)
+            }
+            router.push({
+                name: 'room',
+                params: { roomId },
+            })
+            return
+        }
+
+        // See if there is an existing invited room and navigate to it.
+        findInvitedRoom:
+        for (const roomId in invited.value) {
+            const room = invited.value[roomId]
+            if (!room) continue
+            if (room.stateEventsByType['m.space.child'] || room.stateEventsByType['m.space.parent']) continue
+            const roomUserIds = new Set<string>((room.stateEventsByType['m.room.member'] ?? [])
+                .filter((memberEvent) => (
+                    (memberEvent.content.membership === 'join' && memberEvent.sender !== sessionUserId.value)
+                    || (memberEvent.content.membership === 'invite') && memberEvent.stateKey !== sessionUserId.value))
+                .map((memberEvent) => memberEvent.content.membership === 'invite' ? memberEvent.stateKey ?? memberEvent.sender : memberEvent.sender))
+            if (selectedUserIdSet.size !== roomUserIds.size) continue
+            for (const userId of roomUserIds) {
+                if (!selectedUserIdSet.has(userId)) {
+                    continue findInvitedRoom
+                }
+            }
+            if (hiddenRooms.value[roomId]) {
+                toggleRoomVisibility(roomId, true)
+            }
+            router.push({
+                name: 'room',
+                params: { roomId },
+            })
+            return
+        }
+
+        draftRoom.value = {
+            invited: Array.from(selectedUserIdSet),
+        }
+        if (groupName) {
+            draftRoom.value.groupName = groupName
+        }
+        if (groupAvatarBlob) {
+            draftRoom.value.groupAvatar = groupAvatarBlob
+        }
+        router.push({
+            name: 'create-room',
+        })
     }
 
     async function inviteToRoom(roomId: string, userIds: string[]) {
@@ -515,6 +590,7 @@ export function useRooms() {
         joinRoom,
         leaveRoom,
         forgetRoom,
+        createOrJoinRoomWithUsers,
         inviteToRoom,
         sendTypingNotification,
         getMessageEvent,

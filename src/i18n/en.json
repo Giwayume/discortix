@@ -8,6 +8,16 @@
         "someUsersFound": "If you are searching for someone you have not chatted with before, be sure to enter their **full username**.\n\nIf you know they are on a different homeserver, include the homeserver domain in your search, example: **{'@'}username:{defaultUserIdHomeserver}**",
         "addButton": "Add"
     },
+    "addUserNicknameDialog": {
+        "addTitle": "Add Nickname",
+        "changeTitle": "Change Nickname",
+        "instructions": "Find a friend faster with a personal nickname. It will only be visible to you.",
+        "nicknameLabel": "Nickname",
+        "resetNicknameLink": "Reset Nickname",
+        "cancelButton": "Cancel",
+        "saveButton": "Save",
+        "saveError": "An error occurred when saving the nickname. Please try again later."
+    },
     "createRoom": {
         "title": "Create Chat Room",
         "inputPlaceholder": "Send your first message",
@@ -150,6 +160,7 @@
         "messageNotEncryptedInEncryptedRoom": "You cannot trust that this message was actually sent from **{messageSenderDisplayname}**.\n\nThere are a few possibilities:\n* **{messageSenderDisplayname}** is using a chat client that doesn't support message encryption.\n* **{messageSenderDisplayname}**'s chat client bugged out and sent an unencrypted message, not understanding that the room is encrypted.\n* A malicious homeserver has spoofed this message.",
         "deviceEncryptionNotSupported": "Please visit this app in the most recent version of Chrome, Firefox, or Safari. This app relies on the SubtleCrypto web APIs, which your browser or webview does not support. Your best bet to fix this problem is to use a modern web browser.",
         "deviceEncryptionNotEnabledSecureContext": "This app is being hosted without HTTPS security, which disables its ability to use encryption. Please contact the administrator who hosts this website and ask them to fix it.",
+        "unknownUser": "Unknown User",
         "unknownError": "We were unable to detect why this message can't be decrypted.",
         "roomKeyRequestInstructions": "Another user's device must be online in order to receive decryption keys. We can manually request, and see if we receive them.",
         "roomKeyRequestError": "We could not discover any user devices that are willing to share the room keys. It is possible they will respond to the key requests later when they come online.",
@@ -420,10 +431,12 @@
                 "startCall": "Start a Call",
                 "addNote": "Add Note",
                 "addNoteSubtitle": "Only visible to you",
-                "addFriendNickname": "Add Friend Nickname",
+                "addNickname": "Add Nickname",
+                "changeNickname": "Change Nickname",
                 "removeFromGroup": "Remove From Group",
                 "makeGroupAdmin": "Make Group Admin",
                 "inviteToServer": "Invite to Server",
+                "addFriend": "Add Friend",
                 "removeFriend": "Remove Friend",
                 "ignore": "Ignore",
                 "block": "Block",
@@ -472,6 +485,7 @@
             "deleteMessage": "Delete Message",
             "copyMessageId": "Copy Message ID"
         },
+        "copyUserIdConfirm": "User ID {userId} copied to the clipboard.",
         "copyMessageIdConfirm": "Message ID {eventId} copied to the clipboard.",
         "spoilerRedacted": "SPOILER REDACTED",
         "messageAddButton": "Add image, poll, etc.",

@@ -30,6 +30,16 @@ export const EventInvalidDiscortixFriendsContentSchema = z.object({
 })
 export type EventInvalidDiscortixFriendsContent = z.infer<typeof EventInvalidDiscortixFriendsContentSchema>
 
+export const EventInvalidDiscortixNicknamesContentSchema = z.object({
+    nicknames: z.record(z.string(), z.string()),
+})
+export type EventInvalidDiscortixUserNicknamesContent = z.infer<typeof EventInvalidDiscortixNicknamesContentSchema>
+
+export const EventInvalidDiscortixUserNotesContentSchema = z.object({
+    notes: z.record(z.string(), z.string()),
+})
+export type EventInvalidDiscortixUserNotesContent = z.infer<typeof EventInvalidDiscortixUserNotesContentSchema>
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#maudio */
 export const EventAudioContentSchema = z.object({
     body: z.string(),
@@ -651,6 +661,8 @@ export type EventVideoContent = z.infer<typeof EventVideoContentSchema>
 export const eventContentSchemaByType = {
     'invalid.discortix.hidden_rooms': EventInvalidDiscortixHiddenRoomsContentSchema,
     'invalid.discortix.friends': EventInvalidDiscortixFriendsContentSchema,
+    'invalid.discortix.user_nicknames': EventInvalidDiscortixNicknamesContentSchema,
+    'invalid.discortix.user_notes': EventInvalidDiscortixUserNotesContentSchema,
     'im.ponies.room_emotes': EventImPoniesRoomEmotesContentSchema,
     'im.ponies.user_emotes': EventImPoniesUserEmotesContentSchema,
     'm.audio': EventAudioContentSchema,
@@ -695,6 +707,8 @@ export const eventContentSchemaByType = {
 export interface EventContentByType {
     'invalid.discortix.hidden_rooms': EventInvalidDiscortixHiddenRoomsContent,
     'invalid.discortix.friends': EventInvalidDiscortixFriendsContent,
+    'invalid.discortix.user_nicknames': EventInvalidDiscortixUserNicknamesContent,
+    'invalid.discortix.user_notes': EventInvalidDiscortixUserNotesContent,
     'im.ponies.room_emotes': EventImPoniesRoomEmotesContent,
     'im.ponies.user_emotes': EventImPoniesUserEmotesContent,
     'm.audio': EventAudioContent,

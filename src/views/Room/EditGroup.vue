@@ -59,6 +59,7 @@ import { InvalidFileError } from '@/utils/error'
 import { createMediaInfo, createLazyMediaUpload } from '@/composables/media'
 import { useRooms } from '@/composables/rooms'
 
+import { useAccountDataStore } from '@/stores/account-data'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
@@ -81,6 +82,7 @@ const uuid = uuidv4()
 
 const { sendStateEvent } = useRooms()
 
+const { userNicknames } = storeToRefs(useAccountDataStore())
 const { profiles } = storeToRefs(useProfileStore())
 const { joined: joinedRooms } = storeToRefs(useRoomStore())
 const { userId: currentUserId } = storeToRefs(useSessionStore())
@@ -116,7 +118,8 @@ const roomNamePlaceholder = computed(() => {
     return (room.value.stateEventsByType['m.room.member']?.filter((member) => {
         return (member.content.membership === 'join' || member.content.membership === 'invite') && member.stateKey && member.stateKey != currentUserId.value
     }).map((member) => {
-        return profiles.value[member.stateKey!]?.displayname ?? member.content.displayname ?? member.stateKey ?? ''
+        const userId = (member.content.membership === 'join' ? member.sender : member.stateKey) ?? ''
+        return userNicknames.value[userId] ?? profiles.value[userId]?.displayname ?? member.content.displayname ?? userId
     }) ?? []).slice(0, 5).join(', ')
 })
 

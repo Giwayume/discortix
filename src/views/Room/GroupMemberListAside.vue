@@ -63,20 +63,44 @@
     <ContextMenu ref="memberContextMenu" :model="memberContextMenuItems">
         <template #item="{ item, props }">
             <a class="p-contextmenu-item-link" v-bind="props.action">
-                <span class="p-contextmenu-item-label" :class="item.labelClassName">{{ item.label }}</span>
+                <span class="p-contextmenu-item-label" :class="item.labelClassName">
+                    {{ item.label }}
+                    <span v-if="item.subtitle" class="block text-xs text-muted">{{ item.subtitle }}</span>
+                </span>
                 <span v-if="item.icon" :class="item.icon" class="ml-auto px-1 text-subtle" aria-hidden="true" />
                 <i v-if="item.items" class="pi pi-angle-right ml-auto"></i>
             </a>
         </template>
     </ContextMenu>
+    <Dialog
+        v-model:visible="removeFriendDialogVisible"
+        modal
+        :draggable="false"
+        :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
+    >
+        <template #header>
+            <div class="p-dialog-title">
+                {{ t('userProfilePopover.removeFriendConfirm.title') }}
+            </div>
+        </template>
+        <p v-html="micromark(t('userProfilePopover.removeFriendConfirm.subtitle', { displayname: memberContextMenuTargetDisplayname }))" />
+        <template #footer>
+            <Button :label="t('userProfilePopover.removeFriendConfirm.cancelButton')" class="grow-1 basis-1" severity="secondary" @click="removeFriendDialogVisible = false" autofocus />
+            <Button :label="t('userProfilePopover.removeFriendConfirm.removeButton')" class="grow-1 basis-1" severity="danger" @click="removeFriend(memberContextMenuTargetUserId!); removeFriendDialogVisible = false" />
+        </template>
+    </Dialog>
+    <AddUserNicknameDialog v-model:visible="addUserNicknameDialogVisible" :userId="memberContextMenuTargetUserId" />
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
+import { micromark } from 'micromark'
 
 import { useApplication } from '@/composables/application'
+import { useAccountData } from '@/composables/account-data'
+import { useRooms } from '@/composables/rooms'
 
 import { useAccountDataStore } from '@/stores/account-data'
 import { useClientSettingsStore } from '@/stores/client-settings'
@@ -84,22 +108,29 @@ import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
+const AddUserNicknameDialog = defineAsyncComponent(() => import('@/views/Room/AddUserNicknameDialog.vue'))
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 import OverlayStatus from '@/views/Common/OverlayStatus.vue'
 
 import Avatar from 'primevue/avatar'
+import Button from 'primevue/button'
 import ContextMenu from 'primevue/contextmenu'
+import Dialog from 'primevue/dialog'
 import ScrollPanel from 'primevue/scrollpanel'
 import vTooltip from 'primevue/tooltip'
+import { useToast } from 'primevue/usetoast'
 import type { MenuItem, MenuItemCommandEvent } from 'primevue/menuitem'
 
 import type { EventInvalidDiscortixFriendsContent } from '@/types'
 
 const { t } = useI18n()
+const toast = useToast()
 
 const { isTouchEventsDetected } = useApplication()
+const { addFriend, removeFriend } = useAccountData()
+const { createOrJoinRoomWithUsers } = useRooms()
 
-const { accountData } = storeToRefs(useAccountDataStore())
+const { accountData, userNicknames } = storeToRefs(useAccountDataStore())
 const { settings } = useClientSettingsStore()
 const { profiles } = storeToRefs(useProfileStore())
 const { currentRoomPermissions, joined: joinedRooms } = storeToRefs(useRoomStore())
@@ -113,6 +144,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits<{
+    (e: 'mentionUserId', userId: string): void
     (e: 'showUserProfile', event: Event, userId: string): void
 }>()
 
@@ -137,7 +169,7 @@ const joinedMemberItems = computed<MenuItem[]>(() => {
             items.push({
                 key: userId,
                 label: userId,
-                displayname: profile?.displayname ?? userId,
+                displayname: userNicknames.value[userId] ?? profile?.displayname ?? userId,
                 avatarUrl: profile?.avatarUrl,
                 presence: profile?.presence,
                 statusMessage: profile?.statusMessage,
@@ -164,7 +196,7 @@ const invitedMemberItems = computed<MenuItem[]>(() => {
             items.push({
                 key: userId,
                 label: userId,
-                displayname: profile?.displayname ?? userId,
+                displayname: userNicknames.value[userId] ?? profile?.displayname ?? userId,
                 avatarUrl: profile?.avatarUrl,
                 presence: profile?.presence,
                 statusMessage: profile?.statusMessage,
@@ -218,6 +250,15 @@ function onContextMenuMember(event: MouseEvent, item: MenuItem) {
     memberContextMenu.value?.show(event)
 }
 
+/*------------------------------*\
+|                                |
+|   Context Menu Actions State   |
+|                                |
+\*------------------------------*/
+
+const addUserNicknameDialogVisible = ref<boolean>(false)
+const removeFriendDialogVisible = ref<boolean>(false)
+
 /*-----------------------*\
 |                         |
 |   Member Context Menu   |
@@ -225,6 +266,11 @@ function onContextMenuMember(event: MouseEvent, item: MenuItem) {
 \*-----------------------*/
 
 const memberContextMenuTargetUserId = ref<string>()
+const memberContextMenuTargetDisplayname = computed<string>(() => {
+    if (!memberContextMenuTargetUserId.value) return ''
+    const userId = memberContextMenuTargetUserId.value
+    return userNicknames.value[userId] ?? profiles.value[userId]?.displayname ?? userId
+})
 
 const memberContextMenu = ref<InstanceType<typeof ContextMenu>>()
 const memberContextMenuItems = computed(() => {
@@ -257,6 +303,19 @@ const memberContextMenuItems = computed(() => {
             subtitle: t('room.groupMemberListAside.contextMenu.addNoteSubtitle'),
             command: runMemberContextMenuCommand,
         })
+        if (userNicknames.value[memberContextMenuTargetUserId.value!]) {
+            contextMenuItems.push({
+                key: 'changeNickname',
+                label: t('room.groupMemberListAside.contextMenu.changeNickname'),
+                command: runMemberContextMenuCommand,
+            })
+        } else {
+            contextMenuItems.push({
+                key: 'addNickname',
+                label: t('room.groupMemberListAside.contextMenu.addNickname'),
+                command: runMemberContextMenuCommand,
+            })
+        }
         contextMenuItems.push({ separator: true })
         if (currentRoomPermissions.value.kick || currentRoomPermissions.value.changePowerLevels) {
             if (currentRoomPermissions.value.kick) {
@@ -288,6 +347,12 @@ const memberContextMenuItems = computed(() => {
                 label: t('room.groupMemberListAside.contextMenu.removeFriend'),
                 command: runMemberContextMenuCommand,
             })
+        } else {
+            contextMenuItems.push({
+                key: 'addFriend',
+                label: t('room.groupMemberListAside.contextMenu.addFriend'),
+                command: runMemberContextMenuCommand,
+            })
         }
         contextMenuItems.push({
             key: 'ignore',
@@ -314,51 +379,51 @@ const memberContextMenuItems = computed(() => {
 })
 
 async function runMemberContextMenuCommand(event: MenuItemCommandEvent) {
-    const eventId = memberContextMenuTargetUserId.value
-    if (!eventId) return
+    const userId = memberContextMenuTargetUserId.value
+    if (!userId) return
     switch (event.item.key) {
-        // case 'addReaction':
-        //     emit('selectEmoji', event.originalEvent, eventId)
-        //     messageActionsContextMenuTargetEventId.value = eventId
-        //     keepMessageActionsContextMenuTargetEventId.value = true
-        //     break
-        // case 'editMessage':
-        //     emit('update:editEventId', eventId)
-        //     break
-        // case 'replyToMessage':
-        //     emit('update:replyToEventId', eventId)
-        //     break
-        // case 'deleteMessage':
-        //     if (isShiftKeyPressed.value) {
-        //         redactEvent(props.room.roomId, eventId)
-        //     } else {
-        //         deleteMessageConfirmEventRenderInfo.value = undefined
-
-        //         findEventRenderInfo:
-        //         for (const chunk of eventChunkBuffers.value[activeEventChunkBufferIndex.value]!) {
-        //             for (const e of chunk.events) {
-        //                 if (e.event.eventId === messageActionsContextMenuTargetEventId.value) {
-        //                     deleteMessageConfirmEventRenderInfo.value = e
-        //                     break findEventRenderInfo
-        //                 }
-        //             }
-        //         }
-
-        //         deleteMessageConfirmVisible.value = true
-        //     }
-        //     break
-        // case 'copyMessageId':
-        //     try {
-        //         if (!navigator.clipboard) throw new Error('Clipboard API missing.')
-        //         await navigator.clipboard.writeText(eventId)
-        //         toast.add({ severity: 'success', summary: t('room.copyMessageIdConfirm', { eventId }), life: 3000 })
-        //     } catch (error) {
-        //         toast.add({ severity: 'error', summary: t('errors.clipboardApiNotSupported'), life: 4000 })
-        //     }
-        //     break
+        case 'profile':
+            break
+        case 'mention':
+            emit('mentionUserId', userId)
+            break
+        case 'message':
+            createOrJoinRoomWithUsers([userId])
+            break
+        case 'startCall':
+            break
+        case 'addNote':
+            break
+        case 'addNickname': case 'changeNickname':
+            addUserNicknameDialogVisible.value = true
+            break
+        case 'removeFromGroup':
+            break
+        case 'makeGroupAdmin':
+            break
+        case 'inviteToServer':
+            break
+        case 'addFriend':
+            addFriend(userId)
+            break
+        case 'removeFriend':
+            removeFriendDialogVisible.value = true
+            break
+        case 'ignore':
+            break
+        case 'block':
+            break
+        case 'copyUserId':
+            try {
+                if (!navigator.clipboard) throw new Error('Clipboard API missing.')
+                await navigator.clipboard.writeText(userId)
+                toast.add({ severity: 'success', summary: t('room.copyUserIdConfirm', { userId }), life: 3000 })
+            } catch (error) {
+                toast.add({ severity: 'error', summary: t('errors.clipboardApiNotSupported'), life: 4000 })
+            }
+            break
     }
 }
-
 
 </script>
 

@@ -130,6 +130,7 @@ import { useMediaCache } from '@/composables/media-cache'
 import { useRooms } from '@/composables/rooms'
 import { attachmentEventMessageTypes, messageEventTypes, settingsEventTypes } from '@/composables/event-timeline'
 
+import { useAccountDataStore } from '@/stores/account-data'
 import { useClientSettingsStore } from '@/stores/client-settings'
 import { useMegolmStore } from '@/stores/megolm'
 import { useProfileStore } from '@/stores/profile'
@@ -169,13 +170,14 @@ interface EventChunk {
 const { t } = useI18n()
 const toast = useToast()
 
-const { settings } = useClientSettingsStore()
 const { isTouchEventsDetected } = useApplication()
 const { currentRoomCustomEmojiByCode } = useEmoji()
 const { isShiftKeyPressed } = useKeyboard()
 const { getMxcBlob } = useMediaCache()
 const { getMessageEvent, getPreviousMessages, redactEvent } = useRooms()
 
+const { userNicknames } = storeToRefs(useAccountDataStore())
+const { settings } = useClientSettingsStore()
 const { decryptEvent: decryptMegolmEvent } = useMegolmStore()
 const { profiles } = storeToRefs(useProfileStore())
 const roomStore = useRoomStore()
@@ -374,7 +376,7 @@ const loadingEventChunks = computed<EventChunk[]>(() => {
                 return {
                     ...reaction,
                     highlighted: !!reaction.events.find((event) => event.sender === sessionUserId.value),
-                    displaynames: reaction.events.map((event) => profiles.value[event.sender]?.displayname ?? event.sender)
+                    displaynames: reaction.events.map((event) => userNicknames.value[event.sender] ?? profiles.value[event.sender]?.displayname ?? event.sender)
                 }
             })
 
@@ -398,7 +400,7 @@ const loadingEventChunks = computed<EventChunk[]>(() => {
                 const isAttachment = attachmentEventMessageTypes.includes(replyToEventContent?.msgtype)
                 replyTo = {
                     userId: replyUserId,
-                    displayname: userProfile?.displayname ?? replyUserId,
+                    displayname: userNicknames.value[replyUserId!] ?? userProfile?.displayname ?? replyUserId,
                     avatarUrl: userProfile?.avatarUrl,
                     eventId: replyToEventId,
                     bodyPreview: !isAttachment ? replyToEventContent?.body?.substring(0, 1000) : undefined,
@@ -415,7 +417,7 @@ const loadingEventChunks = computed<EventChunk[]>(() => {
                     || !!replyTo
                     || !!currentDateDivider
                     || originDate.getTime() - previousEventOriginDate.getTime() > 300000,
-                displayname: profiles.value[event.sender]?.displayname ?? event.sender,
+                displayname: userNicknames.value[event.sender] ?? profiles.value[event.sender]?.displayname ?? event.sender,
                 headerTime: isToday
                     ? originDate.toLocaleString(undefined, { hour: 'numeric', minute: 'numeric' })
                     : originDate.toLocaleString(undefined, { year: '2-digit', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }),

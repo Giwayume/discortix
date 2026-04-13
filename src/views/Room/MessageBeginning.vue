@@ -170,7 +170,7 @@ const { t } = useI18n()
 const { addFriend, removeFriend } = useAccountData()
 const { isTouchEventsDetected } = useApplication()
 
-const { accountData } = storeToRefs(useAccountDataStore())
+const { accountData, userNicknames } = storeToRefs(useAccountDataStore())
 const { settings } = useClientSettingsStore()
 const { profiles } = storeToRefs(useProfileStore())
 const { currentRoomPermissions } = storeToRefs(useRoomStore())
@@ -216,7 +216,7 @@ const otherMembers = computed(() => {
         return {
             userId,
             avatarUrl: profiles.value[userId]?.avatarUrl ?? member.content.avatarUrl,
-            displayname: profiles.value[userId]?.displayname ?? member.content.displayname,
+            displayname: userNicknames.value[userId] ?? profiles.value[userId]?.displayname ?? member.content.displayname,
             presence: profiles.value[userId]?.presence ?? 'offline',
         }
     }) ?? []

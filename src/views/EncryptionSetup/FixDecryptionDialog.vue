@@ -77,6 +77,7 @@ import { useCryptoKeys } from '@/composables/crypto-keys'
 import { createLogger } from '@/composables/logger'
 import { useOlm } from '@/composables/olm'
 
+import { useAccountDataStore } from '@/stores/account-data'
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
 import { useMegolmStore } from '@/stores/megolm'
 import { useProfileStore } from '@/stores/profile'
@@ -95,10 +96,10 @@ const { t } = useI18n()
 const { fetchUserKeys } = useCryptoKeys()
 const { sendMessageToDevices } = useOlm()
 
+const { userNicknames } = storeToRefs(useAccountDataStore())
 const {
     encryptionNotSupported,
     deviceKeys,
-    userSigningKeys,
 } = storeToRefs(useCryptoKeysStore())
 const { megolmSessionExists } = useMegolmStore()
 const roomStore = useRoomStore()
@@ -153,7 +154,8 @@ const isMessageEncrypted = computed(() => {
 })
 
 const messageSenderDisplayname = computed(() => {
-    return profiles.value[event.value?.sender ?? '']?.displayname ?? event.value?.sender ?? 'Unknown User'
+    const userId = event.value?.sender ?? ''
+    return userNicknames.value[userId] ?? profiles.value[userId]?.displayname ?? userId ?? t('fixDecryption.unknownUser')
 })
 
 const dialogTitle = computed(() => {

@@ -129,10 +129,10 @@
     <Dialog
         v-model:visible="removeFriendConfirmDialogVisible"
         modal
-        :header="t('home.removeFriendConfirm.title', { displayname: contextMenuSelectedFriend?.displayname ?? contextMenuSelectedFriend?.userId })"
+        :header="t('home.removeFriendConfirm.title', { displayname: userNicknames[contextMenuSelectedFriend?.userId!] ?? contextMenuSelectedFriend?.displayname ?? contextMenuSelectedFriend?.userId })"
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '24rem' }"
     >
-        <p>{{ t('home.removeFriendConfirm.subtitle', { displayname: contextMenuSelectedFriend?.displayname ?? contextMenuSelectedFriend?.userId }) }}</p>
+        <p>{{ t('home.removeFriendConfirm.subtitle', { displayname: userNicknames[contextMenuSelectedFriend?.userId!] ?? contextMenuSelectedFriend?.displayname ?? contextMenuSelectedFriend?.userId }) }}</p>
         <template #footer>
             <Button class="basis-1 grow-1" severity="secondary" autofocus :label="t('home.removeFriendConfirm.cancelButton')" @click="removeFriendConfirmDialogVisible = false" />
             <Button class="basis-1 grow-1" severity="danger" :label="t('home.removeFriendConfirm.removeFriendButton')" @click="confirmRemoveFriend" />
@@ -153,8 +153,6 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { micromark } from 'micromark'
-
-import { snakeCaseApiRequest } from '@/utils/zod'
 
 import { useAccountData } from '@/composables/account-data'
 import { useApplication } from '@/composables/application'
@@ -192,7 +190,7 @@ const router = useRouter()
 const { addFriend, removeFriend, setAccountDataByType, toggleRoomVisibility } = useAccountData()
 const { isTouchEventsDetected } = useApplication()
 
-const { accountData, hiddenRooms } = storeToRefs(useAccountDataStore())
+const { accountData, hiddenRooms, userNicknames } = storeToRefs(useAccountDataStore())
 const { profiles } = storeToRefs(useProfileStore())
 const { draft: draftRoom, joined: joinedRooms, invited: invitedRooms } = storeToRefs(useRoomStore())
 const { userId: sessionUserId } = storeToRefs(useSessionStore())

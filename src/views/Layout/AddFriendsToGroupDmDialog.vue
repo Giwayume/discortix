@@ -17,7 +17,7 @@
                 <Chip
                     v-for="userId of selectedUserIds"
                     :key="userId"
-                    :label="profiles[userId]?.displayname ?? userId"
+                    :label="userNicknames[userId] ?? profiles[userId]?.displayname ?? userId"
                     removable
                     class="h-8"
                     @remove="removeSelectedUser(userId)"
@@ -62,7 +62,7 @@
                     </AuthenticatedImage>
                 </OverlayStatus>
                 <div class="flex flex-col grow-1">
-                    <strong class="text-strong text-medium">{{ user.displayname ?? user.userId }}</strong>
+                    <strong class="text-strong text-medium">{{ userNicknames[user.userId] ?? user.displayname ?? user.userId }}</strong>
                     <span class="text-xs text-muted">{{ user.userId }}</span>
                 </div>
                 <Checkbox
@@ -100,6 +100,7 @@ import { useMegolm } from '@/composables/megolm'
 import { useProfiles } from '@/composables/profiles'
 import { useRooms } from '@/composables/rooms'
 
+import { useAccountDataStore } from '@/stores/account-data'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
@@ -128,6 +129,7 @@ const { sendRoomKeysToUsers } = useMegolm()
 const { getProfile, searchUserDirectory } = useProfiles()
 const { inviteToRoom } = useRooms()
 
+const { userNicknames } = storeToRefs(useAccountDataStore())
 const { profiles } = storeToRefs(useProfileStore())
 const { draft: draftRoom, joined: joinedRooms } = storeToRefs(useRoomStore())
 const { userId: sessionUserId, defaultUserIdHomeserver } = storeToRefs(useSessionStore())
@@ -171,7 +173,8 @@ const filteredContactList = computed(() => {
         let allSearchTermsFound = true
         for (const { searchTerm, searchTermIsFullId, usernameOnlyTerm } of preparedSearchTerms) {
             if (!(
-                contact.displayname?.toLowerCase().includes(searchTerm)
+                userNicknames.value[contact.userId]?.toLowerCase().includes(searchTerm)
+                || contact.displayname?.toLowerCase().includes(searchTerm)
                 || (!searchTermIsFullId && contact.userId.split(':')[0]?.slice(1).includes(usernameOnlyTerm))
                 || (searchTermIsFullId && contact.userId.includes(searchTerm))
             )) {

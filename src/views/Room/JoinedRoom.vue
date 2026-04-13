@@ -77,6 +77,7 @@
             <GroupMemberListAside
                 v-if="otherMembersDisplayed.length > 1"
                 :roomId="props.room.roomId"
+                @mentionUserId="mentionUserId"
                 @showUserProfile="showUserProfile"
             />
         </template>
@@ -229,6 +230,7 @@ import { createLazyMediaUpload, createMediaInfo } from '@/composables/media'
 import { useMegolm } from '@/composables/megolm'
 import { useRooms } from '@/composables/rooms'
 
+import { useAccountDataStore } from '@/stores/account-data'
 import { useClientSettingsStore } from '@/stores/client-settings'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
@@ -280,6 +282,7 @@ const { currentRoomCustomEmojiByCode } = useEmoji()
 const { getOutboundGroupSession } = useMegolm()
 const { sendTypingNotification, sendMessageEvent, sendMessageReaction, redactEvent } = useRooms()
 
+const { userNicknames } = storeToRefs(useAccountDataStore())
 const { settings } = useClientSettingsStore()
 const roomStore = useRoomStore()
 const {
@@ -319,7 +322,9 @@ const messageTextarea = ref<InstanceType<typeof Textarea>>()
 const replyToDisplayName = computed<string | undefined>(() => {
     if (!replyToEventId.value) return
     const event = getTimelineEventById(props.room.visibleTimeline, replyToEventId.value)
-    return event?.sender ? (profiles.value[event.sender]?.displayname ?? event.sender) : undefined
+    return event?.sender
+        ? (userNicknames.value[event.sender] ?? profiles.value[event.sender]?.displayname ?? event.sender)
+        : undefined
 })
 
 const roomName = computed<string | undefined>(() => {
@@ -328,7 +333,9 @@ const roomName = computed<string | undefined>(() => {
 })
 
 const roomMemberListDisplay = computed<string>(() => {
-    return Array.from(new Set(otherMembersDisplayed.value.map((member) => member.displayname ?? member.userId))).join(', ') || t('layout.emptyRoom')
+    return Array.from(
+        new Set(otherMembersDisplayed.value.map((member) => userNicknames.value[member.userId] ?? member.displayname ?? member.userId))
+    ).join(', ') || t('layout.emptyRoom')
 })
 
 const isInsideSpace = computed<boolean>(() => {
@@ -381,7 +388,7 @@ const typingUserIds = computed(() => {
 
 const typingDisplayNames = computed(() => {
     return typingUserIds.value.map((userId) => {
-        return profiles.value[userId]?.displayname ?? userId
+        return userNicknames.value[userId] ?? profiles.value[userId]?.displayname ?? userId
     }).join(', ')
 })
 
@@ -637,6 +644,10 @@ function onStopTyping() {
     clearTimeout(stopTypingTimeoutHandle)
     stopTypingTimeoutHandle = undefined
     sendTypingNotification(props.room.roomId, false)
+}
+
+function mentionUserId(userId: string) {
+    message.value += (message.value.endsWith(' ') ? '' : ' ') + '@' + userId.replace(/^@/, '')
 }
 
 /*---------------------*\

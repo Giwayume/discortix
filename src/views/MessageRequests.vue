@@ -51,6 +51,7 @@ import { storeToRefs } from 'pinia'
 
 import { useRooms } from '@/composables/rooms'
 
+import { useAccountDataStore } from '@/stores/account-data'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 
@@ -70,6 +71,7 @@ const toast = useToast()
 
 const { joinRoom, leaveRoom, forgetRoom } = useRooms()
 
+const { userNicknames } = storeToRefs(useAccountDataStore())
 const { profiles } = storeToRefs(useProfileStore())
 const roomStore = useRoomStore()
 const { invitedDirectMessageRooms } = storeToRefs(roomStore)
@@ -88,7 +90,7 @@ const invites = computed(() => {
         return {
             ...room,
             displayname: room.heroes.map(
-                (userId) => profiles.value[userId ?? '']?.displayname ?? userId
+                (userId) => userNicknames.value[userId] ?? profiles.value[userId ?? '']?.displayname ?? userId
             ).filter((displayName) => !!displayName).join(', '),
             datetime: new Date(room.lastMessageTs).toISOString(),
             displayTime: new Date(room.lastMessageTs).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),

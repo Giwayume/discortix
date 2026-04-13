@@ -36,6 +36,7 @@ import { storeToRefs } from 'pinia'
 import { messageEventTypes, settingsEventTypes } from '@/composables/event-timeline'
 import { useEmoji } from '@/composables/emoji'
 
+import { useAccountDataStore } from '@/stores/account-data'
 import { useClientSettingsStore } from '@/stores/client-settings'
 import { useMegolmStore } from '@/stores/megolm'
 import { useProfileStore } from '@/stores/profile'
@@ -56,8 +57,9 @@ import {
 
 const { t } = useI18n()
 const { currentRoomCustomEmojiByCode } = useEmoji()
-const { settings } = useClientSettingsStore()
 
+const { userNicknames } = storeToRefs(useAccountDataStore())
+const { settings } = useClientSettingsStore()
 const { decryptEvent: decryptMegolmEvent } = useMegolmStore()
 const { profiles } = storeToRefs(useProfileStore())
 const { currentRoomEncryptionEnabledTimestamp, decryptedRoomEvents } = storeToRefs(useRoomStore())
@@ -104,7 +106,7 @@ const eventRenderInfo = computed<EventWithRenderInfo | undefined>(() => {
         return {
             ...reaction,
             highlighted: !!reaction.events.find((event) => event.sender === sessionUserId.value),
-            displaynames: reaction.events.map((event) => profiles.value[event.sender]?.displayname ?? event.sender)
+            displaynames: reaction.events.map((event) => userNicknames.value[event.sender] ?? profiles.value[event.sender]?.displayname ?? event.sender)
         }
     })
 
@@ -114,7 +116,7 @@ const eventRenderInfo = computed<EventWithRenderInfo | undefined>(() => {
         category,
         currentDateDivider: undefined,
         displayHeader: true,
-        displayname: profiles.value[event.sender]?.displayname ?? event.sender,
+        displayname: userNicknames.value[event.sender] ?? profiles.value[event.sender]?.displayname ?? event.sender,
         headerTime: isToday
             ? originDate.toLocaleString(undefined, { hour: 'numeric', minute: 'numeric' })
             : originDate.toLocaleString(undefined, { year: '2-digit', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }),

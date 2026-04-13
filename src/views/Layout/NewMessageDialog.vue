@@ -16,7 +16,7 @@
             <Chip
                 v-for="userId of selectedUserIds"
                 :key="userId"
-                :label="profiles[userId]?.displayname ?? userId"
+                :label="userNicknames[userId] ?? profiles[userId]?.displayname ?? userId"
                 removable
                 class="h-8"
                 @remove="removeSelectedUser(userId)"
@@ -51,7 +51,7 @@
                     </AuthenticatedImage>
                 </OverlayStatus>
                 <div class="flex flex-col grow-1">
-                    <strong class="text-strong text-medium">{{ user.displayname ?? user.userId }}</strong>
+                    <strong class="text-strong text-medium">{{ userNicknames[user.userId] ?? user.displayname ?? user.userId }}</strong>
                     <span class="text-xs text-muted">{{ user.userId }}</span>
                 </div>
                 <Checkbox
@@ -114,17 +114,15 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { micromark } from 'micromark'
 
-import { useAccountData } from '@/composables/account-data'
 import { useApplication } from '@/composables/application'
 import { useProfiles } from '@/composables/profiles'
+import { useRooms } from '@/composables/rooms'
 
 import { useAccountDataStore } from '@/stores/account-data'
 import { useProfileStore } from '@/stores/profile'
-import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
@@ -142,15 +140,13 @@ import ScrollPanel from 'primevue/scrollpanel'
 import { type UserProfile } from '@/types'
 
 const { t } = useI18n()
-const router = useRouter()
 
-const { toggleRoomVisibility } = useAccountData()
 const { toggleApplicationSidebar } = useApplication()
 const { getProfile, searchUserDirectory } = useProfiles()
+const { createOrJoinRoomWithUsers } = useRooms()
 
-const { hiddenRooms } = storeToRefs(useAccountDataStore())
+const { userNicknames } = storeToRefs(useAccountDataStore())
 const { profiles } = storeToRefs(useProfileStore())
-const { draft: draftRoom, invited: invitedRooms, joined: joinedRooms } = storeToRefs(useRoomStore())
 const { userId: sessionUserId, defaultUserIdHomeserver } = storeToRefs(useSessionStore())
 
 const props = defineProps({
@@ -203,7 +199,8 @@ const filteredContactList = computed(() => {
         let allSearchTermsFound = true
         for (const { searchTerm, searchTermIsFullId, usernameOnlyTerm } of preparedSearchTerms) {
             if (!(
-                contact.displayname?.toLowerCase().includes(searchTerm)
+                userNicknames.value[contact.userId]?.toLowerCase().includes(searchTerm)
+                || contact.displayname?.toLowerCase().includes(searchTerm)
                 || (!searchTermIsFullId && contact.userId.split(':')[0]?.slice(1).includes(usernameOnlyTerm))
                 || (searchTermIsFullId && contact.userId.includes(searchTerm))
             )) {
@@ -216,7 +213,7 @@ const filteredContactList = computed(() => {
 })
 
 const defaultGroupName = computed(() => {
-    return selectedUserIds.value.map((userId) => profiles.value[userId]?.displayname ?? userId).join(', ')
+    return selectedUserIds.value.map((userId) => userNicknames.value[userId] ?? profiles.value[userId]?.displayname ?? userId).join(', ')
 })
 
 function populateContactList() {
@@ -377,77 +374,7 @@ function onGroupIconSelected(imageBlob: Blob) {
 }
 
 function createRoomConfirm() {
-    const selectedUserIdSet = new Set<string>(selectedUserIds.value)
-
-    // See if there is an existing joined room and navigate to it.
-    findJoinedRoom:
-    for (const roomId in joinedRooms.value) {
-        const room = joinedRooms.value[roomId]
-        if (!room) continue
-        if (room.accountData['m.tag']?.tags?.['m.server_notice']) continue
-        const roomUserIds = new Set<string>((room.stateEventsByType['m.room.member'] ?? [])
-            .filter((memberEvent) => (
-                (memberEvent.content.membership === 'join' && memberEvent.sender !== sessionUserId.value)
-                || (memberEvent.content.membership === 'invite') && memberEvent.stateKey !== sessionUserId.value))
-            .map((memberEvent) => memberEvent.content.membership === 'invite' ? memberEvent.stateKey ?? memberEvent.sender : memberEvent.sender))
-        if (selectedUserIdSet.size !== roomUserIds.size) continue
-        for (const userId of roomUserIds) {
-            if (!selectedUserIdSet.has(userId)) {
-                continue findJoinedRoom
-            }
-        }
-        if (hiddenRooms.value[roomId]) {
-            toggleRoomVisibility(roomId, true)
-        }
-        router.push({
-            name: 'room',
-            params: { roomId },
-        })
-        emit('update:visible', false)
-        toggleApplicationSidebar(false)
-        return
-    }
-
-    // See if there is an existing invited room and navigate to it.
-    findInvitedRoom:
-    for (const roomId in invitedRooms.value) {
-        const room = invitedRooms.value[roomId]
-        if (!room) continue
-        const roomUserIds = new Set<string>((room.stateEventsByType['m.room.member'] ?? [])
-            .filter((memberEvent) => (
-                (memberEvent.content.membership === 'join' && memberEvent.sender !== sessionUserId.value)
-                || (memberEvent.content.membership === 'invite') && memberEvent.stateKey !== sessionUserId.value))
-            .map((memberEvent) => memberEvent.content.membership === 'invite' ? memberEvent.stateKey ?? memberEvent.sender : memberEvent.sender))
-        if (selectedUserIdSet.size !== roomUserIds.size) continue
-        for (const userId of roomUserIds) {
-            if (!selectedUserIdSet.has(userId)) {
-                continue findInvitedRoom
-            }
-        }
-        if (hiddenRooms.value[roomId]) {
-            toggleRoomVisibility(roomId, true)
-        }
-        router.push({
-            name: 'room',
-            params: { roomId },
-        })
-        emit('update:visible', false)
-        toggleApplicationSidebar(false)
-        return
-    }
-
-    draftRoom.value = {
-        invited: Array.from(selectedUserIdSet),
-    }
-    if (groupName.value) {
-        draftRoom.value.groupName = groupName.value
-    }
-    if (groupAvatarBlob.value) {
-        draftRoom.value.groupAvatar = groupAvatarBlob.value
-    }
-    router.push({
-        name: 'create-room',
-    })
+    createOrJoinRoomWithUsers(selectedUserIds.value)
     emit('update:visible', false)
     toggleApplicationSidebar(false)
 }
