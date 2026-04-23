@@ -355,11 +355,6 @@ const memberContextMenuItems = computed(() => {
             })
         }
         contextMenuItems.push({
-            key: 'ignore',
-            label: t('room.groupMemberListAside.contextMenu.ignore'),
-            command: runMemberContextMenuCommand,
-        })
-        contextMenuItems.push({
             key: 'block',
             label: t('room.groupMemberListAside.contextMenu.block'),
             labelClassName: 'text-feedback-critical',
@@ -408,8 +403,6 @@ async function runMemberContextMenuCommand(event: MenuItemCommandEvent) {
             break
         case 'removeFriend':
             removeFriendDialogVisible.value = true
-            break
-        case 'ignore':
             break
         case 'block':
             break

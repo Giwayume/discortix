@@ -48,6 +48,7 @@ export interface ApiV3KeysQueryRequest {
 }
 export const ApiV3DeviceInformationSchema = camelizeSchemaWithoutTransform(z.object({
     algorithms: z.array(z.string()),
+    dehydrated: z.boolean().optional(),
     device_id: z.string(),
     keys: z.record(
         z.string(), // <algorithm>:<device_id>

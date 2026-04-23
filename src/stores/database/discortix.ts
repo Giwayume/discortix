@@ -22,11 +22,12 @@ async function init(): Promise<void> {
             db.createObjectStore('accountData')
             db.createObjectStore('authentication')
             db.createObjectStore('clientSettings')
-            db.createObjectStore('profiles')
-            db.createObjectStore('rooms')
             db.createObjectStore('megolm')
             db.createObjectStore('olm')
             db.createObjectStore('pickleKey')
+            db.createObjectStore('profiles')
+            db.createObjectStore('rooms')
+            db.createObjectStore('sas')
         }
     })
 }
@@ -35,12 +36,13 @@ async function runTransaction(
     table: string,
     mode: IDBTransactionMode,
     fn: (objectStore: IDBObjectStore) => IDBRequest<any>,
+    options?: IDBTransactionOptions,
 ): Promise<any> {
     if (!database) {
         await init()
     }
     return new Promise((resolve, reject) => {
-        const transaction = database!.transaction([table], mode)
+        const transaction = database!.transaction([table], mode, options)
         transaction.onerror = reject
 
         const objectStore = transaction.objectStore(table)
@@ -66,23 +68,23 @@ export async function loadTableKey(table: string, key: string | string[]): Promi
     return runTransaction(table, 'readonly', (objectStore) => objectStore.get(key))
 }
 
-export async function saveTableKey(table: string, key: string | string[], data: any): Promise<void> {
+export async function saveTableKey(table: string, key: string | string[], data: any, options?: IDBTransactionOptions): Promise<void> {
     if (!database) {
         await init()
     }
-    return runTransaction(table, 'readwrite', (objectStore) => objectStore.put(data, key))
+    return runTransaction(table, 'readwrite', (objectStore) => objectStore.put(data, key), options)
 }
 
-export async function deleteTableKey(table: string, key: string | string[]): Promise<void> {
+export async function deleteTableKey(table: string, key: string | string[], options?: IDBTransactionOptions): Promise<void> {
     if (!database) {
         await init()
     }
-    return runTransaction(table, 'readwrite', (objectStore) => objectStore.delete(key))
+    return runTransaction(table, 'readwrite', (objectStore) => objectStore.delete(key), options)
 }
 
-export async function clearTable(table: string): Promise<void> {
+export async function clearTable(table: string, options?: IDBTransactionOptions): Promise<void> {
     if (!database) {
         await init()
     }
-    return runTransaction(table, 'readwrite', (objectStore) => objectStore.clear())
+    return runTransaction(table, 'readwrite', (objectStore) => objectStore.clear(), options)
 }

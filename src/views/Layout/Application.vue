@@ -66,10 +66,22 @@
     <UserSettings v-model:visible="userSettingsVisible" />
     <IdentityVerificationDialog v-if="identityVerificationFlowStarted" v-model:visible="identityVerificationVisible" />
     <OlmAccountMissingDialog v-if="deviceDeletionFlowStarted" v-model:visible="deviceDeletionVisible" />
+    <Toast position="top-right" group="device-verification-request">
+        <template #message=>
+            <div class="flex flex-col items-start w-full">
+                <h2 class="text-xl mb-4">{{ t('deviceVerificationRequest.toast.title') }}</h2>
+                <p class="mb-6 text-subtle">{{ t('deviceVerificationRequest.toast.message') }}</p>
+                <div class="flex w-full justify-end gap-2">
+                    <Button :label="t('deviceVerificationRequest.toast.ignoreButton')" severity="secondary" @click="onVerifyDeviceIgnore()" />
+                    <Button :label="t('deviceVerificationRequest.toast.acceptButton')" @click="onVerifyDeviceAccept()" />
+                </div>
+            </div>
+        </template>
+    </Toast>
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, onUnmounted, provide, ref } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
@@ -78,8 +90,10 @@ import { until } from '@/utils/vue'
 import { useApplication } from '@/composables/application'
 import { useCryptoKeys } from '@/composables/crypto-keys'
 import { createLogger } from '@/composables/logger'
+import { useOlm } from '@/composables/olm'
 import { useProfiles } from '@/composables/profiles'
 import { useSync } from '@/composables/sync'
+
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
 import { useSessionStore } from '@/stores/session'
 import { useSpaceStore } from '@/stores/space'
@@ -92,11 +106,17 @@ const UserSettings = defineAsyncComponent(() => import('@/views/UserSettings.vue
 const IdentityVerificationDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/IdentityVerificationDialog.vue'))
 const OlmAccountMissingDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/OlmAccountMissingDialog.vue'))
 
+import Button from 'primevue/button'
 import ProgressBar from 'primevue/progressbar'
 import Splitter from 'primevue/splitter'
 import SplitterPanel from 'primevue/splitterpanel'
+import Toast from 'primevue/toast'
+import { useToast } from 'primevue/usetoast'
+
+import type { EventKeyVerificationRequestContent, EventKeyVerificationCancelContent } from '@/types'
 
 const log = createLogger(import.meta.url)
+const toast = useToast()
 
 const router = useRouter()
 const { t } = useI18n()
@@ -110,6 +130,7 @@ const {
     getFriendlyErrorMessage: getFriendlyCryptoKeysErrorMessage,
     initialize: initializeCryptoKeys,
 } = useCryptoKeys()
+const { onInboundMessage, sendMessageToDevices } = useOlm()
 const {
     getFriendlyErrorMessage: getFriendlySyncErrorMessage,
     initialize: initializeSync,
@@ -119,8 +140,10 @@ const {
     getFriendlyErrorMessage: getFriendlyProfilesErrorMessage,
     initialize: initializeProfiles,
 } = useProfiles()
+
 const sessionStore = useSessionStore()
 const {
+    userId: sessionUserId,
     secureSessionInitialized,
     loading: sessionStoreLoading,
     hasAuthenticatedSession,
@@ -164,6 +187,12 @@ const loading = computed(() => {
     return sessionStoreLoading.value || spaceStoreLoading.value || !syncInitialized.value
 })
 
+/*------------------*\
+|                    |
+|   Initialization   |
+|                    |
+\*------------------*/
+
 async function initialize() {
     initializeErrorMessage.value = null
 
@@ -174,17 +203,6 @@ async function initialize() {
             log.error('Initialization error:', error)
             initializeErrorMessage.value = getFriendlyCryptoKeysErrorMessage(error)
             return
-        }
-
-        if (identityVerificationRequired.value) {
-            identityVerificationFlowStarted.value = true
-            identityVerificationVisible.value = true
-            await until(() => !identityVerificationVisible.value)
-        }
-        if (deviceNeedsDeletion.value) {
-            deviceDeletionFlowStarted.value = true
-            deviceDeletionVisible.value = true
-            await until(() => !deviceDeletionVisible.value)
         }
     }
 
@@ -203,8 +221,27 @@ async function initialize() {
         return
     }
 
+    if (!secureSessionInitialized.value) {
+        if (identityVerificationRequired.value) {
+            identityVerificationFlowStarted.value = true
+            identityVerificationVisible.value = true
+            await until(() => !identityVerificationVisible.value)
+        }
+        if (deviceNeedsDeletion.value) {
+            deviceDeletionFlowStarted.value = true
+            deviceDeletionVisible.value = true
+            await until(() => !deviceDeletionVisible.value)
+        }
+    }
+
     secureSessionInitialized.value = true
 }
+
+/*-------------*\
+|               |
+|   Lifecycle   |
+|               |
+\*-------------*/
 
 onMounted(async () => {
     window.addEventListener('resize', onWindowResize, true)
@@ -229,6 +266,75 @@ function onWindowResize() {
         sidebarOpenOffset.value = window.innerWidth - sidebarOpenRightPadding
     }
 }
+
+/*--------------------------------*\
+|                                  |
+|   Handle Verification Requests   |
+|                                  |
+\*--------------------------------*/
+
+let deviceVerificationTransactionId: string | undefined
+let deviceVerificationOtherDeviceId: string | undefined
+
+function onVerifyDeviceIgnore() {
+    toast.removeGroup('device-verification-request')
+    if (deviceVerificationTransactionId && deviceVerificationOtherDeviceId) {
+        sendMessageToDevices([[sessionUserId.value!, deviceVerificationOtherDeviceId]], 'm.key.verification.cancel', {
+            code: 'm.user',
+            reason: 'User canceled the request.',
+            transactionId: deviceVerificationTransactionId,
+        })
+        deviceVerificationTransactionId = undefined
+        deviceVerificationOtherDeviceId = undefined
+    }
+}
+
+function onVerifyDeviceAccept() {
+    toast.removeGroup('device-verification-request')
+
+}
+
+onInboundMessage((event) => {
+    if (event.type === 'm.key.verification.request') {
+        if (deviceVerificationTransactionId && deviceVerificationOtherDeviceId) {
+            sendMessageToDevices([[sessionUserId.value!, deviceVerificationOtherDeviceId]], 'm.key.verification.cancel', {
+                code: 'm.user',
+                reason: 'User canceled the request.',
+                transactionId: deviceVerificationTransactionId,
+            })
+        }
+        const eventContent = event.content as EventKeyVerificationRequestContent
+        deviceVerificationTransactionId = eventContent.transactionId
+        deviceVerificationOtherDeviceId = eventContent.fromDevice
+        toast.removeGroup('device-verification-request')
+        toast.add({ severity: 'info', group: 'device-verification-request', life: 60000 * 5 })
+    } else if (event.type === 'm.key.verification.cancel') {
+        const eventContent = event.content as EventKeyVerificationCancelContent
+        if (eventContent.transactionId === deviceVerificationTransactionId) {
+            toast.removeGroup('device-verification-request')
+            deviceVerificationTransactionId = undefined
+            deviceVerificationOtherDeviceId = undefined
+        }
+    }
+})
+
+onUnmounted(() => {
+    if (deviceVerificationTransactionId) {
+        sendMessageToDevices([[sessionUserId.value!, deviceVerificationOtherDeviceId!]], 'm.key.verification.cancel', {
+            code: 'm.user',
+            reason: 'User canceled the request.',
+            transactionId: deviceVerificationTransactionId,
+        })
+        deviceVerificationTransactionId = undefined
+        deviceVerificationOtherDeviceId = undefined
+    }
+})
+
+/*-------------------------------------*\
+|                                       |
+|   Handle Dragging Sidebar on Mobile   |
+|                                       |
+\*-------------------------------------*/
 
 let primaryPointerDown: {
     pageX: number;

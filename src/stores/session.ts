@@ -39,6 +39,12 @@ export const useSessionStore = defineStore('session', () => {
         }
     })
 
+    /* Device IDs for logged out users */
+    const loggedOutDeviceIds = ref<Record<string, string>>(JSON.parse(localStorage.getItem('mx_logged_out_device_ids') ?? '{}') ?? {})
+    watch(() => loggedOutDeviceIds.value, (loggedOutDeviceIds) => {
+        localStorage.setItem('mx_logged_out_device_ids', JSON.stringify(loggedOutDeviceIds))
+    })
+
     /* Decrypted Access Token - @/composables/crypto-keys.ts::initialize() decrypts. */
     const decryptedAccessToken = ref<string | undefined>()
 
@@ -79,7 +85,7 @@ export const useSessionStore = defineStore('session', () => {
             if (accessToken) {
                 if (Object.prototype.toString.call(accessToken) === '[object Object]') {
                     localStorage.removeItem('mx_access_token')
-                    await saveDiscortixTableKey('authentication', 'mx_access_token', toRaw(accessToken))
+                    await saveDiscortixTableKey('authentication', 'mx_access_token', toRaw(accessToken), { durability: 'strict' })
                 } else {
                     localStorage.setItem('mx_access_token',
                         Object.prototype.toString.call(accessToken) === '[object String]'
@@ -136,7 +142,7 @@ export const useSessionStore = defineStore('session', () => {
             if (refreshToken) {
                 if (Object.prototype.toString.call(refreshToken) === '[object Object]') {
                     localStorage.removeItem('mx_refresh_token')
-                    await saveDiscortixTableKey('authentication', 'mx_refresh_token', toRaw(refreshToken))
+                    await saveDiscortixTableKey('authentication', 'mx_refresh_token', toRaw(refreshToken), { durability: 'strict' })
                 } else {
                     localStorage.setItem('mx_refresh_token',
                         Object.prototype.toString.call(refreshToken) === '[object String]'
@@ -186,23 +192,32 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     /** Clear all state and navigate to the login page. */
-    onLogout(() => {
+    onLogout((options) => {
+        clearDiscortixTable('accountData')
+        clearDiscortixTable('authentication')
+        clearDiscortixTable('profiles')
+        clearDiscortixTable('rooms')
+
+        if (options?.secure) {
+            clearDiscortixTable('4s')
+            clearDiscortixTable('pickleKey')
+            clearDiscortixTable('olm')
+            clearDiscortixTable('megolm')
+        } else if (userId.value && deviceId.value) {
+            loggedOutDeviceIds.value = {
+                ...loggedOutDeviceIds.value,
+                [userId.value]: deviceId.value,
+            }
+        }
+
         secureSessionInitialized.value = false
         accessToken.value = undefined
         decryptedAccessToken.value = undefined
         refreshToken.value = undefined
         decryptedRefreshToken.value = undefined
         userId.value = undefined
+        deviceId.value = undefined
         isGuest.value = false
-
-        // DO NOT Delete tables: olm, megolm
-        clearDiscortixTable('4s')
-        clearDiscortixTable('accountData')
-        clearDiscortixTable('authentication')
-        clearDiscortixTable('profiles')
-        clearDiscortixTable('rooms')
-        clearDiscortixTable('roomKeys')
-        clearDiscortixTable('pickleKey')
     }, { permanent: true })
 
     return {
@@ -213,6 +228,7 @@ export const useSessionStore = defineStore('session', () => {
         decryptedRefreshToken,
         defaultUserIdHomeserver,
         deviceId,
+        loggedOutDeviceIds,
         hasAuthenticatedSession,
         homeserverBaseUrl,
         isGuest,

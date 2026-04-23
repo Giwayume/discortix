@@ -23,7 +23,7 @@ const olmSessionDiscardTimeout = 2.592e+9 // 30 days
 export const useOlmStore = defineStore('olm', () => {
     const { isLeader, broadcastMessageFromTab, onTabMessage } = useBroadcast({ permanent: true })
 
-    const { olmSecretKey } = storeToRefs(useCryptoKeysStore())
+    const { olmAccount, olmSecretKey } = storeToRefs(useCryptoKeysStore())
 
     /*--------------------*\
     |                      |
@@ -40,7 +40,7 @@ export const useOlmStore = defineStore('olm', () => {
 
     async function saveToDeviceErroredEvents() {
         if (!isLeader.value) return
-        await saveDiscortixTableKey('olm', ['toDevice', 'errors'], deepToRaw(toDeviceErroredEvents.value))
+        await saveDiscortixTableKey('olm', ['toDevice', 'errors'], deepToRaw(toDeviceErroredEvents.value), { durability: 'strict' })
         broadcastMessageFromTab({
             type: 'updateToDeviceErroredEvents',
         })
@@ -52,7 +52,7 @@ export const useOlmStore = defineStore('olm', () => {
     |                            |
     \*--------------------------*/
 
-    // `${otherUserId}:${otherDeviceCurveKey}:${algorithm}` -> OlmSessionWithUsage[]
+    // `${myDeviceCurveKey},${otherUserId},${otherDeviceCurveKey},${algorithm}` -> OlmSessionWithUsage[]
     const olmSessions = ref<Record<string, OlmSessionWithUsage[]>>({})
 
     async function loadAllOlmSessions() {
@@ -65,6 +65,8 @@ export const useOlmStore = defineStore('olm', () => {
                     if (!olmSecretKey.value) continue
                     olmSessions.value[olmId] = []
                     for (const pickledSession of value) {
+                        const [myDeviceCurveKey] = olmId.slice(0, olmId.indexOf(','))
+                        if (myDeviceCurveKey !== olmAccount.value?.curve25519_key) continue
                         olmSessions.value[olmId].push({
                             createdTs: pickledSession.createdTs ?? Date.now(),
                             lastInboundActivityTs: pickledSession.lastInboundActivityTs ?? 0,
@@ -94,8 +96,9 @@ export const useOlmStore = defineStore('olm', () => {
     }
 
     async function getOlmSessions(otherUserId: string, otherDeviceCurveKey: string, algorithm: string) {
-        await loadOlmSessions(`${otherUserId}:${otherDeviceCurveKey}:${algorithm}`)
-        return olmSessions.value[`${otherUserId}:${otherDeviceCurveKey}:${algorithm}`] ?? []
+        if (!olmAccount.value) return []
+        await loadOlmSessions(`${olmAccount.value.curve25519_key},${otherUserId},${otherDeviceCurveKey},${algorithm}`)
+        return olmSessions.value[`${olmAccount.value.curve25519_key},${otherUserId},${otherDeviceCurveKey},${algorithm}`] ?? []
     }
 
     async function addOlmSession(
@@ -105,7 +108,8 @@ export const useOlmStore = defineStore('olm', () => {
         session: Session,
         isOutbound: boolean,
     ) {
-        const sessionKey = `${otherUserId}:${otherDeviceCurveKey}:${algorithm}`
+        if (!olmAccount.value) return
+        const sessionKey = `${olmAccount.value.curve25519_key},${otherUserId},${otherDeviceCurveKey},${algorithm}`
         if (!olmSessions.value[sessionKey]) {
             olmSessions.value[sessionKey] = []
         }
@@ -124,7 +128,7 @@ export const useOlmStore = defineStore('olm', () => {
             }
         })
         try {
-            await saveDiscortixTableKey('olm', ['sessions', sessionKey], deepToRaw(sessionPickles))
+            await saveDiscortixTableKey('olm', ['sessions', sessionKey], deepToRaw(sessionPickles), { durability: 'strict' })
             broadcastMessageFromTab({
                 type: 'updateOlmSessions',
                 data: {
@@ -148,7 +152,7 @@ export const useOlmStore = defineStore('olm', () => {
                             pickle: sessionWithUsage.session.pickle(olmSecretKey.value!)
                         }
                     })
-                    await saveDiscortixTableKey('olm', ['sessions', sessionKey], deepToRaw(sessionPickles))
+                    await saveDiscortixTableKey('olm', ['sessions', sessionKey], deepToRaw(sessionPickles), { durability: 'strict' })
                     broadcastMessageFromTab({
                         type: 'updateOlmSessions',
                         data: {
@@ -196,7 +200,7 @@ export const useOlmStore = defineStore('olm', () => {
                         pickle: sessionWithUsage.session.pickle(olmSecretKey.value!)
                     }
                 })
-                await saveDiscortixTableKey('olm', ['sessions', sessionKey], deepToRaw(sessionPickles))
+                await saveDiscortixTableKey('olm', ['sessions', sessionKey], deepToRaw(sessionPickles), { durability: 'strict' })
                 broadcastMessageFromTab({
                     type: 'updateOlmSessions',
                     data: {

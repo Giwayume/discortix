@@ -1,5 +1,7 @@
+import { onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
+import mitt from 'mitt'
 import type { InboundCreationResult, Session } from 'vodozemac-wasm-bindings'
 
 import { DecryptionError, EncryptionNotSupportedError } from '@/utils/error'
@@ -8,6 +10,7 @@ import { snakeCaseApiRequest, camelizeApiResponse } from '@/utils/zod'
 
 import { createLogger } from '@/composables/logger'
 import { useBroadcast } from '@/composables/broadcast'
+import { useCryptoKeys } from './crypto-keys'
 
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
 import { useMegolmStore } from '@/stores/megolm'
@@ -37,13 +40,20 @@ interface ProcessedSendToDeviceMessage {
     messageContent: Partial<OlmPayload>;
 }
 
+const emitter = mitt()
 const olmAlgorithm = 'm.olm.v1.curve25519-aes-sha2'
 const megolmAlgorithm = 'm.megolm.v1.aes-sha2'
-const encryptedMessageTypes = ['m.dummy', 'm.room_key', 'm.forwarded_room_key']
+const encryptedMessageTypes = [
+    'm.dummy', 'm.key.verification.accept', 'm.key.verification.cancel', 'm.key.verification.done',
+    'm.key.verification.key', 'm.key.verification.mac', 'm.key.verification.ready',
+    'm.key.verification.request', 'm.key.verification.start', 'm.room_key', 'm.forwarded_room_key',
+    'm.secret.request', 'm.secret.send',
+]
 const toDeviceErroredEventRetainTimeout = 2.592e+9 // 30 days
 
 export function useOlm() {
     const { isLeader } = useBroadcast()
+    const { fetchUserKeys } = useCryptoKeys()
     const cryptoKeysStore = useCryptoKeysStore()
     const {
         saveOlmAccount,
@@ -78,6 +88,8 @@ export function useOlm() {
         deviceId: sessionDeviceId,
     } = storeToRefs(useSessionStore())
 
+    const inboundMessageCallbacks = ref<Array<(event: ApiV3SyncToDeviceEvent) => void>>([])
+
     async function sendMessageToDevices<T = any>(
         userDeviceIds: Array<[string, string]>,
         messageType: string,
@@ -102,9 +114,21 @@ export function useOlm() {
             }
             let encryptedMessageToSend: Partial<OlmPayload> | undefined = undefined
 
-            const myDeviceEd25519Key = deviceKeys.value[sessionUserId.value]?.[sessionDeviceId.value]?.keys[`ed25519:${sessionDeviceId.value}`] ?? ''
-            const otherDeviceCurveKey = deviceKeys.value[otherUserId]?.[otherDeviceId]?.keys[`curve25519:${otherDeviceId}`] ?? ''
-            const otherDeviceEd25519Key = deviceKeys.value[otherUserId]?.[otherDeviceId]?.keys[`ed25519:${otherDeviceId}`] ?? ''
+            let myDeviceEd25519Key = deviceKeys.value[sessionUserId.value]?.[sessionDeviceId.value]?.keys[`ed25519:${sessionDeviceId.value}`]
+            let otherDeviceCurveKey = deviceKeys.value[otherUserId]?.[otherDeviceId]?.keys[`curve25519:${otherDeviceId}`]
+            let otherDeviceEd25519Key = deviceKeys.value[otherUserId]?.[otherDeviceId]?.keys[`ed25519:${otherDeviceId}`]
+
+            if (!myDeviceEd25519Key || !otherDeviceCurveKey || !otherDeviceEd25519Key) {
+                await fetchUserKeys([sessionUserId.value, otherUserId])
+                myDeviceEd25519Key = deviceKeys.value[sessionUserId.value]?.[sessionDeviceId.value]?.keys[`ed25519:${sessionDeviceId.value}`]
+                otherDeviceCurveKey = deviceKeys.value[otherUserId]?.[otherDeviceId]?.keys[`curve25519:${otherDeviceId}`]
+                otherDeviceEd25519Key = deviceKeys.value[otherUserId]?.[otherDeviceId]?.keys[`ed25519:${otherDeviceId}`]
+            }
+
+            if (!myDeviceEd25519Key || !otherDeviceCurveKey || !otherDeviceEd25519Key) {
+                log.warn(`Skipping sending to-device message due to missing device/signing keys for ${otherUserId} ${otherDeviceId}`)
+                continue
+            }
 
             let olmSessions: OlmSessionWithUsage[] = overrideOlmSession
                 ? [{
@@ -170,6 +194,8 @@ export function useOlm() {
                 })[0]
 
                 if (!mostReliableSession) throw new Error('Could not find an OLM session to use')
+
+                console.log('Sending message: ', messageToSend)
 
                 const encryptedResult = mostReliableSession.session.encrypt(
                     new TextEncoder().encode(
@@ -317,6 +343,9 @@ export function useOlm() {
             event = camelizeApiResponse(event)
         }
 
+        console.log('received inbound message', event)
+        emitter.emit('inboundMessage', event)
+
         switch (event.type) {
             case 'm.room_key_request':
                 {
@@ -441,9 +470,22 @@ export function useOlm() {
         }
     }
 
+    function onInboundMessage(callback: (event: ApiV3SyncToDeviceEvent) => void) {
+        emitter.on('inboundMessage', callback as never)
+        inboundMessageCallbacks.value.push(callback)
+    }
+
+    onUnmounted(() => {
+        for (const callback of inboundMessageCallbacks.value) {
+            emitter.off('inboundMessage', callback as never)
+        }
+        inboundMessageCallbacks.value = []
+    })
+
     return {
         sendMessageToDevices,
         manageDeviceMessagesFromApiV3SyncResponse,
+        onInboundMessage,
     }
 
 }

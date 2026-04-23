@@ -38,7 +38,7 @@
                 </h2>
                 <div class="px-3 relative -top-[1px]">
                     <template 
-                        v-for="(friend, friendIndex) of activeTab === 'online' ? onlineFriends : allFriends"
+                        v-for="(friend, friendIndex) of activeTab === 'online' ? onlineFriendsFiltered : allFriendsFiltered"
                         :key="friend.userId"
                     >
                         <div v-if="friendIndex !== 0" class="ml-3 mr-2 border-t border-(--border-subtle)" />
@@ -75,11 +75,11 @@
                         </div>
                     </template>
                 </div>
-                <div v-if="activeTab === 'online' && onlineFriendCount === 0" class="text-sm px-6 py-4 text-muted">
-                    {{ t('home.noOnlineFriends') }}
+                <div v-if="activeTab === 'online' && onlineFriendFilteredCount === 0" class="text-sm px-6 py-4 text-muted">
+                    {{ t(onlineFriendCount === 0 ? 'home.noOnlineFriends' : 'home.noOnlineFilteredFriends') }}
                 </div>
-                <div v-if="activeTab === 'all' && allFriendCount === 0" class="text-sm px-6 py-4 text-muted">
-                    {{ t('home.noFriends') }}
+                <div v-if="activeTab === 'all' && allFriendFilteredCount === 0" class="text-sm px-6 py-4 text-muted">
+                    {{ t(allFriendCount === 0 ? 'home.noFriends' : 'home.noFilteredFriends') }}
                 </div>
             </template>
             <template v-else-if="activeTab === 'addFriend'">
@@ -215,14 +215,18 @@ watch(() => activeTab.value, () => {
 })
 
 const allFriends = computed<UserProfile[]>(() => {
-    const searchTerms = searchText.value.toLowerCase().split(/\s+/)
     return ((accountData.value['invalid.discortix.friends'] as EventInvalidDiscortixFriendsContent)?.friends.map((userId) => {
         return profiles.value[userId] ?? {
             userId,
             currentlyActive: false,
             presence: 'offline',
         } as UserProfile
-    }) ?? []).filter((friend) => {
+    }) ?? [])
+})
+
+const allFriendsFiltered = computed<UserProfile[]>(() => {
+    const searchTerms = searchText.value.toLowerCase().split(/\s+/)
+    return allFriends.value.filter((friend) => {
         let allTermsFound = true
         const displayname = friend.displayname?.toLowerCase()
         const userId = (friend.userId.replace(/^@/, '').split(':')[0]!).toLowerCase()
@@ -243,12 +247,39 @@ const onlineFriends = computed<UserProfile[]>(() => {
     return allFriends.value.filter((profile) => profile.presence === 'online' || profile.presence === 'unavailable')
 })
 
+const onlineFriendsFiltered = computed<UserProfile[]>(() => {
+    const searchTerms = searchText.value.toLowerCase().split(/\s+/)
+    return onlineFriends.value.filter((friend) => {
+        let allTermsFound = true
+        const displayname = friend.displayname?.toLowerCase()
+        const userId = (friend.userId.replace(/^@/, '').split(':')[0]!).toLowerCase()
+        for (const searchTerm of searchTerms) {
+            if (
+                (!displayname || !displayname.includes(searchTerm))
+                && (!userId || !userId.includes(searchTerm))
+            ) {
+                allTermsFound = false
+                break
+            }
+        }
+        return allTermsFound
+    })
+})
+
 const allFriendCount = computed(() => {
     return allFriends.value.length
 })
 
+const allFriendFilteredCount = computed(() => {
+    return allFriendsFiltered.value.length
+})
+
 const onlineFriendCount = computed(() => {
     return onlineFriends.value.length
+})
+
+const onlineFriendFilteredCount = computed(() => {
+    return onlineFriendsFiltered.value.length
 })
 
 function onClickFriendItem(event: MouseEvent, friend: UserProfile) {

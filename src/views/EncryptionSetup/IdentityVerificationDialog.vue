@@ -8,7 +8,7 @@
     >
         <p class="text-default">{{ t('identityVerification.subtitle') }}</p>
         <div class="flex items-stretch justify-center gap-2 my-5">
-            <Button severity="secondary">
+            <Button severity="secondary" @click="deviceVerificationDialogVisible = true">
                 <div class="flex flex-col items-center">
                     <span class="pi pi-mobile !text-2xl mb-2" aria-hidden="true" />
                     {{ t('identityVerification.verifyWithAnotherDeviceButton') }}
@@ -26,6 +26,7 @@
             <a href="#">{{ t('identityVerification.resetIdentityLink') }}</a>
         </p>
     </Dialog>
+    <DeviceVerificationRequestDialog v-model:visible="deviceVerificationDialogVisible" @success="emit('update:visible', false)" />
     <EnterRecoveryKeyDialog v-model:visible="recoveryKeyDialogVisible" @success="emit('update:visible', false)" />
 </template>
 
@@ -33,6 +34,7 @@
 import { defineAsyncComponent, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+const DeviceVerificationRequestDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/DeviceVerificationRequestDialog.vue'))
 const EnterRecoveryKeyDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/EnterRecoveryKeyDialog.vue'))
 
 import Button from 'primevue/button'
@@ -51,6 +53,7 @@ const emit = defineEmits<{
     (e: 'update:visible', visible: boolean): void
 }>()
 
+const deviceVerificationDialogVisible = ref<boolean>(false)
 const recoveryKeyDialogVisible = ref<boolean>(false)
 
 </script>

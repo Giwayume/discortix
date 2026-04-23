@@ -4,6 +4,10 @@ import mitt from 'mitt'
 
 const emitter = mitt()
 
+interface LogoutOptions {
+    secure?: boolean;
+}
+
 export function useLogout() {
 
     let router: Router | undefined
@@ -11,8 +15,8 @@ export function useLogout() {
         router = useRouter()
     }
 
-    async function logout() {
-        emitter.emit('logout')
+    async function logout(options?: LogoutOptions) {
+        emitter.emit('logout', options)
 
         // TODO - probably should show a message when the session expired.
         if (router) {
@@ -27,11 +31,11 @@ export function useLogout() {
     }
 }
 
-export function onLogout(callback: () => void, options?: { permanent?: boolean }) {
+export function onLogout(callback: (options?: LogoutOptions) => void, options?: { permanent?: boolean }) {
     if (getCurrentInstance() && !options?.permanent) {
         onUnmounted(() => {
-            emitter.off('logout', callback)
+            emitter.off('logout', callback as never)
         })
     }
-    emitter.on('logout', callback)
+    emitter.on('logout', callback as never)
 }

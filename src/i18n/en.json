@@ -46,6 +46,55 @@
         "cancelButton": "Cancel",
         "deleteButton": "Delete"
     },
+    "deviceVerificationRequest": {
+        "toast": {
+            "title": "Verification Request",
+            "message": "Would you like to verify your other device?",
+            "ignoreButton": "Ignore",
+            "acceptButton": "Accept"
+        },
+        "title": "Device Verification",
+        "sendingRequestInstructions": "A request to verify this device has been sent to your other devices.\n\nPlease open Discortix or another Matrix-compatible chat application on your other device and accept the request.",
+        "okButton": "OK",
+        "cancelButton": "Cancel",
+        "resendRequestButton": "Resend Request",
+        "sasMatchButton": "They Match",
+        "sasNoMatchButton": "They Don't Match",
+        "verificationInstructions": "Check that these characters match what you see on your other device.",
+        "noMatchDisclaimer": "## Your messages are not secure\nOne of the following may be compromised:\n* Your homeserver\n* The homeserver the user you're verifying is connected to\n* Yours, or the other users' internet connection\n* Yours, or the other users' session",
+        "verificationSent": "Verification sent. Please verify on your other device.",
+        "requestSecrets": "Retrieving information from the other device...",
+        "done": "Verification is complete!",
+        "errors": {
+            "fetchUserKeysError": "An error occurred when trying to find your other devices. This could be a temporary error. Please try again later.",
+            "startFailed": "Failed to start the verification due to a network error. Please try again later.",
+            "ignored": "No devices responded to the verification request.",
+            "otherDeviceCanceled": "The other device canceled the verification.",
+            "serverDown": "Your homeserver appears to be down, or your internet connection failed. Please try again later.",
+            "unknown": "An unknown error occurred. Please try again later."
+        }
+    },
+    "deviceVerificationResponse": {
+        "title": "Device Verification",
+        "okButton": "OK",
+        "cancelButton": "Cancel",
+        "resendRequestButton": "Resend Request",
+        "sasMatchButton": "They Match",
+        "sasNoMatchButton": "They Don't Match",
+        "verificationInstructions": "Check that these characters match what you see on your other device.",
+        "noMatchDisclaimer": "## Your messages are not secure\nOne of the following may be compromised:\n* Your homeserver\n* The homeserver the user you're verifying is connected to\n* Yours, or the other users' internet connection\n* Yours, or the other users' session",
+        "verificationSent": "Verification sent. Please verify on your other device.",
+        "requestSecrets": "Retrieving information from the other device...",
+        "done": "Verification is complete!",
+        "errors": {
+            "fetchUserKeysError": "An error occurred when trying to find your other devices. This could be a temporary error. Please try again later.",
+            "startFailed": "Failed to start the verification due to a network error. Please try again later.",
+            "ignored": "No devices responded to the verification request.",
+            "otherDeviceCanceled": "The other device canceled the verification.",
+            "serverDown": "Your homeserver appears to be down, or your internet connection failed. Please try again later.",
+            "unknown": "An unknown error occurred. Please try again later."
+        }
+    },
     "dialog": {
         "close": "Close dialog"
     },
@@ -196,7 +245,9 @@
         "messageTooltip": "Message",
         "moreTooltip": "More",
         "noOnlineFriends": "No friends are online.",
+        "noOnlineFilteredFriends": "No online friends found from your search.",
         "noFriends": "You have not added any friends yet.",
+        "noFilteredFriends": "No friends found from your search.",
         "contextMenu": {
             "startVideoCall": "Start Video Call",
             "startVoiceCall": "Start Voice Call",

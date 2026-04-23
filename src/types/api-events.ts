@@ -255,6 +255,115 @@ export const EventImPoniesUserEmotesContentSchema = z.object({
 })
 export type EventImPoniesUserEmotesContent = z.infer<typeof EventImPoniesUserEmotesContentSchema>
 
+/** @see https://spec.matrix.org/v1.18/client-server-api/#mkeyverificationaccept */
+export const EventKeyVerificationAcceptContentSchema = z.object({
+    commitment: z.string(),
+    hash: z.string(),
+    keyAgreementProtocol: z.string(),
+    'm.relates_to': z.object({
+        eventId: z.string().optional(),
+        relType: z.enum(['m.reference']).optional(),
+    }).optional(),
+    messageAuthenticationCode: z.string(),
+    shortAuthenticationString: z.array(z.string()),
+    transactionId: z.string().optional(),
+})
+export type EventKeyVerificationAcceptContent = z.infer<typeof EventKeyVerificationAcceptContentSchema>
+
+/** @see https://spec.matrix.org/v1.18/client-server-api/#mkeyverificationcancel */
+export const EventKeyVerificationCancelContentSchema = z.object({
+    code: z.string(),
+    'm.relates_to': z.object({
+        eventId: z.string().optional(),
+        relType: z.enum(['m.reference']).optional(),
+    }).optional(),
+    reason: z.string().optional(),
+    transactionId: z.string().optional(),
+})
+export type EventKeyVerificationCancelContent = z.infer<typeof EventKeyVerificationCancelContentSchema>
+
+/** @see https://spec.matrix.org/v1.18/client-server-api/#mkeyverificationdone */
+export const EventKeyVerificationDoneContentSchema = z.object({
+    'm.relates_to': z.object({
+        eventId: z.string().optional(),
+        relType: z.enum(['m.reference']).optional(),
+    }).optional(),
+    transactionId: z.string().optional(),
+})
+export type EventKeyVerificationDoneContent = z.infer<typeof EventKeyVerificationDoneContentSchema>
+
+/** @see https://spec.matrix.org/v1.18/client-server-api/#mkeyverificationkey */
+export const EventKeyVerificationKeyContentSchema = z.object({
+    key: z.string(),
+    'm.relates_to': z.object({
+        eventId: z.string().optional(),
+        relType: z.enum(['m.reference']).optional(),
+    }).optional(),
+    transactionId: z.string().optional(),
+})
+export type EventKeyVerificationKeyContent = z.infer<typeof EventKeyVerificationKeyContentSchema>
+
+/** @see https://spec.matrix.org/v1.18/client-server-api/#mkeyverificationmac */
+export const EventKeyVerificationMacContentSchema = z.object({
+    keys: z.string(),
+    'm.relates_to': z.object({
+        eventId: z.string().optional(),
+        relType: z.enum(['m.reference']).optional(),
+    }).optional(),
+    mac: z.record(z.string(), z.string()),
+    transactionId: z.string().optional(),
+})
+export type EventKeyVerificationMacContent = z.infer<typeof EventKeyVerificationMacContentSchema>
+
+/** @see https://spec.matrix.org/v1.18/client-server-api/#mkeyverificationready */
+export const EventKeyVerificationReadyContentSchema = z.object({
+    fromDevice: z.string(),
+    'm.relates_to': z.object({
+        eventId: z.string().optional(),
+        relType: z.enum(['m.reference']).optional(),
+    }).optional(),
+    methods: z.array(z.string()),
+    transactionId: z.string().optional(),
+})
+export type EventKeyVerificationReadyContent = z.infer<typeof EventKeyVerificationReadyContentSchema>
+
+/** @see https://spec.matrix.org/v1.18/client-server-api/#mkeyverificationrequest */
+export const EventKeyVerificationRequestContentSchema = z.object({
+    fromDevice: z.string(),
+    methods: z.array(z.string()),
+    timestamp: z.number().optional(),
+    transactionId: z.string().optional(),
+})
+export type EventKeyVerificationRequestContent = z.infer<typeof EventKeyVerificationRequestContentSchema>
+
+/** @see https://spec.matrix.org/v1.18/client-server-api/#mkeyverificationstart */
+export const EventKeyVerificationStartContentSchema = z.object({
+    fromDevice: z.string(),
+    'm.relates_to': z.object({
+        eventId: z.string().optional(),
+        relType: z.enum(['m.reference']).optional(),
+    }).optional(),
+    method: z.string(),
+    nextMethod: z.string().optional(),
+    transactionId: z.string().optional(),
+})
+export type EventKeyVerificationStartContent = z.infer<typeof EventKeyVerificationStartContentSchema>
+
+/** @see https://spec.matrix.org/v1.18/client-server-api/#mkeyverificationstartmsasv1 */
+export const EventKeyVerificationStartSasv1Schema = z.object({
+    fromDevice: z.string(),
+    hashes: z.array(z.string()),
+    keyAgreementProtocols: z.array(z.string()),
+    'm.relates_to': z.object({
+        eventId: z.string().optional(),
+        relType: z.enum(['m.reference']).optional(),
+    }).optional(),
+    messageAuthenticationCodes: z.array(z.string()),
+    method: z.enum(['m.sas.v1']),
+    shortAuthenticationString: z.array(z.string()),
+    transactionId: z.string().optional(),
+})
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mlocation */
 export const EventLocationContentSchema = z.object({
     body: z.string(),
@@ -561,6 +670,22 @@ export const EventRoomTopicContentSchema = z.object({
 })
 export type EventRoomTopicContent = z.infer<typeof EventRoomTopicContentSchema>
 
+/** @see https://spec.matrix.org/v1.18/client-server-api/#msecretrequest */
+export const EventSecretRequestContentSchema = z.object({
+    action: z.enum(['request', 'request_cancellation']),
+    name: z.string().optional(),
+    requestId: z.string(),
+    requestingDeviceId: z.string(),
+})
+export type EventSecretRequestContent = z.infer<typeof EventSecretRequestContentSchema>
+
+/** @see https://spec.matrix.org/v1.18/client-server-api/#msecretsend */
+export const EventSecretSendContentSchema = z.object({
+    requestId: z.string(),
+    secret: z.string(),
+})
+export type EventSecretSendContent = z.infer<typeof EventSecretSendContentSchema>
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mspacechild */
 export const EventSpaceChildContentSchema = z.object({
     order: z.string().optional(),
@@ -672,6 +797,14 @@ export const eventContentSchemaByType = {
     'm.forwarded_room_key': EventForwardedRoomKeyContentSchema,
     'm.fully_read': EventFullyReadContentSchema,
     'm.image': EventImageContentSchema,
+    'm.key.verification.accept': EventKeyVerificationAcceptContentSchema,
+    'm.key.verification.cancel': EventKeyVerificationCancelContentSchema,
+    'm.key.verification.done': EventKeyVerificationDoneContentSchema,
+    'm.key.verification.key': EventKeyVerificationKeyContentSchema,
+    'm.key.verification.mac': EventKeyVerificationMacContentSchema,
+    'm.key.verification.ready': EventKeyVerificationReadyContentSchema,
+    'm.key.verification.request': EventKeyVerificationRequestContentSchema,
+    'm.key.verification.start': EventKeyVerificationStartContentSchema,
     'm.location': EventLocationContentSchema,
     'm.marked_unread': EventMarkedUnreadContentSchema,
     'm.notice': EventNoticeContentSchema,
@@ -696,6 +829,8 @@ export const eventContentSchemaByType = {
     'm.room.topic': EventRoomTopicContentSchema,
     'm.room_key': EventRoomKeyContentSchema,
     'm.room_key_request': EventRoomKeyRequestContentSchema,
+    'm.secret.request': EventSecretRequestContentSchema,
+    'm.secret.send': EventSecretSendContentSchema,
     'm.space.child': EventSpaceChildContentSchema,
     'm.space.parent': EventSpaceParentContentSchema,
     'm.tag': EventTagContentSchema,
@@ -718,6 +853,14 @@ export interface EventContentByType {
     'm.forwarded_room_key': EventForwardedRoomKeyContent,
     'm.fully_read': EventFullyReadContent,
     'm.image': EventImageContent,
+    'm.key.verification.accept': EventKeyVerificationAcceptContent,
+    'm.key.verification.cancel': EventKeyVerificationCancelContent,
+    'm.key.verification.done': EventKeyVerificationDoneContent,
+    'm.key.verification.key': EventKeyVerificationKeyContent,
+    'm.key.verification.mac': EventKeyVerificationMacContent,
+    'm.key.verification.ready': EventKeyVerificationReadyContent,
+    'm.key.verification.request': EventKeyVerificationRequestContent,
+    'm.key.verification.start': EventKeyVerificationStartContent,
     'm.location': EventLocationContent,
     'm.marked_unread': EventMarkedUnreadContent,
     'm.notice': EventNoticeContent,
@@ -742,6 +885,8 @@ export interface EventContentByType {
     'm.room.topic': EventRoomTopicContent,
     'm.room_key': EventRoomKeyContent,
     'm.room_key_request': EventRoomKeyRequestContent,
+    'm.secret.request': EventSecretRequestContent,
+    'm.secret.send': EventSecretSendContent,
     'm.space.child': EventSpaceChildContent,
     'm.space.parent': EventSpaceParentContent,
     'm.tag': EventTagContent,

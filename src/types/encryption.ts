@@ -70,3 +70,11 @@ export interface PickledOlmSessionWithUsage {
     isConfirmed?: boolean;
     pickle: string;
 }
+
+export interface SasEmoji {
+    number: number;
+    emoji: string;
+    description: string;
+    unicode: string;
+    translated_descriptions: Record<string, string>;
+}

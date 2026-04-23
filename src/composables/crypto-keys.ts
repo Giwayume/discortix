@@ -3,6 +3,7 @@ import { useI18n, type ComposerTranslation } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import initVodozemacAsync, { verify_signature as verifyAccountSignature, Account } from 'vodozemac-wasm-bindings'
+import * as z from 'zod'
 
 import { createLogger } from '@/composables/logger'
 
@@ -19,7 +20,7 @@ import {
     generateSecretKeyId, createSecretKeyDescription, validateSecretKeyDescription,
     generateSecretKey, pickleKeyToAesKey,
 } from '@/utils/secret-storage'
-import * as z from 'zod'
+import { snakeCaseApiRequest } from '@/utils/zod'
 
 import { useAccountData } from './account-data'
 import { useBroadcast } from './broadcast'
@@ -38,6 +39,7 @@ import {
     type ApiV3KeysUploadRequest, type ApiV3KeysUploadResponse, ApiV3KeysUploadResponseSchema,
     type ApiV3KeysDeviceSigningUploadRequest,
     type ApiV3SyncResponse,
+    type ApiV3KeysSignaturesUploadRequest,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
@@ -78,18 +80,24 @@ export function useCryptoKeys() {
         signingKeysValidationFailed,
         signingKeysUploadFailed,
         secretKeyIdsMissing,
+        sasVerificationLoadFailed,
         vodozemacInitFailed,
         deviceKeyUploadFailed,
         deviceNeedsDeletion,
         userDevicePickleKey,
+        crossSigningMasterPublicKey,
         crossSigningMasterKey,
+        crossSigningUserSigningPublicKey,
         crossSigningUserSigningKey,
+        crossSigningSelfSigningPublicKey,
         crossSigningSelfSigningKey,
+        megolmBackupV1Key,
         olmSecretKey,
         olmAccount,
     } = storeToRefs(cryptoKeysStore)
     const {
         populateKeysFromApiV3KeysQueryResponse,
+        loadSasVerifiedDevices,
     } = cryptoKeysStore
     const {
         loadToDeviceErroredEvents,
@@ -146,6 +154,7 @@ export function useCryptoKeys() {
         if (!sessionUserId.value) throw new DOMException('User ID not found. Cannot proceed.', 'NotFoundError')
 
         const publicMasterKeyEncoded = encodeUnpaddedBase64(new Uint8Array(keys.crossSigningMaster.publicKey))
+        crossSigningMasterPublicKey.value = publicMasterKeyEncoded
         const masterKey: ApiV3KeysDeviceSigningUploadRequest['master_key'] = {
             keys: {
                 [`ed25519:${publicMasterKeyEncoded}`]: publicMasterKeyEncoded,
@@ -159,6 +168,7 @@ export function useCryptoKeys() {
         masterKey.signatures[sessionUserId.value][`ed25519:${publicMasterKeyEncoded}`] = await createSigningJson(masterKey, keys.crossSigningMaster.privateKey)
 
         const publicSelfSigningKeyEncoded = encodeUnpaddedBase64(new Uint8Array(keys.crossSigningSelfSigning.publicKey))
+        crossSigningSelfSigningPublicKey.value = publicSelfSigningKeyEncoded
         const selfSigningKey: ApiV3KeysDeviceSigningUploadRequest['self_signing_key'] = {
             keys: {
                 [`ed25519:${publicSelfSigningKeyEncoded}`]: publicSelfSigningKeyEncoded,
@@ -172,6 +182,7 @@ export function useCryptoKeys() {
         selfSigningKey.signatures[sessionUserId.value][`ed25519:${publicSelfSigningKeyEncoded}`] = await createSigningJson(selfSigningKey, keys.crossSigningMaster.privateKey)
 
         const publicUserSigningKeyEncoded = encodeUnpaddedBase64(new Uint8Array(keys.crossSigningUserSigning.publicKey))
+        crossSigningUserSigningPublicKey.value = publicUserSigningKeyEncoded
         const userSigningKey: ApiV3KeysDeviceSigningUploadRequest['user_signing_key'] = {
             keys: {
                 [`ed25519:${publicUserSigningKeyEncoded}`]: publicUserSigningKeyEncoded,
@@ -201,7 +212,7 @@ export function useCryptoKeys() {
     async function uploadAuthenticatedUserDeviceKeys(
         uploadedKeys: ApiV3KeysQueryResponse,
         olmAccount: Account,
-        crossSigningSelfSigningKey: Uint8Array,
+        crossSigningSelfSigningKey?: Uint8Array,
     ) {
         if (!sessionUserId.value || !sessionDeviceId.value /*|| !isLeader.value*/) return
         let deviceKeys: ApiV3KeysUploadRequest['device_keys'] | undefined = undefined
@@ -303,6 +314,7 @@ export function useCryptoKeys() {
             }
         }
 
+        // Upload all the keys
         const response = await fetchJson<ApiV3KeysUploadResponse>(
             `${homeserverBaseUrl.value}/_matrix/client/v3/keys/upload`,
             {
@@ -319,22 +331,51 @@ export function useCryptoKeys() {
 
         olmAccount.mark_keys_as_published()
         if (olmSecretKey.value) {
-            await saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.pickle(olmSecretKey.value))
+            await saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.pickle(olmSecretKey.value), { durability: 'strict' })
         }
 
-        if (response.oneTimeKeyCounts?.signedCurve25519 != null && response.oneTimeKeyCounts.signedCurve25519 < 50) {
+        if (
+            response.oneTimeKeyCounts?.signedCurve25519 != null
+            && response.oneTimeKeyCounts.signedCurve25519 < 50
+        ) {
             uploadAuthenticatedUserDeviceOneTimeKeys(
                 olmAccount,
+                olmAccount.max_number_of_one_time_keys - response.oneTimeKeyCounts.signedCurve25519,
                 crossSigningSelfSigningKey,
-                olmAccount.max_number_of_one_time_keys - response.oneTimeKeyCounts.signedCurve25519
+            )
+        }
+
+        // Upload cross-signing signature of device key
+        const myDeviceKey: ApiV3KeysUploadRequest['device_keys'] = (deviceKeys ? snakeCaseApiRequest(deviceKeys) : undefined) ?? uploadedKeys.deviceKeys?.[sessionUserId.value]?.[sessionDeviceId.value]
+        if (
+            myDeviceKey
+            && crossSigningSelfSigningPublicKey.value
+            && crossSigningSelfSigningKey
+            && !myDeviceKey.signatures[sessionUserId.value]?.[`ed25519:${crossSigningSelfSigningPublicKey.value}`]
+        ) {
+            const deviceKeysMessage = canonicalJsonStringify(myDeviceKey, ['signatures', 'unsigned'])
+            myDeviceKey.signatures[sessionUserId.value]![`ed25519:${crossSigningSelfSigningPublicKey.value}`] = await createSigningJson(
+                deviceKeysMessage, crossSigningSelfSigningKey,
+            )
+            fetchJson(
+                `${homeserverBaseUrl.value}/_matrix/client/v3/keys/signatures/upload`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        [sessionUserId.value]: {
+                            [sessionDeviceId.value]: myDeviceKey,
+                        }
+                    } satisfies ApiV3KeysSignaturesUploadRequest),
+                    useAuthorization: true,
+                }
             )
         }
     }
 
     async function uploadAuthenticatedUserDeviceOneTimeKeys(
         olmAccount: Account,
-        crossSigningSelfSigningKey: Uint8Array,
         keyCount: number,
+        crossSigningSelfSigningKey?: Uint8Array,
     ) {
         if (!sessionUserId.value || !sessionDeviceId.value) return
 
@@ -349,9 +390,13 @@ export function useCryptoKeys() {
                     },
                 },
             }
-            oneTimeKeyToSign.signatures[sessionUserId.value]![`ed25519:${sessionDeviceId.value}`] = await createSigningJson(
-                oneTimeKeyToSign, crossSigningSelfSigningKey,
-            )
+            const oneTimeKeyMessage = canonicalJsonStringify(oneTimeKeyToSign, ['signatures', 'unsigned'])
+            oneTimeKeyToSign.signatures[sessionUserId.value]![`ed25519:${sessionDeviceId.value}`] = olmAccount.sign(oneTimeKeyMessage)
+            if (crossSigningSelfSigningKey && crossSigningSelfSigningPublicKey.value) {
+                oneTimeKeyToSign.signatures[sessionUserId.value]![`ed25519:${crossSigningSelfSigningPublicKey.value}`] = await createSigningJson(
+                    oneTimeKeyToSign, crossSigningSelfSigningKey,
+                )
+            }
             oneTimeKeys[`signed_curve25519:${keyId}`] = oneTimeKeyToSign
         }
 
@@ -369,7 +414,7 @@ export function useCryptoKeys() {
 
         olmAccount.mark_keys_as_published()
         if (olmSecretKey.value) {
-            await saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.pickle(olmSecretKey.value))
+            await saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.pickle(olmSecretKey.value), { durability: 'strict' })
         }
     }
 
@@ -436,20 +481,79 @@ export function useCryptoKeys() {
             log.error('Vodozemac initialization failed.', error)
         }
 
-        // Try to retrieve keys from the account data and uploaded store.
+        // Load OLM account
+        olmSecretKey.value = userDevicePickleKey.value
+        const accountPickle: string | undefined = (await loadDiscortixTableKey('olm', ['account', sessionDeviceId.value!])) ?? undefined
+        if (accountPickle && olmSecretKey.value) {
+            try {
+                olmAccount.value = Account.from_pickle(accountPickle, olmSecretKey.value)
+            } catch (error) {
+                log.error('Error fetching OLM account from storage: ', error)
+            }
+        }
+
+        // Retrieve signing/backup keys from storage if they exist there
+        if (userDevicePickleKey.value) {
+            const [
+                crossSigningMasterStored,
+                crossSigningUserSigningStored,
+                crossSigningSelfSigningStored,
+                megolmBackupV1Stored,
+            ] = await allSettledValues([
+                loadDiscortixTableKey('4s', [sessionUserId.value, 'm.cross_signing.master']),
+                loadDiscortixTableKey('4s', [sessionUserId.value, 'm.cross_signing.user_signing']),
+                loadDiscortixTableKey('4s', [sessionUserId.value, 'm.cross_signing.self_signing']),
+                loadDiscortixTableKey('4s', [sessionUserId.value, 'm.megolm_backup.v1']),
+            ])
+            if (crossSigningMasterStored) {
+                crossSigningMasterKey.value = decodeBase64(
+                    await decryptSecret(userDevicePickleKey.value, crossSigningMasterStored, 'm.cross_signing.master')
+                )
+            }
+            if (crossSigningUserSigningStored) {
+                crossSigningUserSigningKey.value = decodeBase64(
+                    await decryptSecret(userDevicePickleKey.value, crossSigningUserSigningStored, 'm.cross_signing.user_signing')
+                )
+            }
+            if (crossSigningSelfSigningStored) {
+                crossSigningSelfSigningKey.value = decodeBase64(
+                    await decryptSecret(userDevicePickleKey.value, crossSigningSelfSigningStored, 'm.cross_signing.self_signing')
+                )
+            }
+            if (megolmBackupV1Stored) {
+                megolmBackupV1Key.value = decodeBase64(
+                    await decryptSecret(userDevicePickleKey.value, megolmBackupV1Stored, 'm.megolm_backup.v1')
+                )
+            }
+        }
+
+        // Load SAS verified user/devices
+        try {
+            await loadSasVerifiedDevices()
+        } catch (error) {
+            sasVerificationLoadFailed.value = true
+        }
+
+        // Try to retrieve signing keys from the account data and uploaded store.
         let [
             secretStorageDefaultKeyName,
             crossSigningMaster,
             crossSigningUserSigning,
             crossSigningSelfSigning,
+            megolmBackupV1,
         ] = await allSettledValues([
             getAccountDataByType<{ key: string }>('m.secret_storage.default_key'),
-            getAccountDataByType<SecretStorageAccountData>('m.cross_signing.master', SecretStorageAccountDataSchema),
-            getAccountDataByType<SecretStorageAccountData>('m.cross_signing.user_signing', SecretStorageAccountDataSchema),
-            getAccountDataByType<SecretStorageAccountData>('m.cross_signing.self_signing', SecretStorageAccountDataSchema),
+            !crossSigningMasterKey.value ? getAccountDataByType<SecretStorageAccountData>('m.cross_signing.master', SecretStorageAccountDataSchema) : Promise.resolve(),
+            !crossSigningUserSigningKey.value ? getAccountDataByType<SecretStorageAccountData>('m.cross_signing.user_signing', SecretStorageAccountDataSchema) : Promise.resolve(),
+            !crossSigningSelfSigningKey.value ? getAccountDataByType<SecretStorageAccountData>('m.cross_signing.self_signing', SecretStorageAccountDataSchema) : Promise.resolve(),
+            !megolmBackupV1Key.value ? getAccountDataByType<SecretStorageAccountData>('m.megolm_backup.v1', SecretStorageAccountDataSchema) : Promise.resolve(),
         ] as const)
 
         const uploadedKeys = await queryAuthenticatedUserKeys()
+
+        crossSigningMasterPublicKey.value = Object.keys(uploadedKeys?.masterKeys?.[sessionUserId.value]?.keys ?? {})[0]?.split(':')[1]
+        crossSigningUserSigningPublicKey.value = Object.keys(uploadedKeys?.userSigningKeys?.[sessionUserId.value]?.keys ?? {})[0]?.split(':')[1]
+        crossSigningSelfSigningPublicKey.value = Object.keys(uploadedKeys?.selfSigningKeys?.[sessionUserId.value]?.keys ?? {})[0]?.split(':')[1]
 
         // If no signing keys uploaded yet, create them and upload them.
         if (
@@ -556,9 +660,9 @@ export function useCryptoKeys() {
                     setAccountDataByType('m.cross_signing.self_signing', crossSigningSelfSigning),
                 ])
 
-                await saveDiscortixTableKey('4s', `${sessionUserId.value},${secretKeyId}`, encryptSecret(
+                await saveDiscortixTableKey('4s', [sessionUserId.value, secretKeyId], encryptSecret(
                     userDevicePickleKey.value, encodeUnpaddedBase64(secretKey), `${sessionUserId.value}:${secretKeyId}`
-                ))
+                ), { durability: 'strict' })
             } catch (error) {
                 log.error('Error when uploading newly generated signing keys.', error)
 
@@ -575,18 +679,23 @@ export function useCryptoKeys() {
         if (secretStorageDefaultKeyName?.key) {
             neededKeys.add(secretStorageDefaultKeyName?.key)
         }
-        if (crossSigningMaster?.encrypted) {
+        if (!crossSigningMasterKey.value && crossSigningMaster?.encrypted) {
             for (const keyname in crossSigningMaster.encrypted) {
                 neededKeys.add(keyname)
             }
         }
-        if (crossSigningUserSigning?.encrypted) {
+        if (!crossSigningUserSigningKey.value && crossSigningUserSigning?.encrypted) {
             for (const keyname in crossSigningUserSigning.encrypted) {
                 neededKeys.add(keyname)
             }
         }
-        if (crossSigningSelfSigning?.encrypted) {
+        if (!crossSigningSelfSigningKey.value && crossSigningSelfSigning?.encrypted) {
             for (const keyname in crossSigningSelfSigning.encrypted) {
+                neededKeys.add(keyname)
+            }
+        }
+        if (!megolmBackupV1Key.value && megolmBackupV1?.encrypted) {
+            for (const keyname in megolmBackupV1.encrypted) {
                 neededKeys.add(keyname)
             }
         }
@@ -606,7 +715,7 @@ export function useCryptoKeys() {
                 const secretKey = decodeBase64(
                     await decryptSecret(
                         userDevicePickleKey.value,
-                        await loadDiscortixTableKey('4s', `${sessionUserId.value},${keyId}`),
+                        await loadDiscortixTableKey('4s', [sessionUserId.value, keyId]),
                         `${sessionUserId.value}:${keyId}`,
                     )
                 )
@@ -619,7 +728,6 @@ export function useCryptoKeys() {
         const ownedSecretKeyIds = Object.keys(secretKeys)
 
         // Retrieve signing private keys and OLM account
-        const accountPickle: string | undefined = (await loadDiscortixTableKey('olm', ['account', sessionDeviceId.value])) ?? undefined
         for (const keyId of ownedSecretKeyIds) {
             if (crossSigningMaster?.encrypted[keyId]) {
                 try {
@@ -642,15 +750,13 @@ export function useCryptoKeys() {
                     )
                 } catch (error) { /* Ignore */ }
             }
-            if (accountPickle) {
+            if (megolmBackupV1?.encrypted[keyId]) {
                 try {
-                    olmAccount.value = Account.from_pickle(accountPickle, secretKeys[keyId]!)
-                    olmSecretKey.value = secretKeys[keyId]!
+                    megolmBackupV1Key.value = decodeBase64(
+                        await decryptSecret(secretKeys[keyId]!, megolmBackupV1.encrypted[keyId], 'm.megolm_backup.v1')
+                    )
                 } catch (error) { /* Ignore */ }
             }
-        }
-        if (!olmSecretKey.value && ownedSecretKeyIds.length > 0) {
-            olmSecretKey.value = secretKeys[ownedSecretKeyIds[0]!]
         }
 
         // Determine which secret keys are missing if failed to retrieve any of the private signing keys.
@@ -678,12 +784,6 @@ export function useCryptoKeys() {
         }
         secretKeyIdsMissing.value = Array.from(missingKeyIdSet)
 
-        await Promise.allSettled([
-            loadAllMegolmSessions(),
-            loadAllOlmSessions(),
-            loadToDeviceErroredEvents(),
-        ])
-
         await generateDeviceKeys(uploadedKeys)
     }
 
@@ -697,11 +797,11 @@ export function useCryptoKeys() {
         // Generate Curve25519 identity key for OLM message encryption.
         if (!olmAccount.value && olmSecretKey.value) {
             olmAccount.value = new Account()
-            saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.value.pickle(olmSecretKey.value))
+            saveDiscortixTableKey('olm', ['account', sessionDeviceId.value], olmAccount.value.pickle(olmSecretKey.value), { durability: 'strict' })
         }
 
         // Upload OLM device keys.
-        if (crossSigningSelfSigningKey.value && olmAccount.value) {
+        if (olmAccount.value) {
             try {
                 await uploadAuthenticatedUserDeviceKeys(
                     uploadedKeys,
@@ -725,21 +825,23 @@ export function useCryptoKeys() {
             throw new EncryptionVerificationError()
         }
 
-        await saveDiscortixTableKey('4s', `${sessionUserId.value},${keyId}`, await encryptSecret(
+        await saveDiscortixTableKey('4s', [sessionUserId.value!, keyId], await encryptSecret(
             userDevicePickleKey.value!,
             encodeUnpaddedBase64(secretKey),
             `${sessionUserId.value}:${keyId}`,
-        ))
+        ), { durability: 'strict' })
         secretKeyIdsMissing.value.splice(secretKeyIdsMissing.value.indexOf(keyId), 1)
 
         let [
             crossSigningMaster,
             crossSigningUserSigning,
             crossSigningSelfSigning,
+            megolmBackupV1,
         ] = await allSettledValues([
             getAccountDataByType<SecretStorageAccountData>('m.cross_signing.master', SecretStorageAccountDataSchema),
             getAccountDataByType<SecretStorageAccountData>('m.cross_signing.user_signing', SecretStorageAccountDataSchema),
             getAccountDataByType<SecretStorageAccountData>('m.cross_signing.self_signing', SecretStorageAccountDataSchema),
+            getAccountDataByType<SecretStorageAccountData>('m.megolm_backup.v1', SecretStorageAccountDataSchema),
         ] as const)
 
         if (crossSigningMaster?.encrypted[keyId]) {
@@ -747,9 +849,6 @@ export function useCryptoKeys() {
                 crossSigningMasterKey.value = decodeBase64(
                     await decryptSecret(secretKey, crossSigningMaster.encrypted[keyId], 'm.cross_signing.master')
                 )
-                if (!olmSecretKey.value) {
-                    olmSecretKey.value = secretKey
-                }
             } catch (error) { /* Ignore */ }
         }
         if (crossSigningUserSigning?.encrypted[keyId]) {
@@ -757,9 +856,6 @@ export function useCryptoKeys() {
                 crossSigningUserSigningKey.value = decodeBase64(
                     await decryptSecret(secretKey, crossSigningUserSigning.encrypted[keyId], 'm.cross_signing.user_signing')
                 )
-                if (!olmSecretKey.value) {
-                    olmSecretKey.value = secretKey
-                }
             } catch (error) { /* Ignore */ }
         }
         if (crossSigningSelfSigning?.encrypted[keyId]) {
@@ -767,28 +863,26 @@ export function useCryptoKeys() {
                 crossSigningSelfSigningKey.value = decodeBase64(
                     await decryptSecret(secretKey, crossSigningSelfSigning.encrypted[keyId], 'm.cross_signing.self_signing')
                 )
-                if (!olmSecretKey.value) {
-                    olmSecretKey.value = secretKey
-                }
             } catch (error) { /* Ignore */ }
         }
-        const accountPickle: string | undefined = (await loadDiscortixTableKey('olm', ['account', sessionDeviceId.value!])) ?? undefined
-        if (accountPickle) {
+        if (megolmBackupV1?.encrypted[keyId]) {
             try {
-                olmAccount.value = Account.from_pickle(accountPickle, secretKey)
-                olmSecretKey.value = secretKey
+                megolmBackupV1Key.value = decodeBase64(
+                    await decryptSecret(secretKey, megolmBackupV1.encrypted[keyId], 'm.megolm_backup.v1')
+                )
             } catch (error) { /* Ignore */ }
         }
-    }
 
-    async function installRecoveryKey(keyId: string, recoveryKey: string) {
-        const secretKey = await recoveryKeyStringToRawKey(recoveryKey)
-        await installSecretKey(keyId, secretKey)
         await Promise.allSettled([
             generateDeviceKeys(),
             loadAllMegolmSessions(),
             loadAllOlmSessions(),
         ])
+    }
+
+    async function installRecoveryKey(keyId: string, recoveryKey: string) {
+        const secretKey = await recoveryKeyStringToRawKey(recoveryKey)
+        await installSecretKey(keyId, secretKey)
     }
 
     // TODO - maybe persist these timestamps in storage to reduce API cost
@@ -859,13 +953,12 @@ export function useCryptoKeys() {
             syncResponse.deviceOneTimeKeysCount?.signedCurve25519 != null
             && syncResponse.deviceOneTimeKeysCount.signedCurve25519 < 50
             && olmAccount.value
-            && crossSigningSelfSigningKey.value
             && isLeader.value
         ) {
             uploadAuthenticatedUserDeviceOneTimeKeys(
                 olmAccount.value,
-                crossSigningSelfSigningKey.value,
                 olmAccount.value.max_number_of_one_time_keys - syncResponse.deviceOneTimeKeysCount.signedCurve25519,
+                crossSigningSelfSigningKey.value,
             )
         }
     }
@@ -873,6 +966,7 @@ export function useCryptoKeys() {
     return {
         getFriendlyErrorMessage: (error: Error | unknown) => getFriendlyErrorMessage(t, error),
         initialize,
+        installSecretKey,
         installRecoveryKey,
         fetchUserKeys,
         manageCryptoKeysFromApiV3SyncResponse,

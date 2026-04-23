@@ -21,6 +21,11 @@
     --p-toast-error-border-color: var(--control-critical-primary-background-default);
     --p-toast-error-color: var(--control-critical-primary-color-default);
     --p-toast-error-shadow: var(--legacy-elevation-high);
+
+    --p-toast-info-background: var(--background-surface-highest);
+    --p-toast-info-border-color: var(--background-surface-highest);
+    --p-toast-info-color: var(--text-strong);
+    --p-toast-info-shadow: var(--legacy-elevation-high);
 }
 
 .p-toast-message-content {

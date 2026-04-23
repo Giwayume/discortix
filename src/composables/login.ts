@@ -42,8 +42,10 @@ export function useLogin(options: {
 
         try {
             const sessionStore = useSessionStore()
-            const { deviceId, homeserverBaseUrl } = storeToRefs(sessionStore)
+            const { deviceId, loggedOutDeviceIds, homeserverBaseUrl } = storeToRefs(sessionStore)
             const { setFromApiV3LoginResponse: setSessionFromApiV3LoginResponse } = sessionStore
+
+            let existingDeviceId = deviceId.value
 
             let loginResponse: ApiV3LoginResponse | undefined = undefined
             // Return from authDone fallback
@@ -63,6 +65,7 @@ export function useLogin(options: {
                     type: 'm.id.user',
                     user: identifierString,
                 }
+                existingDeviceId = loggedOutDeviceIds.value[identifierString]
                 if (z.email().safeParse(identifierString).success) {
                     identifier = {
                         type: 'm.id.thirdparty',
@@ -88,7 +91,7 @@ export function useLogin(options: {
                             identifier,
                             initial_device_display_name: getDeviceName(),
                             password: formData.password,
-                            device_id: deviceId.value,
+                            device_id: existingDeviceId,
                             session: sessionId.value,
                         } satisfies ApiV3LoginRequestPassword),
                         skipErrorChecks: [401],

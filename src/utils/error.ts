@@ -129,6 +129,14 @@ export class InvalidFileError extends Error {
     }
 }
 
+export class MethodNotSupportedError extends Error {
+    constructor(message?: string) {
+        const defaultMessage = 'Method not supported.'
+        super(message ?? defaultMessage)
+        this.name = 'MethodNotSupportedError'
+    }
+}
+
 export class MissingEncryptionKeyError extends Error {
     constructor(message?: string) {
         const defaultMessage = 'Missing encryption keys.'
