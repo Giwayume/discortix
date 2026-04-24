@@ -14,15 +14,20 @@
             <ProgressBar mode="indeterminate" class="mt-8 mb-4" />
         </template>
         <template v-else-if="verificationStatus === 'start'">
-            <p>{{ t('deviceVerificationRequest.verificationInstructions') }}</p>
-            <div v-if="verificationSasEmoji.length > 0" class="flex flex-wrap justify-center items-center gap-x-10 gap-y-4 my-4">
-                <div v-for="sasEmoji of verificationSasEmoji" class="flex flex-col items-center">
-                    <span class="text-4xl">{{ sasEmoji.emoji }}</span>
-                    <span class="text-muted">{{ sasEmoji.description }}</span>
+            <template v-if="verificationSasEmoji.length > 0">
+                <p class="text-subtle">{{ t('deviceVerificationResponse.emojiVerificationInstructions') }}</p>
+                <div class="flex flex-wrap justify-center items-center gap-x-10 gap-y-4 my-4">
+                    <div v-for="sasEmoji of verificationSasEmoji" class="flex flex-col items-center">
+                        <span class="text-4xl mb-1">{{ sasEmoji.emoji }}</span>
+                        <span class="text-strong">{{ sasEmoji.description }}</span>
+                    </div>
                 </div>
-            </div>
+            </template>
             <template v-else>
-                {{ verificationSasDecimals }}
+                <p class="text-subtle">{{ t('deviceVerificationResponse.decimalVerificationInstructions') }}</p>
+                <div class="text-center text-2xl font-bold my-4">
+                    {{ verificationSasDecimals }}
+                </div>
             </template>
             <p v-if="hasSentMac">{{ t('deviceVerificationRequest.verificationSent') }}</p>
         </template>
@@ -108,7 +113,7 @@ import Dialog from 'primevue/dialog'
 import ProgressBar from 'primevue/progressbar'
 
 import {
-    EventKeyVerificationStartSasv1Schema,
+    EventKeyVerificationStartSasv1ContentSchema,
     type ApiV3SyncToDeviceEvent,
     type EventKeyVerificationAcceptContent,
     type EventKeyVerificationCancelContent,
@@ -288,7 +293,7 @@ async function ready(event: ApiV3SyncToDeviceEvent) {
                 reason: 'Method not supported.',
                 transactionId: eventContent.transactionId!,
             } satisfies EventKeyVerificationCancelContent)
-            delete transactions.value[eventContent.transactionId!]
+            deleteTransaction(eventContent.transactionId)
             return cancelIfNoTransactions()
         }
         if (eventContent.fromDevice !== transaction.toDeviceId) {
@@ -298,7 +303,7 @@ async function ready(event: ApiV3SyncToDeviceEvent) {
                 reason: 'Transaction ID belongs to a different device.',
                 transactionId: eventContent.transactionId!,
             } satisfies EventKeyVerificationCancelContent)
-            delete transactions.value[eventContent.transactionId!]
+            deleteTransaction(eventContent.transactionId)
             return cancelIfNoTransactions()
         }
         for (const transactionId in Object.keys(transactions.value)) {
@@ -309,7 +314,7 @@ async function ready(event: ApiV3SyncToDeviceEvent) {
                     reason: 'Another device accepted the verification request.',
                     transactionId,
                 } satisfies EventKeyVerificationCancelContent)
-                delete transactions.value[transactionId]
+                deleteTransaction(transactionId)
             }
         }
         clearTimeout(verificationRequestTimeout)
@@ -351,7 +356,7 @@ async function start(event: ApiV3SyncToDeviceEvent) {
                 reason: 'Method not supported.',
                 transactionId: eventContent.transactionId!,
             } satisfies EventKeyVerificationCancelContent)
-            delete transactions.value[eventContent.transactionId!]
+            deleteTransaction(eventContent.transactionId)
             return cancelIfNoTransactions()
         }
         if (eventContent.fromDevice !== transaction.toDeviceId) {
@@ -361,10 +366,10 @@ async function start(event: ApiV3SyncToDeviceEvent) {
                 reason: 'Transaction ID belongs to a different device.',
                 transactionId: eventContent.transactionId!,
             } satisfies EventKeyVerificationCancelContent)
-            delete transactions.value[eventContent.transactionId!]
+            deleteTransaction(eventContent.transactionId)
             return cancelIfNoTransactions()
         }
-        const { error, data: eventContentSasv1 } = EventKeyVerificationStartSasv1Schema.safeParse(event.content)
+        const { error, data: eventContentSasv1 } = EventKeyVerificationStartSasv1ContentSchema.safeParse(event.content)
         if (!eventContentSasv1) {
             log.warn('The other device sent a m.sas.v1 start event that did not parse correctly.', error)
             await sendMessageToDevices([[sessionUserId.value!, transaction.toDeviceId]], 'm.key.verification.cancel', {
@@ -372,27 +377,37 @@ async function start(event: ApiV3SyncToDeviceEvent) {
                 reason: 'Invalid message syntax received.',
                 transactionId: eventContent.transactionId!,
             } satisfies EventKeyVerificationCancelContent)
-            delete transactions.value[eventContent.transactionId!]
+            deleteTransaction(eventContent.transactionId)
+            return cancelIfNoTransactions()
+        }
+        if (!eventContentSasv1.hashes.includes('sha256')) {
+            log.warn('The other device does not support the sha256 hash.')
+            await sendMessageToDevices([[sessionUserId.value!, transaction.toDeviceId]], 'm.key.verification.cancel', {
+                code: 'm.unknown_method',
+                reason: 'Hash sha256 must be supported.',
+                transactionId: eventContent.transactionId!,
+            } satisfies EventKeyVerificationCancelContent)
+            deleteTransaction(eventContent.transactionId)
             return cancelIfNoTransactions()
         }
         if (!eventContentSasv1.keyAgreementProtocols.includes('curve25519-hkdf-sha256')) {
             log.warn('The other device does not support the curve25519-hkdf-sha256 key agreement protocol.')
             await sendMessageToDevices([[sessionUserId.value!, transaction.toDeviceId]], 'm.key.verification.cancel', {
                 code: 'm.unknown_method',
-                reason: 'curve25519-hkdf-sha256 must be supported.',
+                reason: 'Key agreement protocol curve25519-hkdf-sha256 must be supported.',
                 transactionId: eventContent.transactionId!,
             } satisfies EventKeyVerificationCancelContent)
-            delete transactions.value[eventContent.transactionId!]
+            deleteTransaction(eventContent.transactionId)
             return cancelIfNoTransactions()
         }
         if (!eventContentSasv1.messageAuthenticationCodes.includes('hkdf-hmac-sha256.v2')) {
             log.warn('The other device does not support the hkdf-hmac-sha256.v2 key agreement protocol.')
             await sendMessageToDevices([[sessionUserId.value!, transaction.toDeviceId]], 'm.key.verification.cancel', {
                 code: 'm.unknown_method',
-                reason: 'hkdf-hmac-sha256.v2 must be supported.',
+                reason: 'Message authentication code hkdf-hmac-sha256.v2 must be supported.',
                 transactionId: eventContent.transactionId!,
             } satisfies EventKeyVerificationCancelContent)
-            delete transactions.value[eventContent.transactionId!]
+            deleteTransaction(eventContent.transactionId)
             return cancelIfNoTransactions()
         }
 
@@ -442,7 +457,7 @@ async function keyReceived(event: ApiV3SyncToDeviceEvent) {
         }
 
         if (!transaction.sas) {
-            delete transactions.value[eventContent.transactionId!]
+            deleteTransaction(eventContent.transactionId)
             return cancelIfNoTransactions()
         }
 
@@ -450,7 +465,7 @@ async function keyReceived(event: ApiV3SyncToDeviceEvent) {
 
         transaction.establishedSas = transaction.sas?.diffie_hellman(eventContent.key)
         if (!transaction.establishedSas) {
-            delete transactions.value[eventContent.transactionId!]
+            deleteTransaction(eventContent.transactionId)
             return cancelIfNoTransactions()
         }
 
@@ -643,6 +658,7 @@ async function doneReceived(event: ApiV3SyncToDeviceEvent) {
 }
 
 function done() {
+    if (verificationStatus.value === 'requestSecrets' || verificationStatus.value === 'done') return
     const transaction = transactions.value[currentTransactionId.value!]
 
     if (!transaction) {
@@ -785,6 +801,18 @@ function otherDeviceCancel(event: ApiV3SyncToDeviceEvent) {
     cancelIfNoTransactions()
 }
 
+function deleteTransaction(transactionId?: string) {
+    const transaction = transactions.value[transactionId!]
+    if (!transaction) return
+    try {
+        transaction.sas?.free()
+    } catch { /* Ignore */ }
+    try {
+        transaction.establishedSas?.free()
+    } catch { /* Ignore */ }
+    delete transactions.value[transactionId!]
+}
+
 function cancelWithNoMatch() {
     verificationStatus.value = 'noMatch'
     cancel()
@@ -837,12 +865,14 @@ watch(() => props.visible, (visible, wasVisible) => {
     }
     else if (!visible && wasVisible) {
         cancel()
+        clearTimeout(verificationRequestTimeout)
         clearTimeout(secretRequestTimeout)
         secretRequestTimeout = undefined
     }
 })
 
 onInboundMessage(async (event) => {
+    if (!props.visible) return
     if (event.type === 'm.key.verification.cancel') {
         otherDeviceCancel(event)
     } else if (event.type === 'm.key.verification.done') {

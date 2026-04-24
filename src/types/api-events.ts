@@ -350,7 +350,7 @@ export const EventKeyVerificationStartContentSchema = z.object({
 export type EventKeyVerificationStartContent = z.infer<typeof EventKeyVerificationStartContentSchema>
 
 /** @see https://spec.matrix.org/v1.18/client-server-api/#mkeyverificationstartmsasv1 */
-export const EventKeyVerificationStartSasv1Schema = z.object({
+export const EventKeyVerificationStartSasv1ContentSchema = z.object({
     fromDevice: z.string(),
     hashes: z.array(z.string()),
     keyAgreementProtocols: z.array(z.string()),
@@ -363,6 +363,7 @@ export const EventKeyVerificationStartSasv1Schema = z.object({
     shortAuthenticationString: z.array(z.string()),
     transactionId: z.string().optional(),
 })
+export type EventKeyVerificationStartSasv1Content = z.infer<typeof EventKeyVerificationStartSasv1ContentSchema>
 
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mlocation */
 export const EventLocationContentSchema = z.object({

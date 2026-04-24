@@ -66,7 +66,9 @@
     <UserSettings v-model:visible="userSettingsVisible" />
     <IdentityVerificationDialog v-if="identityVerificationFlowStarted" v-model:visible="identityVerificationVisible" />
     <OlmAccountMissingDialog v-if="deviceDeletionFlowStarted" v-model:visible="deviceDeletionVisible" />
-    <Toast position="top-right" group="device-verification-request">
+
+    <!-- Device verification -->
+    <Toast position="top-right" group="device-verification-request" @close="onCloseDeviceVerificationRequest()">
         <template #message=>
             <div class="flex flex-col items-start w-full">
                 <h2 class="text-xl mb-4">{{ t('deviceVerificationRequest.toast.title') }}</h2>
@@ -78,6 +80,10 @@
             </div>
         </template>
     </Toast>
+    <DeviceVerificationResponseDialog
+        v-model:visible="showDeviceVerificationDialog"
+        :deviceVerificationRequestEventContent="deviceVerificationRequestEventContent"
+    />
 </template>
 
 <script setup lang="ts">
@@ -99,12 +105,13 @@ import { useSessionStore } from '@/stores/session'
 import { useSpaceStore } from '@/stores/space'
 
 import CrashError from './CrashError.vue'
-import Spaces from './Spaces.vue'
-import TitleBar from './TitleBar.vue'
-import UserStatusSettings from './UserStatusSettings.vue'
-const UserSettings = defineAsyncComponent(() => import('@/views/UserSettings.vue'))
+const DeviceVerificationResponseDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/DeviceVerificationResponseDialog.vue'))
 const IdentityVerificationDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/IdentityVerificationDialog.vue'))
 const OlmAccountMissingDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/OlmAccountMissingDialog.vue'))
+import Spaces from './Spaces.vue'
+import TitleBar from './TitleBar.vue'
+const UserSettings = defineAsyncComponent(() => import('@/views/UserSettings.vue'))
+import UserStatusSettings from './UserStatusSettings.vue'
 
 import Button from 'primevue/button'
 import ProgressBar from 'primevue/progressbar'
@@ -273,60 +280,68 @@ function onWindowResize() {
 |                                  |
 \*--------------------------------*/
 
-let deviceVerificationTransactionId: string | undefined
-let deviceVerificationOtherDeviceId: string | undefined
+let deviceVerificationRequestEventContent = ref<EventKeyVerificationRequestContent>()
+let showDeviceVerificationDialog = ref<boolean>(false)
 
 function onVerifyDeviceIgnore() {
     toast.removeGroup('device-verification-request')
-    if (deviceVerificationTransactionId && deviceVerificationOtherDeviceId) {
-        sendMessageToDevices([[sessionUserId.value!, deviceVerificationOtherDeviceId]], 'm.key.verification.cancel', {
-            code: 'm.user',
-            reason: 'User canceled the request.',
-            transactionId: deviceVerificationTransactionId,
-        })
-        deviceVerificationTransactionId = undefined
-        deviceVerificationOtherDeviceId = undefined
-    }
+    onCloseDeviceVerificationRequest()
 }
 
 function onVerifyDeviceAccept() {
+    showDeviceVerificationDialog.value = true
     toast.removeGroup('device-verification-request')
+}
 
+function onCloseDeviceVerificationRequest() {
+    const transactionId = deviceVerificationRequestEventContent.value?.transactionId
+    const otherDeviceId = deviceVerificationRequestEventContent.value?.fromDevice
+    if (!showDeviceVerificationDialog.value && transactionId && otherDeviceId) {
+        sendMessageToDevices([[sessionUserId.value!, otherDeviceId]], 'm.key.verification.cancel', {
+            code: 'm.user',
+            reason: 'User canceled the request.',
+            transactionId: transactionId,
+        })
+        deviceVerificationRequestEventContent.value = undefined
+    }
 }
 
 onInboundMessage((event) => {
     if (event.type === 'm.key.verification.request') {
-        if (deviceVerificationTransactionId && deviceVerificationOtherDeviceId) {
-            sendMessageToDevices([[sessionUserId.value!, deviceVerificationOtherDeviceId]], 'm.key.verification.cancel', {
+        if (showDeviceVerificationDialog.value) return
+        const transactionId = deviceVerificationRequestEventContent.value?.transactionId
+        const otherDeviceId = deviceVerificationRequestEventContent.value?.fromDevice
+        if (transactionId && otherDeviceId) {
+            sendMessageToDevices([[sessionUserId.value!, otherDeviceId]], 'm.key.verification.cancel', {
                 code: 'm.user',
                 reason: 'User canceled the request.',
-                transactionId: deviceVerificationTransactionId,
+                transactionId,
             })
         }
-        const eventContent = event.content as EventKeyVerificationRequestContent
-        deviceVerificationTransactionId = eventContent.transactionId
-        deviceVerificationOtherDeviceId = eventContent.fromDevice
+        deviceVerificationRequestEventContent.value = event.content as EventKeyVerificationRequestContent
         toast.removeGroup('device-verification-request')
         toast.add({ severity: 'info', group: 'device-verification-request', life: 60000 * 5 })
     } else if (event.type === 'm.key.verification.cancel') {
+        if (showDeviceVerificationDialog.value) return
+        const transactionId = deviceVerificationRequestEventContent.value?.transactionId
         const eventContent = event.content as EventKeyVerificationCancelContent
-        if (eventContent.transactionId === deviceVerificationTransactionId) {
+        if (eventContent.transactionId === transactionId) {
             toast.removeGroup('device-verification-request')
-            deviceVerificationTransactionId = undefined
-            deviceVerificationOtherDeviceId = undefined
+            deviceVerificationRequestEventContent.value = undefined
         }
     }
 })
 
 onUnmounted(() => {
-    if (deviceVerificationTransactionId) {
-        sendMessageToDevices([[sessionUserId.value!, deviceVerificationOtherDeviceId!]], 'm.key.verification.cancel', {
+    const transactionId = deviceVerificationRequestEventContent.value?.transactionId
+    const otherDeviceId = deviceVerificationRequestEventContent.value?.fromDevice
+    if (transactionId && otherDeviceId) {
+        sendMessageToDevices([[sessionUserId.value!, otherDeviceId]], 'm.key.verification.cancel', {
             code: 'm.user',
             reason: 'User canceled the request.',
-            transactionId: deviceVerificationTransactionId,
+            transactionId,
         })
-        deviceVerificationTransactionId = undefined
-        deviceVerificationOtherDeviceId = undefined
+        deviceVerificationRequestEventContent.value = undefined
     }
 })
 
