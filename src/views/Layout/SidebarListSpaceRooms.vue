@@ -5,11 +5,14 @@
                 severity="secondary"
                 variant="text"
                 class="font-semibold !py-0 !px-2 !h-8 !text-strong !gap-1"
+                @click="onClickSpaceDropdown"
+                @contextmenu.prevent="onContextMenuSpaceDropdown"
             >
                 <span class="text-nowrap text-ellipsis overflow-hidden">{{ spaceName }}</span>
                 <span class="pi pi-chevron-down !text-xs" aria-hidden="true" />
             </Button>
             <Button
+                v-if="currentTopLevelSpacePermissions.invite"
                 v-tooltip.bottom="{ value: isTouchEventsDetected ? undefined : t('layout.inviteToSpace') }"
                 icon="pi pi-user-plus"
                 severity="secondary"
@@ -118,37 +121,56 @@
         </div>
         <div class="hidden"><Menu /></div> <!-- Inject menu styles, hacky. -->
     </SidebarListBody>
+    <ContextMenu ref="spaceMenu" :model="spaceMenuItems" @hide="onHideSpaceMenu">
+        <template #item="{ item, props }">
+            <a class="p-contextmenu-item-link" v-bind="props.action">
+                <span class="p-contextmenu-item-label">{{ item.label }}</span>
+                <span v-if="item.icon" class="ml-auto" :class="item.icon" aria-hidden="true" />
+                <span v-else-if="item.items" class="pi pi-angle-right ml-auto" />
+            </a>
+        </template>
+        <!-- p-contextmenu-item-label p-contextmenu-item-link p-contextmenu-item-content -->
+    </ContextMenu>
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 
 import { useApplication } from '@/composables/application'
 import { useRooms } from '@/composables/rooms'
+
+import { useClientSettingsStore } from '@/stores/client-settings'
 import { useSpaceStore } from '@/stores/space'
 
 import SidebarListBody from './SidebarListBody.vue'
 import SidebarListHeader from './SidebarListHeader.vue'
 
 import Button from 'primevue/button'
+import ContextMenu, { type ContextMenuContext } from 'primevue/contextmenu'
 import Menu from 'primevue/menu'
-import type { MenuItem } from 'primevue/menuitem'
+import type { MenuItem, MenuItemCommandEvent } from 'primevue/menuitem'
 import Skeleton from 'primevue/skeleton'
 import vTooltip from 'primevue/tooltip'
+import { useToast } from 'primevue/usetoast'
 
 import type { RoomSummary } from '@/types'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
+
 const { isTouchEventsDetected, toggleApplicationSidebar } = useApplication()
 const { getRoomHierarchy } = useRooms()
+
+const { settings } = useClientSettingsStore()
 const spaceStore = useSpaceStore()
 const {
-    spaceLoadingRoomSummaries, currentTopLevelSpaceClientSettings,
+    spaceLoadingRoomSummaries,
+    currentTopLevelSpacePermissions,
     currentTopLevelSpaceId, currentTopLevelSpaceName, currentTopLevelSpaceRoomList,
 } = storeToRefs(spaceStore)
 const { getSpaceClientSettings, updateSpaceClientSettings } = spaceStore
@@ -172,6 +194,170 @@ const browseRoomsItem: MenuItem = {
     label: t('layout.browseRooms'),
     icon: 'pi pi-user',
 }
+
+/*----------------------------*\
+|                              |
+|   Server Settings Dropdown   |
+|                              |
+\*----------------------------*/
+
+const spaceMenu = ref<InstanceType<typeof ContextMenu>>()
+const isSpaceMenuVisible = ref<boolean>(false)
+
+const spaceMenuItems = computed(() => {
+    const spaceMenuItems: MenuItem[] = []
+
+    if (currentTopLevelSpacePermissions.value.invite) {
+        spaceMenuItems.push({
+            key: 'inviteToSpace',
+            icon: 'pi pi-user-plus',
+            label: t('sidebarListSpaceRooms.spaceMenu.inviteToSpace'),
+            command: runSpaceMenuCommand,
+        })
+    }
+    if (
+        currentTopLevelSpacePermissions.value.ban
+        || currentTopLevelSpacePermissions.value.changeGuestAccess
+        || currentTopLevelSpacePermissions.value.changeHistoryVisibility
+        || currentTopLevelSpacePermissions.value.changeJoinRules
+        || currentTopLevelSpacePermissions.value.changePowerLevels
+        || currentTopLevelSpacePermissions.value.changeRoomAvatar
+        || currentTopLevelSpacePermissions.value.changeRoomCanonicalAlias
+        || currentTopLevelSpacePermissions.value.changeRoomName
+        || currentTopLevelSpacePermissions.value.changeRoomTags
+        || currentTopLevelSpacePermissions.value.changeRoomTopic
+        || currentTopLevelSpacePermissions.value.changeSeverAcl
+        || currentTopLevelSpacePermissions.value.closeRoom
+        || currentTopLevelSpacePermissions.value.createChildRoom
+        || currentTopLevelSpacePermissions.value.kick
+        || currentTopLevelSpacePermissions.value.redactOtherUserEvent
+    ) {
+        spaceMenuItems.push({
+            key: 'spaceSettings',
+            icon: 'pi pi-cog',
+            label: t('sidebarListSpaceRooms.spaceMenu.spaceSettings'),
+            command: runSpaceMenuCommand,
+        })
+    }
+    if (currentTopLevelSpacePermissions.value.createChildRoom) {
+        spaceMenuItems.push({
+            key: 'createRoom',
+            icon: 'pi pi-plus-circle',
+            label: t('sidebarListSpaceRooms.spaceMenu.createRoom'),
+            command: runSpaceMenuCommand,
+        })
+        spaceMenuItems.push({
+            key: 'createCategory',
+            icon: 'pi pi-folder-plus',
+            label: t('sidebarListSpaceRooms.spaceMenu.createCategory'),
+            command: runSpaceMenuCommand,
+        })
+    }
+
+    // TODO - research if this is possible within Matrix spec
+    // spaceMenuItems.push({
+    //     key: 'createEvent',
+    //     icon: 'pi pi-calendar-plus',
+    //     label: t('sidebarListSpaceRooms.spaceMenu.createEvent'),
+    //     command: runSpaceMenuCommand,
+    // })
+
+    if (spaceMenuItems.length > 0) {
+        spaceMenuItems.push({ separator: true })
+    }
+
+    spaceMenuItems.push({
+        key: 'notificationSettings',
+        icon: 'pi pi-bell',
+        label: t('sidebarListSpaceRooms.spaceMenu.notificationSettings'),
+        command: runSpaceMenuCommand,
+    })
+    spaceMenuItems.push({
+        key: 'privacySettings',
+        icon: 'pi pi-shield',
+        label: t('sidebarListSpaceRooms.spaceMenu.privacySettings'),
+        command: runSpaceMenuCommand,
+    })
+
+    spaceMenuItems.push({ separator: true })
+
+    spaceMenuItems.push({
+        key: 'hideMutedRooms',
+        label: t('sidebarListSpaceRooms.spaceMenu.hideMutedRooms'),
+        command: runSpaceMenuCommand,
+    })
+
+    if (settings.isDeveloperMode) {
+        spaceMenuItems.push({ separator: true })
+        spaceMenuItems.push({
+            key: 'copySpaceInfo',
+            label: t('sidebarListSpaceRooms.spaceMenu.copySpaceInfo'),
+            items: [
+                {
+                    key: 'copySpaceId',
+                    label: t('sidebarListSpaceRooms.spaceMenu.copySpaceId'),
+                    command: runSpaceMenuCommand,
+                },
+            ],
+        })
+    }
+    return spaceMenuItems
+})
+
+async function runSpaceMenuCommand(event: MenuItemCommandEvent) {
+    switch (event.item.key) {
+        case 'inviteToSpace':
+            break
+        case 'spaceSettings':
+            break
+        case 'createRoom':
+            break
+        case 'createCategory':
+            break
+        case 'createEvent':
+            break
+        case 'privacySettings':
+            break
+        case 'copySpaceId':
+            try {
+                if (!navigator.clipboard) throw new Error('Clipboard API missing.')
+                await navigator.clipboard.writeText(currentTopLevelSpaceId.value!)
+                toast.add({ severity: 'success', summary: t('sidebarListSpaceRooms.copySpaceIdConfirm', { spaceId: currentTopLevelSpaceId.value }), life: 3000 })
+            } catch (error) {
+                toast.add({ severity: 'error', summary: t('errors.clipboardApiNotSupported'), life: 4000 })
+            }
+            break
+    }
+}
+
+async function onHideSpaceMenu() {
+    setTimeout(() => {
+        isSpaceMenuVisible.value = false
+    }, 250)
+}
+
+function onClickSpaceDropdown(event: MouseEvent) {
+    if (event.button === 0) {
+        if (isSpaceMenuVisible.value) {
+            spaceMenu.value?.hide()
+            isSpaceMenuVisible.value = false
+        } else {
+            console.log('not visible')
+            isSpaceMenuVisible.value = true
+            spaceMenu.value?.show(event)
+        }
+    }
+}
+
+function onContextMenuSpaceDropdown(event: Event) {
+
+}
+
+/*----------------------------*\
+|                              |
+|   Room List Pointer Events   |
+|                              |
+\*----------------------------*/
 
 let pointerDownRoomItem: MenuItem | RoomSummary | undefined = undefined
 let pointerDownRoomItemX: number = 0
@@ -208,6 +394,12 @@ function selectRoom(item: MenuItem | RoomSummary) {
         })
     }
 }
+
+/*-------------------*\
+|                     |
+|   Room Categories   |
+|                     |
+\*-------------------*/
 
 function toggleCategory(categoryName: string) {
     if (!currentTopLevelSpaceId.value) return

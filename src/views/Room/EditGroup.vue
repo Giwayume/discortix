@@ -2,8 +2,8 @@
     <Dialog
         :visible="visible"
         modal
-        :header="t('editGroup.title')"
         :draggable="false"
+        :header="t('editGroup.title')"
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
         @update:visible="(visible) => emit('update:visible', visible)"
     >

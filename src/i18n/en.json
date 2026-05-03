@@ -8,6 +8,18 @@
         "someUsersFound": "If you are searching for someone you have not chatted with before, be sure to enter their **full username**.\n\nIf you know they are on a different homeserver, include the homeserver domain in your search, example: **{'@'}username:{defaultUserIdHomeserver}**",
         "addButton": "Add"
     },
+    "addSpaceDialog": {
+        "title": "Customize Your Space",
+        "description": "Give your new space a personality with a name and an icon. You can always change it later.",
+        "uploadIcon": "Upload",
+        "spaceName": "Space Name",
+        "publicToggle": "Make space public?",
+        "avatarPreviewImage": "Avatar preview",
+        "defaultSpaceName": "{username}'s space",
+        "errorCreatingSpaceToast": "An error occurred when creating the space. Please try again later.",
+        "backButton": "Back",
+        "createButton": "Create"
+    },
     "addUserNicknameDialog": {
         "addTitle": "Add Nickname",
         "changeTitle": "Change Nickname",
@@ -101,7 +113,31 @@
         "close": "Close dialog"
     },
     "discover": {
-        "title": "Discover"
+        "title": "Discover",
+        "sidebarMenu": {
+            "homeserver": "Homeserver",
+            "addHomeserver": "Add Server...",
+            "publicSpaces": "Public Spaces",
+            "publicRooms": "Public Rooms"
+        },
+        "addHomeserver": {
+            "title": "Add Discovery Server",
+            "subtitle": "Enter the name of the server you want to explore.",
+            "serverName": "Server Name",
+            "addButton": "Add"
+        },
+        "searchPlaceholder": "Search",
+        "searching": "Searching...",
+        "spaceHeroTitle": "Find your community on matrix",
+        "spaceHeroSubtitle": "From gaming, to music, to learning, there's a place for you.",
+        "featuredSpaces": "Featured Spaces",
+        "featuredRooms": "Featured Rooms",
+        "avatarImage": "Avatar image",
+        "untitledSpace": "Untitled Space",
+        "untitledRoom": "Untitled Room",
+        "memberCount": "{count} Members",
+        "noSpacesFound": "No spaces were found in this server. You can try searching in a different homeserver to find more spaces.",
+        "noRoomsFound": "No rooms were found in this server. You can try searching in a different homeserver to find more rooms."
     },
     "editGroup": {
         "title": "Edit Group",
@@ -580,6 +616,21 @@
             "group": "Edit Group",
             "space": "Space Settings",
             "room": "Room Settings"
+        }
+    },
+    "sidebarListSpaceRooms": {
+        "copySpaceIdConfirm": "Space ID {spaceId} copied to the clipboard.",
+        "spaceMenu": {
+            "inviteToSpace": "Invite to Space",
+            "spaceSettings": "Space Settings",
+            "createRoom": "Create Room",
+            "createCategory": "Create Category",
+            "createEvent": "Create Event",
+            "notificationSettings": "Notification Settings",
+            "privacySettings": "Privacy Settings",
+            "hideMutedRooms": "Hide Muted Rooms",
+            "copySpaceInfo": "Copy Space Info",
+            "copySpaceId": "Copy Space ID"
         }
     },
     "timeSince": {

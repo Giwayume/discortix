@@ -176,3 +176,40 @@ export const ApiV3RoomSendStateEventResponseSchema = camelizeSchema(z.object({
     event_id: z.string(),
 }))
 export type ApiV3RoomSendStateEventResponse = z.infer<typeof ApiV3RoomSendStateEventResponseSchema>
+
+/** @see https://spec.matrix.org/v1.18/client-server-api/#get_matrixclientv3publicrooms */
+export interface ApiV3PublicRoomsRequestQuery {
+    limit?: number;
+    server?: string;
+    since?: string;
+}
+export interface ApiV3PublicRoomsRequestBody {
+    filter?: {
+        generic_search_term?: string;
+        room_types?: Array<string | null>;
+    },
+    include_all_networks?: boolean;
+    limit?: number;
+    since?: string;
+    third_party_instance_id?: string;
+}
+export const ApiV3PublicRoomChunkSchema = camelizeSchemaWithoutTransform(z.object({
+    avatar_url: z.string().optional(),
+    canonical_alias: z.string().optional(),
+    guest_can_join: z.boolean(),
+    join_rule: z.string().optional(),
+    name: z.string().optional(),
+    num_joined_members: z.number(),
+    room_id: z.string(),
+    room_type: z.string().optional(),
+    topic: z.string().optional(),
+    world_readable: z.boolean(),
+}))
+export type ApiV3PublicRoomChunk = z.infer<typeof ApiV3PublicRoomChunkSchema>
+export const ApiV3PublicRoomsResponseSchema = camelizeSchema(z.object({
+    chunk: z.array(ApiV3PublicRoomChunkSchema),
+    next_batch: z.string().optional(),
+    prev_batch: z.string().optional(),
+    total_room_count_estimate: z.number().optional(),
+}))
+export type ApiV3PublicRoomsResponse = z.infer<typeof ApiV3PublicRoomsResponseSchema>

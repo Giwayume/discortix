@@ -10,7 +10,7 @@
                     <p class="text-sm text-subtle">{{ t('userSettings.advanced.developerModeDescription') }}</p>
                 </div>
                 <div class="shrink-1">
-                    <ToggleSwitch id="user-settings-advanced-developer-mode" v-model="settings.isDeveloperMode" />
+                    <ToggleSwitch input-id="user-settings-advanced-developer-mode" v-model="settings.isDeveloperMode" />
                 </div>
             </div>
         </section>

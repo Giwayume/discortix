@@ -3,6 +3,7 @@
         id="new-message-dialog"
         :visible="visible"
         modal
+        :draggable="false"
         :header="t('newMessageDialog.title')"
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem', height: 'calc(100dvh - 6rem)', minHeight: '27rem' }"
         :pt="{

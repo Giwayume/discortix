@@ -35,6 +35,9 @@ import {
     type EventReactionContent,
     type ApiV3RoomCreateRequest, ApiV3RoomCreateResponseSchema, type ApiV3RoomCreateResponse,
     type ApiV3RoomInviteRequest,
+    type ApiV3PublicRoomsRequestQuery,
+    type ApiV3PublicRoomsRequestBody,
+    ApiV3PublicRoomsResponseSchema, type ApiV3PublicRoomsResponse,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
@@ -575,6 +578,35 @@ export function useRooms() {
         
     }
 
+    async function searchRoomDirectory(
+        searchText: string,
+        server: string,
+        roomTypes?: Array<string | null>,
+        since?: string,
+        limit: number = 50,
+    ): Promise<ApiV3PublicRoomsResponse> {
+        const searchParams = new URLSearchParams({
+            server,
+        } satisfies ApiV3PublicRoomsRequestQuery);
+
+        return await fetchJson<ApiV3PublicRoomsResponse>(
+            `${homeserverBaseUrl.value}/_matrix/client/v3/publicRooms?${searchParams.toString()}`,
+            {
+                method: 'POST',
+                useAuthorization: true,
+                body: JSON.stringify({
+                    filter: {
+                        generic_search_term: searchText,
+                        room_types: roomTypes,
+                    },
+                    limit,
+                    since,
+                } satisfies ApiV3PublicRoomsRequestBody),
+                jsonSchema: ApiV3PublicRoomsResponseSchema,
+            }
+        )
+    }
+
     onTabMessage((message) => {
         if (message.type === 'redactUnsentRoomTimelineEvent') {
             redactUnsentEvent(message.data.roomId, message.data.eventId, false)
@@ -598,5 +630,6 @@ export function useRooms() {
         sendMessageReaction,
         sendStateEvent,
         redactEvent,
+        searchRoomDirectory,
     }
 }

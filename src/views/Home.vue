@@ -103,6 +103,7 @@
                 <Dialog
                     v-model:visible="addFriendFailedDialogVisible"
                     modal
+                    :draggable="false"
                     :header="t('home.friendRequestFailedTitle')"
                     :style="{ width: 'calc(100% - 1rem)', maxWidth: '24rem' }"
                 >
@@ -129,6 +130,7 @@
     <Dialog
         v-model:visible="removeFriendConfirmDialogVisible"
         modal
+        :draggable="false"
         :header="t('home.removeFriendConfirm.title', { displayname: userNicknames[contextMenuSelectedFriend?.userId!] ?? contextMenuSelectedFriend?.displayname ?? contextMenuSelectedFriend?.userId })"
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '24rem' }"
     >

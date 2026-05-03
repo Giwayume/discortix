@@ -115,6 +115,7 @@
         v-model:visible="leaveRoomDialogVisible"
         :header="t(leaveRoomIsGroup ? 'leaveGroupConfirmDialog.title' : 'leaveGroupConfirmDialog.duplicateChatTitle', { displayname: leaveRoomIsGroup ? leaveRoomMenuItem?.displayname : leaveRoomMenuItem?.heroes?.[0] })"
         modal
+        :draggable="false"
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
     >
         <div class="leave-room-dialog__content py-3" v-html="micromark(t(leaveRoomIsGroup ? 'leaveGroupConfirmDialog.subtitle' : 'leaveGroupConfirmDialog.duplicateChatSubtitle', { displayname: leaveRoomIsGroup ? leaveRoomMenuItem?.displayname : leaveRoomMenuItem?.heroes?.[0] }))"></div>

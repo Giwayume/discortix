@@ -1,6 +1,8 @@
 import { nextTick, reactive, ref, toRaw, watch } from 'vue'
 import { defineStore } from 'pinia'
 
+import { deepToRaw } from '@/utils/vue'
+
 import { createLogger } from '@/composables/logger'
 import { useBroadcast } from '@/composables/broadcast'
 
@@ -22,6 +24,7 @@ export const useClientSettingsStore = defineStore('clientSettings', () => {
     const disableWatchers = ref<boolean>(false)
 
     const settings = reactive<ClientSettings>({
+        discoveryServers: [],
         isDeveloperMode: false,
         pointerClickTimeout: 500,
         pointerMoveRadius: 8,
@@ -47,7 +50,7 @@ export const useClientSettingsStore = defineStore('clientSettings', () => {
         for (const key in settings) {
             watch(() => [key, settings[key as keyof typeof settings]] as const, ([key, value]) => {
                 if (disableWatchers.value) return
-                saveDiscortixTableKey('clientSettings', key, toRaw(value))
+                saveDiscortixTableKey('clientSettings', key, deepToRaw(value))
                 broadcastMessageFromTab({
                     type: 'updateClientSetting',
                     data: { key, value },

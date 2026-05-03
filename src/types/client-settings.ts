@@ -1,6 +1,7 @@
 import * as z from 'zod'
 
 export const ClientSettingsSchema = z.object({
+    discoveryServers: z.array(z.string()),
     isDeveloperMode: z.boolean(),
     pointerClickTimeout: z.number(),
     pointerMoveRadius: z.number(),

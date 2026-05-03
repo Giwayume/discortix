@@ -12,6 +12,19 @@ const router = createRouter({
             name: 'discover',
             path: '/discover',
             component: () => import('@/views/Discover.vue'),
+            redirect: '/discover/spaces',
+            children: [
+                {
+                    name: 'discover-spaces',
+                    path: 'spaces',
+                    component: () => import('@/views/Discover/DiscoverMain.vue'),
+                },
+                {
+                    name: 'discover-rooms',
+                    path: 'rooms',
+                    component: () => import('@/views/Discover/DiscoverMain.vue'),
+                },
+            ],
         },
         {
             name: 'landing',

@@ -13,7 +13,7 @@
                     <p class="text-sm text-subtle">{{ t('userSettings.activityPrivacy.typingIndicatorsDescription') }}</p>
                 </div>
                 <div class="shrink-1">
-                    <ToggleSwitch id="user-settings-activity-privacy-send-typing-indicators" v-model="settings.sendTypingIndicators" />
+                    <ToggleSwitch input-id="user-settings-activity-privacy-send-typing-indicators" v-model="settings.sendTypingIndicators" />
                 </div>
             </div>
             <div class="flex mb-6 gap-6">
@@ -25,7 +25,7 @@
                     <p class="text-sm text-subtle">{{ t('userSettings.activityPrivacy.readReceiptsDescription') }}</p>
                 </div>
                 <div class="shrink-1">
-                    <ToggleSwitch id="user-settings-activity-privacy-send-read-receipts" v-model="settings.sendReadReceipts" />
+                    <ToggleSwitch input-id="user-settings-activity-privacy-send-read-receipts" v-model="settings.sendReadReceipts" />
                 </div>
             </div>
         </section>

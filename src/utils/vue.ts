@@ -1,6 +1,6 @@
 import { isProxy, isReactive, isRef, toRaw, watch, type WatchHandle } from 'vue'
 
-export function deepToRaw<T extends Record<string, any>>(sourceObj: T): T {
+export function deepToRaw<T>(sourceObj: T): T {
     const objectIterator = (input: any): any => {
         if (Array.isArray(input)) {
             return input.map((item) => objectIterator(item));
@@ -17,7 +17,10 @@ export function deepToRaw<T extends Record<string, any>>(sourceObj: T): T {
         return input;
     };
 
-    return objectIterator(sourceObj);
+    if (['[object Object]', '[object Array]'].includes(Object.prototype.toString.call(sourceObj))) {
+        return objectIterator(sourceObj)
+    }
+    return toRaw(sourceObj)
 }
 
 export function until(predicate: () => boolean, timeout?: number): Promise<void> {

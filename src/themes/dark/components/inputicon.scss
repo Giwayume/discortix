@@ -8,4 +8,16 @@
     .p-inputtext:not(:first-child) {
         --p-icon-size: 0.75rem;
     }
+
+    &:has(.p-inputtext-sm) {
+        --p-form-field-padding-x: 0.75rem;
+
+        .p-inputicon {
+            --p-form-field-sm-font-size: 0.75rem;
+        }
+
+        .p-inputtext:not(:first-child) {
+            --p-icon-size: 0.625rem;
+        }
+    }
 }

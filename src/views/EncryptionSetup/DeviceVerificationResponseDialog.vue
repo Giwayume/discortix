@@ -2,6 +2,7 @@
     <Dialog
         :visible="visible"
         modal
+        :draggable="false"
         :header="t('deviceVerificationResponse.title')"
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
         @update:visible="(visible) => emit('update:visible', visible)"
@@ -489,7 +490,6 @@ async function macReceived(event: ApiV3SyncToDeviceEvent) {
             (!currentTransactionId.value || currentTransactionId.value !== eventContent.transactionId)
             && verificationStatus.value !== 'start'
         ) {
-            console.log(currentTransactionId.value, eventContent.transactionId, verificationStatus.value)
             log.warn('Received an unexpected m.key.verification.mac event from another device.')
             return cancelIfNoTransactions()
         }
@@ -583,8 +583,6 @@ async function doneReceived(event: ApiV3SyncToDeviceEvent) {
 
 function done() {
     if (verificationStatus.value === 'requestSecrets' || verificationStatus.value === 'done') return
-    console.log('done')
-    console.trace()
     const transaction = transactions.value[currentTransactionId.value!]
 
     if (!transaction) {
@@ -733,7 +731,6 @@ function cancelWithNoMatch() {
 }
 
 function cancelIfNoTransactions() {
-    console.trace()
     if (verificationStatus.value === 'noMatch') return
     if (verificationStatus.value === 'start') {
         cancel()

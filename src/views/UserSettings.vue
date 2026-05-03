@@ -145,6 +145,7 @@
         v-model:visible="logoutConfirmVisible"
         :header="t('logout.confirm.title')"
         modal
+        :draggable="false"
         :style="{
             width: '100%',
             maxWidth: '400px',

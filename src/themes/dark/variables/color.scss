@@ -51,6 +51,7 @@
     --opacity-12-hsl: 240 calc(1*4%) 60.784%;
     --opacity-16-hsl: 240 calc(1*4%) 60.784%;
     --opacity-20-hsl: 240 calc(1*4%) 60.784%;
+    --opacity-44-hsl: 240 calc(1*4%) 60.784%;
     --opacity-64-hsl: 240 calc(1*4%) 60.784%;
     --opacity-80-hsl: 240 calc(1*4%) 60.784%;
 
@@ -92,6 +93,7 @@
     --border-muted: hsl(var(--opacity-4-hsl)/0.0392156862745098);
     --border-normal: hsl(var(--opacity-20-hsl)/0.2);
     --border-subtle: hsl(var(--opacity-12-hsl)/0.12156862745098039);
+    --border-strong: hsl(var(--opacity-44-hsl)/0.4392156862745098);
 
     --channel-icon: var(--neutral-35);
 

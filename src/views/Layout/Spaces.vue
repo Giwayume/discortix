@@ -6,7 +6,7 @@
                     v-tooltip.right="{ value: isTouchEventsDetected ? undefined : t('layout.directMessages') }"
                     class="application__space application__space--dm"
                     :class="{
-                        'application__space--active': !currentTopLevelSpaceId && route.name !== 'discover',
+                        'application__space--active': activeSpaceItem === 'dm',
                     }"
                     :aria-label="t('layout.directMessages')"
                     @click="viewDirectMessages"
@@ -84,6 +84,7 @@
                     class="application__space application__space--action"
                     :aria-label="t('layout.addSpace')"
                     @contextmenu.prevent
+                    @click="addSpace()"
                 >
                     <div class="application__space__icon">
                         <span class="pi pi-plus-circle" aria-hidden="true" />
@@ -93,7 +94,7 @@
                     v-tooltip.right="{ value: isTouchEventsDetected ? undefined : t('layout.discover') }"
                     class="application__space application__space--action"
                     :class="{
-                        'application__space--active': route.name === 'discover',
+                        'application__space--active': activeSpaceItem === 'discover',
                     }"
                     :aria-label="t('layout.discover')"
                     @contextmenu.prevent
@@ -115,11 +116,12 @@
             </template>
             <!-- p-contextmenu-item-label p-contextmenu-item-link p-contextmenu-item-content -->
         </ContextMenu>
+        <AddSpaceDialog v-model:visible="addSpaceDialogVisible" />
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, reactive } from 'vue'
+import { computed, defineAsyncComponent, ref, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
@@ -127,6 +129,7 @@ import { useApplication } from '@/composables/application'
 import { useRoomStore } from '@/stores/room'
 import { useSpaceStore } from '@/stores/space'
 
+const AddSpaceDialog = defineAsyncComponent(() => import('@/views/Layout/AddSpaceDialog.vue'))
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 
 import ContextMenu from 'primevue/contextmenu'
@@ -141,6 +144,21 @@ const router = useRouter()
 const { isTouchEventsDetected, toggleApplicationSidebar } = useApplication()
 const { invitedDirectMessageRooms } = storeToRefs(useRoomStore())
 const { currentTopLevelSpaceId, joinedSpaces } = storeToRefs(useSpaceStore())
+
+/*-----------*\
+|             |
+|   Routing   |
+|             |
+\*-----------*/
+
+const activeSpaceItem = computed(() =>{
+    if (String(route.name).startsWith('discover')) {
+        return 'discover'
+    } else if (currentTopLevelSpaceId.value) {
+        return 'space'
+    }
+    return 'dm'
+})
 
 /*--------------------*\
 |                      |
@@ -315,6 +333,18 @@ const contextMenuItems = ref([
     },
 ])
 
+/*-------------*\
+|               |
+|   Add Space   |
+|               |
+\*-------------*/
+
+const addSpaceDialogVisible = ref<boolean>(false)
+
+function addSpace() {
+    addSpaceDialogVisible.value = true
+}
+
 /*-----------*\
 |             |
 |   Methods   |
@@ -438,6 +468,12 @@ function showSpaceContextMenu(event: MouseEvent, space: SpaceSummary) {
     white-space: nowrap;
 
     --p-icon-size: 1.125rem;
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
 }
 
 .application__space__notify-count {

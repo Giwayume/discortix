@@ -103,7 +103,6 @@ import {
     type EventRoomNameContent, type EventRoomMemberContent,
     type MediaInfo,
     type EventRoomEncryptionContent,
-    type EventRoomEncryptedContent,
 } from '@/types'
 
 const log = createLogger(import.meta.url)

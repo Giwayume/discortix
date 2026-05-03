@@ -7,6 +7,8 @@ import { deepToRaw } from '@/utils/vue'
 
 import { createLogger } from '@/composables/logger'
 
+import { useSessionStore } from '@/stores/session'
+
 import {
     saveTableKey as saveDiscortixTableKey,
     loadTableKey as loadDiscortixTableKey,
@@ -30,6 +32,7 @@ export const useSpaceStore = defineStore('space', () => {
     const route = useRoute()
     const roomStore = useRoomStore()
     const { joined } = storeToRefs(roomStore)
+    const { userId: sessionUserId } = storeToRefs(useSessionStore())
 
     const spaceRoomSummaries = ref<Record<string, RoomSummary[]>>({})
     const spaceLoadingRoomSummaries = ref<Record<string, boolean>>({})
@@ -141,6 +144,65 @@ export const useSpaceStore = defineStore('space', () => {
         return spaceClientSettings.value[currentTopLevelSpaceId.value]
     })
 
+    // Permissions in the current chat room for the current user
+    const currentTopLevelSpacePermissions = computed(() => {
+        const roomCreateEvent = currentTopLevelSpace.value?.stateEventsByType['m.room.create']?.[0]
+        const roomVersion = parseInt(roomCreateEvent?.content.roomVersion ?? '1')
+        const roomCreators = roomVersion <= 10
+            ? [roomCreateEvent?.content?.creator]
+            : [roomCreateEvent?.sender, ...(roomVersion >= 12 ? roomCreateEvent?.content.additionalCreators ?? [] : []) ]
+        const roomPowerLevels = currentTopLevelSpace.value?.stateEventsByType['m.room.power_levels']?.[0]
+        const isRoomCreator = roomCreators.includes(sessionUserId.value)
+        const currentUserPowerLevel
+            = (isRoomCreator && roomVersion >= 12 ? Infinity : undefined)
+            ?? roomPowerLevels?.content.users?.[sessionUserId.value ?? '']
+            ?? roomPowerLevels?.content.usersDefault
+            ?? (isRoomCreator ? 100 : 0)
+        const events = roomPowerLevels?.content?.events
+        const eventsDefault = roomPowerLevels?.content?.eventsDefault ?? 0
+        const stateDefault = roomPowerLevels?.content?.stateDefault ?? 50
+        return {
+            ban: currentUserPowerLevel >= (roomPowerLevels?.content.ban ?? 50),
+            changeGuestAccess: currentUserPowerLevel >= (events?.['m.room.guest_access'] ?? stateDefault),
+            changeHistoryVisibility: currentUserPowerLevel >= (events?.['m.room.history_visibility'] ?? stateDefault),
+            changeJoinRules: currentUserPowerLevel >= (events?.['m.room.join_rules'] ?? stateDefault),
+            changePinnedEvents: currentUserPowerLevel >= (events?.['m.room.pinned_events'] ?? stateDefault),
+            changePowerLevels: currentUserPowerLevel >= (events?.['m.room.power_levels'] ?? stateDefault),
+            changeRoomAvatar: currentUserPowerLevel >= (events?.['m.room.avatar'] ?? stateDefault),
+            changeRoomCanonicalAlias: currentUserPowerLevel >= (events?.['m.room.canonical_alias'] ?? stateDefault),
+            changeRoomName: currentUserPowerLevel >= (events?.['m.room.name'] ?? stateDefault),
+            changeRoomTags: currentUserPowerLevel >= (events?.['m.room.tags'] ?? stateDefault),
+            changeRoomTopic: currentUserPowerLevel >= (events?.['m.room.topic'] ?? stateDefault),
+            changeSeverAcl: currentUserPowerLevel >= (events?.['m.room.server_acl'] ?? stateDefault),
+            closeRoom: currentUserPowerLevel >= (events?.['m.room.tombstone'] ?? stateDefault),
+            createChildRoom: currentUserPowerLevel >= (events?.['m.space.child'] ?? stateDefault),
+            enableRoomEncryption: currentUserPowerLevel >= (events?.['m.room.encryption'] ?? stateDefault),
+            endPoll: currentUserPowerLevel >= (
+                events?.['m.poll.end'] ?? events?.['org.matrix.msc3381.poll.end'] ?? eventsDefault
+            ),
+            invite: currentUserPowerLevel >= (roomPowerLevels?.content.invite ?? 0),
+            inviteThirdParty: currentUserPowerLevel >= (events?.['m.room.third_party_invite'] ?? stateDefault),
+            kick: currentUserPowerLevel >= (roomPowerLevels?.content.kick ?? 50),
+            redactOwnEvent: currentUserPowerLevel >= (events?.['m.room.redaction'] ?? eventsDefault),
+            redactOtherUserEvent: currentUserPowerLevel >= (events?.['m.room.redaction'] ?? eventsDefault)
+                && currentUserPowerLevel >= (roomPowerLevels?.content?.redact ?? 50),
+            sendKeyVerificationAccept: currentUserPowerLevel >= (events?.['m.key.verification.accept'] ?? eventsDefault),
+            sendKeyVerificationCancel: currentUserPowerLevel >= (events?.['m.key.verification.cancel'] ?? eventsDefault),
+            sendKeyVerificationDone: currentUserPowerLevel >= (events?.['m.key.verification.done'] ?? eventsDefault),
+            sendKeyVerificationRequest: currentUserPowerLevel >= (events?.['m.key.verification.request'] ?? eventsDefault),
+            sendKeyVerificationStart: currentUserPowerLevel >= (events?.['m.key.verification.start'] ?? eventsDefault),
+            sendMessage: currentUserPowerLevel >= (events?.['m.room.message'] ?? eventsDefault),
+            sendPollResponse: currentUserPowerLevel >= (
+                events?.['m.poll.response'] ?? events?.['org.matrix.msc3381.poll.response'] ?? eventsDefault
+            ),
+            sendReaction: currentUserPowerLevel >= (events?.['m.reaction'] ?? eventsDefault),
+            sendSticker: currentUserPowerLevel >= (events?.['m.sticker'] ?? eventsDefault),
+            startPoll: currentUserPowerLevel >= (
+                events?.['m.poll.start'] ?? events?.['org.matrix.msc3381.poll.start'] ?? eventsDefault
+            ),
+        }
+    })
+
     function getSpaceClientSettings(roomId: string) {
         let clientSettings = spaceClientSettings.value[roomId]
         if (!clientSettings) {
@@ -189,6 +251,7 @@ export const useSpaceStore = defineStore('space', () => {
         currentTopLevelSpaceAvatarUrl,
         currentTopLevelSpaceClientSettings,
         currentTopLevelSpaceRoomList,
+        currentTopLevelSpacePermissions,
         joinedSpaces,
         spaceRoomSummaries: computed(() => spaceRoomSummaries.value),
         spaceLoadingRoomSummaries,

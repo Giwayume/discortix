@@ -120,7 +120,6 @@ export function useMegolm() {
         await fetchUserKeys(userIds)
 
         const forwardedRoomKeys = await getForwardedRoomKeysForRoom(roomId)
-        console.log(forwardedRoomKeys)
 
         const limiter = new ConcurrencyLimiter(10)
         for (const userId of userIds) {

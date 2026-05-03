@@ -2,6 +2,7 @@
     <Dialog
         :visible="visible"
         modal
+        :draggable="false"
         :header="header"
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
         @update:visible="onUpdateVisible"

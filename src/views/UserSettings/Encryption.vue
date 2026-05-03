@@ -106,7 +106,7 @@
                     <p class="text-sm text-subtle">{{ t('userSettings.encryption.warnUnencryptedMessageDescription') }}</p>
                 </div>
                 <div class="shrink-1">
-                    <ToggleSwitch id="user-settings-encryption-unencrypted-warning-toggle" v-model="settings.warnUnencryptedMessageInEncryptedRoom" />
+                    <ToggleSwitch input-id="user-settings-encryption-unencrypted-warning-toggle" v-model="settings.warnUnencryptedMessageInEncryptedRoom" />
                 </div>
             </div>
         </section>

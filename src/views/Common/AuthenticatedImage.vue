@@ -43,7 +43,15 @@ const props = defineProps({
         type: Boolean,
         default: undefined,
     },
+    generateAverageColor: {
+        type: Boolean,
+        default: undefined,
+    },
 })
+
+const emit = defineEmits<{
+    (e: 'averageColor', color: string): void;
+}>()
 
 const slots = useSlots()
 
@@ -79,6 +87,7 @@ watch(() => props.mxcUri, (mxcUri) => {
     }
     getMxcObjectUrl(mxcUri, options, imageFetchAbortController).then((url) => {
         src.value = url
+        postImageProcessing(url)
     }).catch((error) => {
         src.value = '/assets/images/image-load-error.svg'
         loadError.value = error
@@ -106,6 +115,7 @@ watch(() => props.encryptedFile, (encryptedFile) => {
     }
     getMxcObjectUrl(encryptedFile, options, imageFetchAbortController).then((url) => {
         src.value = url
+        postImageProcessing(url)
     }).catch((error) => {
         src.value = '/assets/images/image-load-error.svg'
         loadError.value = error
@@ -113,5 +123,42 @@ watch(() => props.encryptedFile, (encryptedFile) => {
         loading.value = false
     })
 }, { immediate: true })
+
+const toHex = (n: number) => n.toString(16).padStart(2, '0')
+
+async function postImageProcessing(url: string) {
+    if (!props.generateAverageColor) return
+
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image()
+        image.onload = () => resolve(image)
+        image.onerror = reject
+        image.src = url
+    })
+
+    const size = 8
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(img, 0, 0, size, size)
+
+    const data = ctx.getImageData(0, 0, size, size).data
+
+    // Accumulate colors
+    let r = 0, g = 0, b = 0, count = 0
+    for (let i = 0; i < data.length; i += 4) {
+        r += data[i]!
+        g += data[i + 1]!
+        b += data[i + 2]!
+        count++
+    }
+
+    emit('averageColor', `#${
+        toHex(Math.round(r / count))}${
+        toHex(Math.round(g / count))}${
+        toHex(Math.round(b / count))}`.toUpperCase())
+}
 
 </script>

@@ -2,8 +2,8 @@
     <Dialog
         :visible="props.visible"
         modal
-        :header="t('cropImageDialog.title')"
         :draggable="false"
+        :header="t('cropImageDialog.title')"
         :style="{ width: 'calc(100% - 1rem)', maxWidth: '30rem' }"
         @update:visible="(visible) => emit('update:visible', visible)"
     >
