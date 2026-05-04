@@ -1,14 +1,14 @@
 <template>
-    <MainHeader>
+    <MainHeader :class="{ 'application__main__header--transparent': isHeaderTransparent }">
         <div class="flex items-center justify-between w-full pl-4 py-2 pr-4">
             <span :class="headerIcon" aria-hidden="true" />
             <IconField>
                 <InputIcon class="pi pi-search" />
-                <InputText size="small" :placeholder="t('discover.searchPlaceholder')" />
+                <InputText v-model="searchText" size="small" :placeholder="t('discover.searchPlaceholder')" @keydown.enter="onSubmitSearch" />
             </IconField>
         </div>
     </MainHeader>
-    <MainBody>
+    <MainBody @scroll="onScrollMainBody">
         <div class="hero-banner">
             <h2 class="text-6xl uppercase">{{ t('discover.spaceHeroTitle') }}</h2>
             <p class="text-muted">{{ t('discover.spaceHeroSubtitle') }}</p>
@@ -32,6 +32,9 @@
                             <AuthenticatedImage :mxcUri="room.avatarUrl" :generateAverageColor="true" @averageColor="updateRoomHeaderColor(room.roomId, $event)">
                                 <template v-slot="{ src }">
                                     <img :src="src" :alt="t('discover.avatarImage')">
+                                </template>
+                                <template #error>
+                                    <span class="pi pi-home" aria-hidden="true" />
                                 </template>
                             </AuthenticatedImage>
                         </div>
@@ -93,6 +96,7 @@ const prevBatch = ref<string>()
 const roomHeaderColors = ref<Record<string, string>>({})
 const searchText = ref<string>('')
 const isSearching = ref<boolean>(false)
+const isHeaderTransparent = ref<boolean>(true)
 
 const headerIcon = computed(() => {
     return route.name === 'discover-spaces' ? 'pi pi-home' : 'pi pi-hashtag'
@@ -115,11 +119,26 @@ onMounted(() => {
 })
 
 watch(() => props.selectedHomeserver, () => {
+    searchText.value = ''
     searchRooms()
 })
 watch(() => route.name, () => {
+    searchText.value = ''
     searchRooms()
 })
+
+function onScrollMainBody(event: Event) {
+    const scrollTop = (event.target as HTMLDivElement)?.scrollTop ?? 0
+    if (scrollTop > 50) {
+        isHeaderTransparent.value = false
+    } else {
+        isHeaderTransparent.value = true
+    }
+}
+
+function onSubmitSearch() {
+    searchRooms()
+}
 
 function updateRoomHeaderColor(roomId: string, color: string) {
     roomHeaderColors.value[roomId] = color
@@ -147,7 +166,11 @@ async function searchRooms() {
 
 <style scoped lang="scss">
 .application__main__header {
-    background: transparent;
+    transition: background-color 0.3s;
+    border-radius: 0;
+}
+.application__main__header--transparent {
+    background-color: transparent;
 }
 .application__main__body {
     top: 0 !important;
@@ -210,7 +233,6 @@ async function searchRooms() {
     left: 0.625rem;
     width: 3.5rem;
     height: 3.5rem;
-    
 
     &::before {
         content: '';
@@ -235,6 +257,15 @@ async function searchRooms() {
         mask: var(--application-space-icon-mask);
         mask-size: 3.5rem;
         mask-repeat: no-repeat;
+    }
+
+    .pi {
+        display: block;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 1.5rem;
     }
 }
 </style>

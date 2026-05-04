@@ -342,7 +342,6 @@ function onClickSpaceDropdown(event: MouseEvent) {
             spaceMenu.value?.hide()
             isSpaceMenuVisible.value = false
         } else {
-            console.log('not visible')
             isSpaceMenuVisible.value = true
             spaceMenu.value?.show(event)
         }

@@ -16,8 +16,12 @@
         "publicToggle": "Make space public?",
         "avatarPreviewImage": "Avatar preview",
         "defaultSpaceName": "{username}'s space",
+        "address": "Address",
+        "addressPlaceholder": "e.g. my-space",
+        "spaceDescription": "Description",
+        "errorSpaceAddressTaken": "This address is already in use. Please choose another.",
         "errorCreatingSpaceToast": "An error occurred when creating the space. Please try again later.",
-        "backButton": "Back",
+        "backButton": "Cancel",
         "createButton": "Create"
     },
     "addUserNicknameDialog": {
@@ -124,6 +128,7 @@
             "title": "Add Discovery Server",
             "subtitle": "Enter the name of the server you want to explore.",
             "serverName": "Server Name",
+            "invalidServerError": "The server you entered was not found.",
             "addButton": "Add"
         },
         "searchPlaceholder": "Search",

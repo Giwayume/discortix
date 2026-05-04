@@ -38,6 +38,7 @@ import {
     type ApiV3PublicRoomsRequestQuery,
     type ApiV3PublicRoomsRequestBody,
     ApiV3PublicRoomsResponseSchema, type ApiV3PublicRoomsResponse,
+    ApiV3RoomDirectoryRoomAliasResponseSchema,
 } from '@/types'
 
 const log = createLogger(import.meta.url)
@@ -607,6 +608,17 @@ export function useRooms() {
         )
     }
 
+    async function getRoomIdFromRoomAlias(alias: string) {
+        return await fetchJson<ApiV3PublicRoomsResponse>(
+            `${homeserverBaseUrl.value}/_matrix/client/v3/directory/room/${encodeURIComponent(alias)}`,
+            {
+                method: 'GET',
+                useAuthorization: true,
+                jsonSchema: ApiV3RoomDirectoryRoomAliasResponseSchema,
+            }
+        )
+    }
+
     onTabMessage((message) => {
         if (message.type === 'redactUnsentRoomTimelineEvent') {
             redactUnsentEvent(message.data.roomId, message.data.eventId, false)
@@ -631,5 +643,6 @@ export function useRooms() {
         sendStateEvent,
         redactEvent,
         searchRoomDirectory,
+        getRoomIdFromRoomAlias,
     }
 }

@@ -66,6 +66,12 @@
                 <label for="add-homeserver-url">{{ t('discover.addHomeserver.serverName') }}</label>
                 <InputText id="add-homeserver-url" v-model="newHomeserverUrl" class="w-full" />
             </div>
+            <Message v-if="showInvalidServerError" severity="error" size="small" variant="simple" class="mt-2">
+                <template #icon>
+                    <span class="pi pi-exclamation-circle !text-xs !leading-3 -mt-[1px]" aria-hidden="true" />
+                </template>
+                {{ t('discover.addHomeserver.invalidServerError') }}
+            </Message>
         </form>
         <template #footer>
             <Button
@@ -74,7 +80,7 @@
                 :label="t('discover.addHomeserver.addButton')"
                 :loading="isSubmittingNewHomeserver"
             >
-                <span class="p-button-label">{{ t('deviceVerificationResponse.sasMatchButton') }}</span>
+                <span class="p-button-label">{{ t('discover.addHomeserver.addButton') }}</span>
                 <span class="p-button-loading-dots" />
             </Button>
         </template>
@@ -85,12 +91,13 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { storeToRefs } from 'pinia'
 
 import { useApplication } from '@/composables/application'
 
 import { useClientSettingsStore } from '@/stores/client-settings'
-import { useConfigStore } from '@/stores/config'
 import { useRooms } from '@/composables/rooms'
+import { useSessionStore } from '@/stores/session'
 
 import Application from './Layout/Application.vue'
 import SidebarListBody from './Layout/SidebarListBody.vue'
@@ -101,6 +108,7 @@ import Dialog from 'primevue/dialog'
 import FloatLabel from 'primevue/floatlabel'
 import InputText from 'primevue/inputtext'
 import Menu from 'primevue/menu'
+import Message from 'primevue/message'
 import Select, { type SelectChangeEvent } from 'primevue/select'
 
 const { t } = useI18n()
@@ -108,10 +116,10 @@ const route = useRoute()
 const router = useRouter()
 
 const { toggleApplicationSidebar } = useApplication()
+const { searchRoomDirectory } = useRooms()
 
 const { settings } = useClientSettingsStore()
-const { buildConfig } = useConfigStore()
-const { searchRoomDirectory } = useRooms()
+const { defaultUserIdHomeserver } = storeToRefs(useSessionStore())
 
 interface HomeserverOption {
     url: string;
@@ -122,7 +130,7 @@ const homeservers = computed<HomeserverOption[]>(() => {
     return [
         {
             url: '',
-            name: buildConfig.defaultServerConfig['m.homeserver'].serverName ?? buildConfig.defaultServerConfig['m.homeserver'].baseUrl,
+            name: defaultUserIdHomeserver.value,
         },
         ...settings.discoveryServers.map((url) => ({
             url,
@@ -138,6 +146,7 @@ const selectedHomeserver = ref<HomeserverOption>(homeservers.value[0]!)
 const addHomeserverDialogVisible = ref<boolean>(false)
 const newHomeserverUrl = ref<string>('')
 const isSubmittingNewHomeserver = ref<boolean>(false)
+const showInvalidServerError = ref<boolean>(false)
 
 const sidebarMenuItems = computed(() => {
     const items = [
@@ -171,6 +180,7 @@ watch(() => addHomeserverDialogVisible.value, (visible, wasVisible) => {
     if (visible && !wasVisible) {
         newHomeserverUrl.value = ''
         isSubmittingNewHomeserver.value = false
+        showInvalidServerError.value = false
     }
 })
 
@@ -185,6 +195,7 @@ function onChangeSelectedHomeserver(value: SelectChangeEvent) {
 
 async function addHomeserverConfirm() {
     isSubmittingNewHomeserver.value = true
+    showInvalidServerError.value = false
     try {
         await searchRoomDirectory(
             '',
@@ -199,7 +210,7 @@ async function addHomeserverConfirm() {
         selectedHomeserver.value = homeservers.value.find((server) => server.url === newHomeserverUrl.value)!
         addHomeserverDialogVisible.value = false
     } catch (error) {
-
+        showInvalidServerError.value = true
     } finally {
         isSubmittingNewHomeserver.value = false
     }

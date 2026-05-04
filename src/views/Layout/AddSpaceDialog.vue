@@ -27,12 +27,43 @@
         <form :id="'add-space-dialog-form-' + uuid" novalidate @submit.prevent="submit">
             <div class="p-staticlabel flex flex-col mb-2">
                 <label :for="'space-name-' + uuid" class="text-strong pb-2">{{ t('addSpaceDialog.spaceName') }}</label>
-                <InputText :id="'space-name-' + uuid" v-model="spaceName" required />
+                <InputText :id="'space-name-' + uuid" v-model="spaceName" required maxlength="255" />
             </div>
             <div class="flex items-center gap-2 my-4">
                 <label :for="'public-toggle-' + uuid" class="text-strong">{{ t('addSpaceDialog.publicToggle') }}</label>
                 <ToggleSwitch v-model="isPublic" :inputId="'public-toggle-' + uuid" />
             </div>
+            <template v-if="isPublic">
+                <div class="p-staticlabel flex flex-col mb-2">
+                    <label :for="'space-address-' + uuid" class="text-strong pb-2">{{ t('addSpaceDialog.address') }}</label>
+                    <InputGroup>
+                        <InputGroupAddon>
+                            <span class="pi pi-hashtag" aria-hidden="true" />
+                        </InputGroupAddon>
+                        <InputText
+                            :id="'space-address-' + uuid"
+                            v-model="spaceAddress"
+                            v-keyfilter="/[0-9a-zA-Z\-]/"
+                            :placeholder="t('addSpaceDialog.addressPlaceholder')"
+                            maxlength="255"
+                            @input="isSpaceAddressTaken = false"
+                        />
+                        <InputGroupAddon>
+                            {{ addressDomain }}
+                        </InputGroupAddon>
+                    </InputGroup>
+                    <Message v-if="isSpaceAddressTaken" severity="error" size="small" variant="simple" class="mt-2">
+                        <template #icon>
+                            <span class="pi pi-exclamation-circle !text-xs !leading-3 -mt-[1px]" aria-hidden="true" />
+                        </template>
+                        {{ t('addSpaceDialog.errorSpaceAddressTaken') }}
+                    </Message>
+                </div>
+                <div class="p-staticlabel flex flex-col mt-4 mb-2">
+                    <label :for="'space-description-' + uuid" class="text-strong pb-2">{{ t('addSpaceDialog.spaceDescription') }}</label>
+                    <Textarea :id="'space-description-' + uuid" maxlength="255" v-model="spaceDescription" />
+                </div>
+            </template>
         </form>
         <template #footer>
             <div class="flex justify-between w-full">
@@ -60,6 +91,7 @@ import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 
+import { HttpError } from '@/utils/error'
 import { pickFile } from '@/utils/file-access'
 
 import { createMediaInfo, createLazyMediaUpload } from '@/composables/media'
@@ -70,12 +102,18 @@ import { useSessionStore } from '@/stores/session'
 
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
+import InputGroup from 'primevue/inputgroup'
+import InputGroupAddon from 'primevue/inputgroupaddon'
 import InputText from 'primevue/inputtext'
+import vKeyfilter from 'primevue/keyfilter'
+import Message from 'primevue/message'
+import Textarea from 'primevue/textarea'
 import ToggleSwitch from 'primevue/toggleswitch'
 import { useToast } from 'primevue/usetoast'
 
 import type {
     ApiV3RoomCreateRequest,
+    ApiV3RoomCreateStateEvent,
     EventRoomAvatarContent,
     MediaInfo,
 } from '@/types'
@@ -84,10 +122,10 @@ const { t } = useI18n()
 const router = useRouter()
 const toast = useToast()
 
-const { userId: sessionUserId } = storeToRefs(useSessionStore())
+const { defaultUserIdHomeserver, userId: sessionUserId } = storeToRefs(useSessionStore())
 const { authenticatedUserDisplayName } = storeToRefs(useProfileStore())
 
-const { createRoom, sendStateEvent } = useRooms()
+const { createRoom, getRoomIdFromRoomAlias, sendStateEvent } = useRooms()
 
 const uuid = uuidv4()
 
@@ -103,10 +141,13 @@ const emit = defineEmits<{
 }>()
 
 const spaceName = ref<string>('')
+const spaceAddress = ref<string>('')
+const spaceDescription = ref<string>('')
 const avatarFile = ref<File | null>(null)
 const avatarPreviewObjectUrl = ref<string>('')
 const isPublic = ref<boolean>(false)
 const isCreatingRoom = ref<boolean>(false)
+const isSpaceAddressTaken = ref<boolean>(false)
 
 const defaultSpaceName = computed(() => {
     return t('addSpaceDialog.defaultSpaceName', {
@@ -114,13 +155,20 @@ const defaultSpaceName = computed(() => {
     })
 })
 
+const addressDomain = computed(() => {
+    return `:${defaultUserIdHomeserver.value}`
+})
+
 watch(() => props.visible, (visible, wasVisible) => {
     if (visible && !wasVisible) {
         spaceName.value = defaultSpaceName.value
+        spaceAddress.value = ''
+        spaceDescription.value = ''
         avatarFile.value = null
         avatarPreviewObjectUrl.value = ''
         isPublic.value = false
         isCreatingRoom.value = false
+        isSpaceAddressTaken.value = false
     } else if (!visible && wasVisible) {
         if (avatarPreviewObjectUrl.value) {
             URL.revokeObjectURL(avatarPreviewObjectUrl.value)
@@ -148,14 +196,47 @@ async function pickAvatar() {
 
 async function submit() {
     isCreatingRoom.value = true
+    isSpaceAddressTaken.value = false
     
     try {
+        const initialState: ApiV3RoomCreateStateEvent[] = []
+
+        if (spaceAddress.value.trim().length > 0) {
+            const canonicalAlias = `#${spaceAddress.value.trim().replace(/^-/, '').replace(/-$/, '')}${addressDomain.value}`
+            try {
+                await getRoomIdFromRoomAlias(canonicalAlias)
+                isSpaceAddressTaken.value = true
+                throw new Error('Room alias already exists')
+            } catch (error) {
+                if (!(error instanceof HttpError)) {
+                    throw error
+                }
+            }
+
+            initialState.push({
+                type: 'm.room.canonical_alias',
+                state_key: '',
+                content: {
+                    alias: canonicalAlias,
+                },
+            })
+        }
+
+        if (spaceDescription.value.trim().length > 0) {
+            initialState.push({
+                type: 'm.room.topic',
+                state_key: '',
+                content: {
+                    topic: spaceDescription.value.trim(),
+                },
+            })
+        }
 
         const createRoomRequest: ApiV3RoomCreateRequest = {
             creation_content: {
                 type: 'm.space',
             },
-            initial_state: [],
+            initial_state: initialState,
             name: spaceName.value,
             preset: isPublic.value ? 'public_chat' : 'private_chat',
             visibility: isPublic.value ? 'public' : 'private',
@@ -210,6 +291,10 @@ async function submit() {
             params: { roomId: createdRoomId },
         })
     } catch (error) {
+        if (isSpaceAddressTaken.value) {
+            isCreatingRoom.value = false
+            return
+        }
         toast.add({ severity: 'error', summary: t('addSpaceDialog.errorCreatingSpaceToast'), life: 5000 })
     } finally {
         isCreatingRoom.value = false

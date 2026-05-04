@@ -50,10 +50,11 @@ export const useClientSettingsStore = defineStore('clientSettings', () => {
         for (const key in settings) {
             watch(() => [key, settings[key as keyof typeof settings]] as const, ([key, value]) => {
                 if (disableWatchers.value) return
-                saveDiscortixTableKey('clientSettings', key, deepToRaw(value))
+                const rawValue = deepToRaw(value)
+                saveDiscortixTableKey('clientSettings', key, rawValue)
                 broadcastMessageFromTab({
                     type: 'updateClientSetting',
-                    data: { key, value },
+                    data: { key, value: rawValue },
                 } satisfies BroadcastUpdateClientSettingMessage)
             }, { deep: true })
         }

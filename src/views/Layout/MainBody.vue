@@ -5,7 +5,7 @@
                 <slot />
             </div>
             <template v-else>
-                <ScrollPanel>
+                <ScrollPanel ref="scrollPanel">
                     <slot />
                 </ScrollPanel>
             </template>
@@ -20,6 +20,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, ref, type ComponentPublicInstance } from 'vue'
+
 import ScrollPanel from 'primevue/scrollpanel'
 
 defineProps({
@@ -31,6 +33,22 @@ defineProps({
         type: Boolean,
         default: false,
     }
+})
+
+const emit = defineEmits<{
+    (e: 'scroll', event: Event): void;
+}>()
+
+const scrollPanel = ref<ComponentPublicInstance>()
+
+const scrollPanelContent = computed(() => {
+    return scrollPanel.value?.$refs.content as HTMLDivElement | undefined
+})
+
+onMounted(() => {
+    scrollPanelContent.value?.addEventListener('scroll', (event) => {
+        emit('scroll', event)
+    })
 })
 
 </script>

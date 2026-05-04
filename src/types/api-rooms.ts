@@ -213,3 +213,10 @@ export const ApiV3PublicRoomsResponseSchema = camelizeSchema(z.object({
     total_room_count_estimate: z.number().optional(),
 }))
 export type ApiV3PublicRoomsResponse = z.infer<typeof ApiV3PublicRoomsResponseSchema>
+
+/** @see https://spec.matrix.org/v1.18/client-server-api/#get_matrixclientv3directoryroomroomalias */
+export const ApiV3RoomDirectoryRoomAliasResponseSchema = camelizeSchema(z.object({
+    room_id: z.string().optional(),
+    servers: z.array(z.string()).optional(),
+}))
+export type ApiV3RoomDirectoryRoomAliasResponse = z.infer<typeof ApiV3RoomDirectoryRoomAliasResponseSchema>

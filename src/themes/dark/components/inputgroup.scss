@@ -1,0 +1,9 @@
+:root {
+    --p-inputgroup-addon-border-radius: var(--p-form-field-border-radius);
+    --p-inputgroup-addon-border-color: var(--p-inputtext-border-color);
+
+    --p-inputgroup-addon-background: var(--p-inputtext-background);
+    --p-inputgroup-addon-padding: var(--p-inputtext-padding-x) var(--p-inputtext-padding-y);
+    --p-inputgroup-addon-color: var(--p-inputtext-placeholder-color);
+    --p-inputgroup-addon-min-width: 0;
+}
