@@ -1,9 +1,12 @@
 import { storeToRefs } from 'pinia'
-import { GroupSession, InboundGroupSession } from 'vodozemac-wasm-bindings'
+import { GroupSession, PkDecryption } from 'vodozemac-wasm-bindings'
 
+import { decodeBase64 } from '@/utils/base64'
+import { fetchJson } from '@/utils/fetch'
 import { ConcurrencyLimiter } from '@/utils/timing'
 
 import { useCryptoKeys } from '@/composables/crypto-keys'
+import { createLogger } from '@/composables/logger'
 import { useOlm } from '@/composables/olm'
 
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
@@ -11,26 +14,46 @@ import { useMegolmStore } from '@/stores/megolm'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
-import type { EventRoomKeyContent, EventForwardedRoomKeyContent } from '@/types'
+import {
+    type ApiV3RoomKeyBackedUpSessionData,
+    type ApiV3RoomKeyBackupVersionResponse, ApiV3RoomKeyBackupVersionResponseSchema,
+    type ApiV3RoomKeyBackupKeysForRoomResponse, ApiV3RoomKeyBackupKeysForRoomResponseSchema,
+    type EventRoomKeyContent,
+    type EventForwardedRoomKeyContent,
+    type MegolmBackupV1Curve25519AesSha2SessionDataEncrypted,
+} from '@/types'
+
+const log = createLogger(import.meta.url)
+
+const backupRestoreInterval = 1.296e+9 // 15 days
 
 export function useMegolm() {
     const { fetchUserKeys } = useCryptoKeys()
     const { sendMessageToDevices } = useOlm()
     
     const cryptoKeysStore = useCryptoKeysStore()
-    const { deviceKeys, olmAccount } = storeToRefs(cryptoKeysStore)
+    const {
+        deviceKeys,
+        megolmBackupV1Key,
+        olmAccount,
+    } = storeToRefs(cryptoKeysStore)
     const {
         getForwardedRoomKeysForRoom,
-        addInboundMegolmSession,
         getOutboundMegolmSession,
         addOutboundMegolmSession,
         getRoomMegolmMetadata,
         saveRoomMegolmMetadata,
+        populateRoomKeysFromMegolmBackup,
     } = useMegolmStore()
+    const roomStore = useRoomStore()
     const {
         joined: joinedRooms,
-    } = storeToRefs(useRoomStore())
+    } = storeToRefs(roomStore)
     const {
+        updateJoinedRoomDatabase,
+    } = roomStore
+    const {
+        homeserverBaseUrl,
         userId: sessionUserId,
         deviceId: sessionDeviceId,
     } = storeToRefs(useSessionStore())
@@ -144,9 +167,65 @@ export function useMegolm() {
         await limiter.waitForIdle()
     }
 
+    async function restoreRoomKeysFromBackup(roomId: string) {
+        if (!megolmBackupV1Key.value) return
+        const room = joinedRooms.value[roomId]
+        if (!room || ((room.lastBackupKeyRestoreTs ?? 0) > Date.now() - backupRestoreInterval)) return
+        try {
+            const version = await fetchJson<ApiV3RoomKeyBackupVersionResponse>(
+                `${homeserverBaseUrl.value}/_matrix/client/v3/room_keys/version`, {
+                    useAuthorization: true,
+                    jsonSchema: ApiV3RoomKeyBackupVersionResponseSchema,
+                }
+            )
+            if (version.algorithm !== 'm.megolm_backup.v1.curve25519-aes-sha2') return
+
+            const queryParams = {
+                version: version.version,
+            }
+            const roomKeys = await fetchJson<ApiV3RoomKeyBackupKeysForRoomResponse>(
+                `${homeserverBaseUrl.value}/_matrix/client/v3/room_keys/keys/${encodeURIComponent(roomId)}?${new URLSearchParams(queryParams)}`, {
+                    useAuthorization: true,
+                    jsonSchema: ApiV3RoomKeyBackupKeysForRoomResponseSchema,
+                }
+            )
+
+            const pkDecryption = PkDecryption.from_key(megolmBackupV1Key.value)
+
+            const decryptedSessionData: ApiV3RoomKeyBackedUpSessionData[] = []
+
+            try {
+                for (const sessionId in roomKeys.sessions) {
+                    const encryptedSessionKey = roomKeys.sessions[sessionId]
+                    if (!encryptedSessionKey) continue
+                    const sessionData = encryptedSessionKey.sessionData as MegolmBackupV1Curve25519AesSha2SessionDataEncrypted
+                    const decryptedBuffer = pkDecryption.decrypt(
+                        decodeBase64(sessionData.ciphertext),
+                        decodeBase64(sessionData.mac),
+                        decodeBase64(sessionData.ephemeral),
+                    )
+                    const decryptedObject = JSON.parse(new TextDecoder().decode(decryptedBuffer))
+                    decryptedObject.room_id = roomId
+                    decryptedObject.session_id = sessionId
+                    decryptedSessionData.push(decryptedObject)
+                }
+            } finally {
+                pkDecryption.free()
+            }
+
+            populateRoomKeysFromMegolmBackup(decryptedSessionData)
+
+            room.lastBackupKeyRestoreTs = Date.now()
+            updateJoinedRoomDatabase(roomId)
+        } catch (error) {
+            log.error('Error restoring megolm keys from backup.', error)
+        }
+    }
+
     return {
         createGroupSession,
         getOutboundGroupSession,
         sendRoomKeysToUsers,
+        restoreRoomKeysFromBackup,
     }
 }

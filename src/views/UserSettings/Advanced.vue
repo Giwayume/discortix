@@ -22,8 +22,15 @@
                     <p class="text-sm text-subtle">{{ t('userSettings.advanced.storageManagementDescription') }}</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <Button severity="secondary" size="small" @click="resyncAllRooms()">
-                        {{ t('userSettings.advanced.resyncRoomsButton') }}
+                    <Select
+                        v-model="storageManagementOption"
+                        size="small"
+                        :options="storageManagementOptions"
+                        option-value="value"
+                        option-label="text"
+                    />
+                    <Button severity="secondary" size="small" @click="applyStorageManagement()">
+                        {{ t('userSettings.advanced.storageManagementApplyButton') }}
                     </Button>
                 </div>
             </section>
@@ -32,11 +39,14 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 
 import { useBroadcast } from '@/composables/broadcast'
 
 import { useClientSettingsStore } from '@/stores/client-settings'
+import { useMegolmStore } from '@/stores/megolm'
 import { useSyncStore } from '@/stores/sync'
 import {
     getAllTableKeys as getAllDiscortixTableKeys,
@@ -44,12 +54,24 @@ import {
 } from '@/stores/database/discortix'
 
 import Button from 'primevue/button'
+import Select from 'primevue/select'
 import ToggleSwitch from 'primevue/toggleswitch'
 
 const { t } = useI18n()
+const route = useRoute()
+
 const { isLeader } = useBroadcast()
+
 const { settings } = useClientSettingsStore()
+const { deleteRoomInboundMegolmSessions } = useMegolmStore()
 const { setNextBatch } = useSyncStore()
+
+const storageManagementOption = ref<string>('resyncAllRooms')
+
+const storageManagementOptions = [
+    { value: 'resyncAllRooms', text: t('userSettings.advanced.storageManagementOptions.resyncAllRooms') },
+    { value: 'deleteCurrentRoomKeys', text: t('userSettings.advanced.storageManagementOptions.deleteCurrentRoomKeys') },
+]
 
 async function resyncAllRooms() {
     setNextBatch(undefined)
@@ -63,6 +85,23 @@ async function resyncAllRooms() {
     localStorage.removeItem('mx_broadcast_lock_leader_id')
     localStorage.removeItem('mx_broadcast_lock_leader_ts')
     window.location.reload()
+}
+
+async function deleteCurrentRoomKeys() {
+    if (route.name !== 'room') return
+    const currentRoomId = route.params.roomId as string
+    if (!currentRoomId) return
+    await deleteRoomInboundMegolmSessions(currentRoomId)
+    window.location.reload()
+}
+
+async function applyStorageManagement() {
+    switch (storageManagementOption.value) {
+        case 'resyncAllRooms':
+            return resyncAllRooms()
+        case 'deleteCurrentRoomKeys':
+            return deleteCurrentRoomKeys()
+    }
 }
 
 </script>

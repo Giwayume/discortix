@@ -95,14 +95,14 @@ const log = createLogger(import.meta.url)
 
 const { t } = useI18n()
 const { fetchUserKeys } = useCryptoKeys()
-const { sendMessageToDevices } = useOlm()
+const { onInboundMessage, sendMessageToDevices } = useOlm()
 
 const { userNicknames } = storeToRefs(useAccountDataStore())
 const {
     encryptionNotSupported,
     deviceKeys,
 } = storeToRefs(useCryptoKeysStore())
-const { megolmSessionExists } = useMegolmStore()
+const { megolmSessionExists, decryptEvent } = useMegolmStore()
 const roomStore = useRoomStore()
 const { profiles } = storeToRefs(useProfileStore())
 const { userId: sessionUserId, deviceId: sessionDeviceId } = storeToRefs(useSessionStore())
@@ -165,9 +165,13 @@ const dialogTitle = computed(() => {
 
 const messageHasRoomKey = computed<boolean>(() => {
     if (!event.value) return false
-    if (event.value.type === 'm.room.encrypted') {
-        const eventContent = event.value.content as EventRoomEncryptedContent
-        return megolmSessionExists(props.roomId!, eventContent.sessionId!, eventContent.senderKey!)
+    try {
+        if (event.value.type === 'm.room.encrypted') {
+            const eventContent = event.value.content as EventRoomEncryptedContent
+            return megolmSessionExists(props.roomId!, eventContent.sessionId!, eventContent.senderKey!)
+        }
+    } catch (error) {
+        return false
     }
     return false
 })
@@ -225,7 +229,7 @@ async function requestKeys() {
                 if (userId === sessionUserId.value && deviceId === sessionDeviceId.value) continue
                 sendToUsers.push([userId, deviceId])
             }
-            if (messageHasRoomKey.value) break
+            if (messageHasRoomKey.value && messageHasDecryptedEvent.value) break
             await limiter.available()
             limiter.add(
                 sendMessageToDevices<EventRoomKeyRequestContent>(sendToUsers, 'm.room_key_request', {
@@ -259,6 +263,22 @@ async function requestKeys() {
     }
 
 }
+
+onInboundMessage((message) => {
+    if (!props.visible) return
+    if (message.type === 'm.forwarded_room_key') {
+        setTimeout( async () => {
+            if (!event.value || !messageHasRoomKey.value) return
+            const eventContent = event.value.content as EventRoomEncryptedContent
+            decryptedRoomEvents.value[event.value.eventId] = await decryptEvent(
+                props.roomId!,
+                eventContent.sessionId!,
+                eventContent.senderKey!,
+                eventContent,
+            )
+        }, 500)
+    }
+})
 
 </script>
 

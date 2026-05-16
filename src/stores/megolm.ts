@@ -22,6 +22,7 @@ import { useSessionStore } from '@/stores/session'
 
 import {
     eventContentSchemaByType,
+    ApiV3RoomKeyBackedUpSessionDataSchema, type ApiV3RoomKeyBackedUpSessionData,
     type EventRoomKeyContent,
     type EventRoomEncryptedContent,
     type EventForwardedRoomKeyContent,
@@ -116,6 +117,23 @@ export const useMegolmStore = defineStore('megolm', () => {
                 senderKey,
             }
         })
+    }
+
+    async function deleteRoomInboundMegolmSessions(roomId: string) {
+        const keys: [[string, string]] = await getAllDiscortixTableKeys('megolm')
+        const deleteIdbPromises: Promise<void>[] = []
+        for (let [megolmType, megolmId] of keys) {
+            if (megolmType === 'inboundSessions') {
+                const [myDeviceCurveKey, otherRoomId] = megolmId.split(',')
+                if (myDeviceCurveKey === olmAccount.value?.curve25519_key && roomId === otherRoomId) {
+                    delete inboundMegolmSessions.value[megolmId]
+                    deleteIdbPromises.push(
+                        deleteDiscortixTableKey('megolm', [megolmType, megolmId])
+                    )
+                }
+            }
+        }
+        await Promise.allSettled(deleteIdbPromises)
     }
 
     /*---------------------*\
@@ -371,30 +389,36 @@ export const useMegolmStore = defineStore('megolm', () => {
         const senderKey: string = content.senderKey
         if (!roomId || !sessionId || !senderKey) return
         const sessionKey = `${olmAccount.value.curve25519_key},${roomId},${sessionId},${senderKey}`
-        if (inboundMegolmSessions.value[sessionKey]) return
+        const inboundGroupSession = InboundGroupSession.import(content.sessionKey)
+        if (
+            (inboundMegolmSessions.value[sessionKey]?.session.first_known_index ?? Infinity)
+            < inboundGroupSession.first_known_index
+        ) {
+            inboundGroupSession.free()
+            return
+        }
         inboundMegolmSessions.value[sessionKey] = {
             forwardingCurve25519KeyChain: content.forwardingCurve25519KeyChain,
             senderClaimedEd25519Key: content.senderClaimedEd25519Key,
-            session: InboundGroupSession.import(content.sessionKey),
+            session: inboundGroupSession,
         }
         saveInboundMegolmSession(roomId, senderKey, inboundMegolmSessions.value[sessionKey].session)
     }
 
-    function populateRoomKeysFromMegolmBackupDirect(megolmBackup: any[], isBroadcaster: boolean = false) {
+    function populateRoomKeysFromMegolmBackupDirect(megolmBackup: ApiV3RoomKeyBackedUpSessionData[], isBroadcaster: boolean = false) {
         if (!olmAccount.value) return
-        for (const backupEvent of megolmBackup) {
+        for (const unverifiedBackupEvent of megolmBackup) {
             try {
-                const roomId: string = backupEvent.room_id
-                const sessionId: string = backupEvent.session_id
-                const senderKey: string = backupEvent.sender_key
+                const backupEvent = ApiV3RoomKeyBackedUpSessionDataSchema.parse(unverifiedBackupEvent)
+                const { roomId, sessionId, senderKey } = backupEvent
                 if (!roomId || !sessionId || !senderKey) continue
                 const sessionKey = `${olmAccount.value.curve25519_key},${roomId},${sessionId},${senderKey}`
                 if (inboundMegolmSessions.value[sessionKey]) continue
 
                 inboundMegolmSessions.value[sessionKey] = {
-                    forwardingCurve25519KeyChain: backupEvent.forwarding_curve25519_key_chain ?? [],
-                    senderClaimedEd25519Key: backupEvent.sender_claimed_keys?.ed25519 ?? '',
-                    session: InboundGroupSession.import(backupEvent.session_key),
+                    forwardingCurve25519KeyChain: backupEvent.forwardingCurve25519KeyChain ?? [],
+                    senderClaimedEd25519Key: backupEvent.senderClaimedKeys?.ed25519 ?? '',
+                    session: InboundGroupSession.import(backupEvent.sessionKey),
                 }
 
                 if (isBroadcaster) {
@@ -406,7 +430,7 @@ export const useMegolmStore = defineStore('megolm', () => {
         }
     }
 
-    function populateRoomKeysFromMegolmBackup(megolmBackup: any[]) {
+    function populateRoomKeysFromMegolmBackup(megolmBackup: ApiV3RoomKeyBackedUpSessionData[]) {
         populateRoomKeysFromMegolmBackupDirect(megolmBackup, true)
 
         broadcastMessageFromTab({
@@ -542,6 +566,7 @@ export const useMegolmStore = defineStore('megolm', () => {
         getInboundMegolmSession,
         addInboundMegolmSession,
         saveInboundMegolmSession,
+        deleteRoomInboundMegolmSessions,
 
         loadOutboundMegolmSession,
         getOutboundMegolmSession,

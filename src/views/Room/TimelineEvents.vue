@@ -107,6 +107,7 @@
         <EditGroup v-model:visible="editGroupDialogVisible" :roomId="props.room.roomId" />
         <PhotoViewer v-model:visible="photoViewerVisible" :imageEvent="photoViewerImageEvent" />
         <FixDecryptionDialog v-model:visible="fixDecryptDialogVisible" :roomId="room.roomId" :eventId="fixDecryptEventId" />
+        <EventSourceViewerDialog v-model:visible="eventSourceViewerDialogVisible" :eventRenderInfo="eventSourceRenderInfo" />
     </div>
 </template>
 
@@ -139,6 +140,7 @@ import { useSessionStore } from '@/stores/session'
 
 const DeleteMessageConfirm = defineAsyncComponent(() => import('./DeleteMessageConfirm.vue'))
 const EditGroup = defineAsyncComponent(() => import('./EditGroup.vue'))
+const EventSourceViewerDialog = defineAsyncComponent(() => import('./EventSourceViewerDialog.vue'))
 const FixDecryptionDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/FixDecryptionDialog.vue'))
 import MessagePlaceholder from './MessagePlaceholder.vue'
 const MessagePreviewDialog = defineAsyncComponent(() => import('./MessagePreviewDialog.vue'))
@@ -854,6 +856,9 @@ const { floatingStyles: messageActionsFloatingStyles, update: updateMessageActio
 const deleteMessageConfirmVisible = ref<boolean>(false)
 const deleteMessageConfirmEventRenderInfo = ref<EventWithRenderInfo>()
 
+const eventSourceViewerDialogVisible = ref<boolean>(false)
+const eventSourceRenderInfo = ref<EventWithRenderInfo>()
+
 const moreMessageActionsContextMenu = ref<InstanceType<typeof ContextMenu>>()
 const moreMessageActionsContextMenuItems = computed(() => {
     const contextMenuItems: MenuItem[] = []
@@ -945,6 +950,12 @@ const moreMessageActionsContextMenuItems = computed(() => {
     }
     if (settings.isDeveloperMode) {
         contextMenuItems.push({
+            key: 'viewEventSource',
+            label: t('room.moreMessageActions.viewEventSource'),
+            icon: 'pi pi-code',
+            command: runMoreMessageActionsContextMenuCommand,
+        })
+        contextMenuItems.push({
             key: 'copyMessageId',
             label: t('room.moreMessageActions.copyMessageId'),
             icon: 'pi pi-id-card',
@@ -990,6 +1001,21 @@ async function runMoreMessageActionsContextMenuCommand(event: MenuItemCommandEve
 
                 deleteMessageConfirmVisible.value = true
             }
+            break
+        case 'viewEventSource':
+            eventSourceViewerDialogVisible.value = true
+            eventSourceRenderInfo.value = undefined
+
+            findEventRenderInfo:
+            for (const chunk of eventChunkBuffers.value[activeEventChunkBufferIndex.value]!) {
+                for (const e of chunk.events) {
+                    if (e.event.eventId === messageActionsContextMenuTargetEventId.value) {
+                        eventSourceRenderInfo.value = e
+                        break findEventRenderInfo
+                    }
+                }
+            }
+
             break
         case 'copyMessageId':
             try {
@@ -1228,8 +1254,6 @@ onUnmounted(() => {
     videoIntersectionObserver.value?.disconnect()
     videoIntersectionObserver.value = undefined
 })
-
-
 
 /*-------------------*\
 |                     |

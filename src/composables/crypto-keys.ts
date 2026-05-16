@@ -785,6 +785,10 @@ export function useCryptoKeys() {
         secretKeyIdsMissing.value = Array.from(missingKeyIdSet)
 
         await generateDeviceKeys(uploadedKeys)
+        await Promise.allSettled([
+            loadAllMegolmSessions(),
+            loadAllOlmSessions(),
+        ])
     }
 
     async function generateDeviceKeys(uploadedKeys?: ApiV3KeysQueryResponse) {
@@ -888,6 +892,7 @@ export function useCryptoKeys() {
     // TODO - maybe persist these timestamps in storage to reduce API cost
     const fetchUserKeyTimestamps: Record<string, number> = {}
     async function fetchUserKeys(userIds: string[]) {
+        userIds = [...userIds]
         const now = Date.now()
         for (let i = userIds.length - 1; i >= 0; i--) {
             const userId = userIds[i]!

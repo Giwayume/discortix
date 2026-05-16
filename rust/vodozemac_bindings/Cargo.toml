@@ -1,0 +1,47 @@
+[package]
+name = "discortix"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+name = "vodozemac"
+crate-type = ["cdylib"]
+
+[dependencies.vodozemac]
+git = "https://github.com/matrix-org/vodozemac"
+rev = "0.10.0"
+features = ["js", "insecure-pk-encryption"]
+
+################################################################################
+#
+# Configuration for `wasm-pack`
+#
+# See https://rustwasm.github.io/docs/wasm-pack/cargo-toml-configuration.html
+# for details of what can be set here.
+#
+################################################################################
+
+[package.metadata.wasm-pack.profile.profiling]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.profiling.wasm-bindgen]
+debug-js-glue = false
+demangle-name-section = true
+dwarf-debug-info = true
+
+[package.metadata.wasm-pack.profile.release]
+# Tell wasm-opt to:
+#  * `-Oz`: optimise for size
+#  * `-g`: include the "name" section (which holds the printable names for
+#    symbols) in the output.
+wasm-opt = ['-Oz', '-g']
+
+[dependencies]
+wasm-bindgen = "0.2.80"
+js-sys = "0.3.57"
+serde-wasm-bindgen = "0.4.2"
+
+
+[dependencies.web-sys]
+version = "0.3.77"
+features = ["Document", "Element", "HtmlElement", "Node", "Window"]

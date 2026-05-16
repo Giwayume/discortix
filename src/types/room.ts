@@ -102,6 +102,7 @@ export interface KnockedRoom {
 export interface JoinedRoom {
     roomId: string;
     accountData: EventDataRecordFrom;
+    lastBackupKeyRestoreTs?: number;
     nonSequentialUpdateUuid: string; // Value changes whenever there's an update (like a redaction) that should trigger an immediate render
     reactions: Record<string, RoomEventReaction[]>;
     readRecepts: Record<string, RoomReadReceipt>;

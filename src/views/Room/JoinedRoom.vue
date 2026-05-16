@@ -279,7 +279,7 @@ const toast = useToast()
 const { isTouchEventsDetected } = useApplication()
 const { fetchUserKeys } = useCryptoKeys()
 const { currentRoomCustomEmojiByCode } = useEmoji()
-const { getOutboundGroupSession } = useMegolm()
+const { getOutboundGroupSession, restoreRoomKeysFromBackup } = useMegolm()
 const { sendTypingNotification, sendMessageEvent, sendMessageReaction, redactEvent } = useRooms()
 
 const { userNicknames } = storeToRefs(useAccountDataStore())
@@ -374,6 +374,10 @@ watch(() => props.room.stateEventsByType['m.room.member'], (members) => {
         userIds.push(member.sender)
     }
     fetchUserKeys(userIds)
+}, { immediate: true })
+
+watch(() => props.room.roomId, (roomId) => {
+    restoreRoomKeysFromBackup(roomId)
 }, { immediate: true })
 
 /*---------------------*\

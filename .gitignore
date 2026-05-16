@@ -42,3 +42,6 @@ __screenshots__/
 
 # Server Config
 /config.json
+
+# Rust Build
+target

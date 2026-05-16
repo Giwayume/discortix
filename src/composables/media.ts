@@ -408,7 +408,7 @@ export function createLazyMediaUpload() {
         } else if (contentUri) {
             const [serverName, mediaId] = contentUri.replace(/^mxc\:\/\//, '').split('/')
             await fetchJson(
-                `${homeserverBaseUrl.value}/_matrix/media/v3/upload/${serverName}/${mediaId}.`,
+                `${homeserverBaseUrl.value}/_matrix/media/v3/upload/${serverName}/${mediaId}`,
                 {
                     method: 'PUT',
                     headers: {

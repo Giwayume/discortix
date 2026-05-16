@@ -24,6 +24,7 @@ export function pickFile(options: PickFileOptions = {}): any {
     // Fallback to the file input element
     return new Promise((resolve, reject) => {
         let input = document.getElementById('fallback-file-input') as HTMLInputElement | null
+        let isChangeFired = false
         if (!input) {
             input = document.createElement('input')
             input.setAttribute('type', 'file')
@@ -48,6 +49,8 @@ export function pickFile(options: PickFileOptions = {}): any {
         };
 
         const onChange = () => {
+            if (isChangeFired) return
+            isChangeFired = true
             if (input.files?.length === 0) return reject(new DOMException('No file selected', 'AbortError'))
             if (options.multiple) {
                 resolve(input.files)

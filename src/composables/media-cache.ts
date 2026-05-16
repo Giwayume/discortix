@@ -6,6 +6,7 @@ import { fetch, HttpError } from '@/utils/fetch'
 
 import type { EncryptedFile } from '@/types'
 
+const mxcObjectUrlRequests = new Map<string, Promise<Blob>>()
 const mxcObjectUrls = new Map<string, string>()
 const mxcObjectUrlUserCount = new Map<string, number>()
 
@@ -110,15 +111,31 @@ export function useMediaCache() {
         const mxcUri = typeof mxcUriOrFile === 'string' ? mxcUriOrFile : mxcUriOrFile.url
         const mxcStoreId = mxcUri + '::' + optionsId
         let objectUrl = mxcObjectUrls.get(mxcStoreId)
-        if (!objectUrl) {
-            const blob = await getMxcBlob(mxcUriOrFile, options, abortController)
-            objectUrl = URL.createObjectURL(blob)
+        try {
+            if (!objectUrl) {
+                const objectUrlRequest = mxcObjectUrlRequests.get(mxcStoreId)
+                if (objectUrlRequest) {
+                    const [settleResult] = await Promise.allSettled([objectUrlRequest])
+                    await new Promise((resolve) => setTimeout(resolve, 1))
+                    if (settleResult.status === 'fulfilled') {
+                        objectUrl = URL.createObjectURL(settleResult.value)
+                    }
+                } else {
+                    const request = getMxcBlob(mxcUriOrFile, options, abortController)
+                    mxcObjectUrlRequests.set(mxcStoreId, request)
+                    const blob = await request
+                    objectUrl = URL.createObjectURL(blob)
+                    mxcObjectUrls.set(mxcStoreId, objectUrl)
+                }
+            }
+            if (objectUrl && !usedMxcUris.has(mxcStoreId)) {
+                mxcObjectUrlUserCount.set(mxcStoreId, (mxcObjectUrlUserCount.get(mxcStoreId) ?? 0) + 1)
+                usedMxcUris.add(mxcStoreId)
+            }
+            if (!objectUrl) throw new DOMException('Unable to find the media.')
+        } finally {
+            mxcObjectUrlRequests.delete(mxcStoreId)
         }
-        if (objectUrl && !usedMxcUris.has(mxcStoreId)) {
-            mxcObjectUrlUserCount.set(mxcStoreId, (mxcObjectUrlUserCount.get(mxcStoreId) ?? 0) + 1)
-            usedMxcUris.add(mxcStoreId)
-        }
-        if (!objectUrl) throw new DOMException('Unable to find the media.')
         return objectUrl
     }
 
@@ -128,17 +145,18 @@ export function useMediaCache() {
             mxcObjectUrlUserCount.set(mxcStoreId, userCount)
             if (userCount === 0) {
                 const objectUrl = mxcObjectUrls.get(mxcStoreId)
-                if (!objectUrl) continue
-                URL.revokeObjectURL(objectUrl)
+                mxcObjectUrlRequests.delete(mxcStoreId)
                 mxcObjectUrls.delete(mxcStoreId)
                 mxcObjectUrlUserCount.delete(mxcStoreId)
+                if (!objectUrl) continue
+                URL.revokeObjectURL(objectUrl)
             }
         }
     }
 
     if (getCurrentInstance()) {
         onUnmounted(() => {
-            clearUsers()
+            setTimeout(clearUsers, 500)
         })
     }
 
