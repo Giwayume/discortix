@@ -16,12 +16,12 @@
             </div>
         </template>
         <div class="delete-message-confirm__message-preview">
-            <TimelineEventRender
-                v-if="eventRenderInfoWithHeader"
-                :room="props.room"
-                :e="eventRenderInfoWithHeader"
-                :i18nText="i18nText"
-                :currentRoomCustomEmojiByCode="currentRoomCustomEmojiByCode"
+            <div
+                v-timeline-event-render="{
+                    eventChunkList: [{ id: '', loading: false, events: eventRenderInfoWithHeader ? [eventRenderInfoWithHeader] : [] }],
+                    i18nText,
+                    currentRoomCustomEmojiByCode,
+                }"
             />
         </div>
         <template v-if="!isTouchEventsDetected">
@@ -49,11 +49,11 @@ import { computed, ref, watch, type PropType } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { micromark } from 'micromark'
 
+import { vTimelineEventRender } from '@/directives/timeline-event-render'
+
 import { useApplication } from '@/composables/application'
 import { useEmoji } from '@/composables/emoji'
 import { useRooms } from '@/composables/rooms'
-
-import TimelineEventRender from './TimelineEventRender.vue'
 
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'

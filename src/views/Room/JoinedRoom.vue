@@ -60,9 +60,10 @@
     </MainHeader>
     <MainBody :disableScrollbar="true" :asideVisible="settings.showChatAside">
         <TimelineEvents
+            v-if="renderedRoom"
             ref="timelineEvents"
-            :key="`TimelineEventsFor${props.room.roomId}`"
-            :room="props.room"
+            :key="`TimelineEventsFor${renderedRoom.roomId}`"
+            :room="renderedRoom"
             :referenceEventId="replyToEventId || editEventId"
             @update:anchoredToBottom="isAnchoredToBottom = $event"
             @update:editEventId="onUpdateEditEventId"
@@ -75,8 +76,8 @@
         />
         <template #aside>
             <GroupMemberListAside
-                v-if="otherMembersDisplayed.length > 1"
-                :roomId="props.room.roomId"
+                v-if="renderedRoom && otherMembersDisplayed.length > 1"
+                :roomId="renderedRoom.roomId"
                 @mentionUserId="mentionUserId"
                 @showUserProfile="showUserProfile"
             />
@@ -207,7 +208,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onUnmounted, reactive, ref, watch, type PropType } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onUnmounted, reactive, ref, watch, type PropType } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
@@ -314,6 +315,7 @@ const props = defineProps({
 |                   |
 \*-----------------*/
 
+const renderedRoom = ref<JoinedRoom | null>(null)
 const timelineEvents = ref<InstanceType<typeof TimelineEvents>>()
 const isAnchoredToBottom = ref<boolean>(false)
 const message = ref<string>('')
@@ -376,8 +378,16 @@ watch(() => props.room.stateEventsByType['m.room.member'], (members) => {
     fetchUserKeys(userIds)
 }, { immediate: true })
 
-watch(() => props.room.roomId, (roomId) => {
+watch(() => props.room.roomId, async (roomId) => {
     restoreRoomKeysFromBackup(roomId)
+
+    // Wait for next animation frame to render room timeline, as it can take some time,
+    // and this allows navigation selection animations to display immediately.
+    renderedRoom.value = null
+    await nextTick()
+    window.setTimeout(() => {
+        renderedRoom.value = props.room
+    }, 0)
 }, { immediate: true })
 
 /*---------------------*\

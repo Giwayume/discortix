@@ -68,8 +68,12 @@
                     :encryptedFile="props.imageEvent?.content.file"
                     type="download"
                 >
-                    <template v-slot="{ src }">
+                    <template v-slot="{ src, loading }">
+                        <div v-if="loading" class="p-button-loading">
+                            <div class="p-button-loading-dots" />
+                        </div>
                         <img
+                            v-else
                             ref="previewImage"
                             :src="src"
                             :alt="props.imageEvent?.content.body"

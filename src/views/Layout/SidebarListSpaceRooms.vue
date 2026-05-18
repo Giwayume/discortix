@@ -134,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
@@ -189,11 +189,11 @@ const spaceName = computed(() => {
     return currentTopLevelSpaceName.value ?? t('layout.unnamedSpace')
 })
 
-const browseRoomsItem: MenuItem = {
+const browseRoomsItem = computed<MenuItem>(() => ({
     key: currentTopLevelSpaceId.value,
     label: t('layout.browseRooms'),
     icon: 'pi pi-user',
-}
+}))
 
 /*----------------------------*\
 |                              |

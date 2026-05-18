@@ -38,48 +38,48 @@ app.use(VueDOMPurifyHTML, {
             USE_PROFILES: { mathMl: true },
         },
     },
-    hooks: {
-        uponSanitizeElement: (currentNode: HTMLElement) => {
-            if (currentNode?.tagName === 'IMG') {
-                const mxcUri = currentNode.getAttribute('src')
-                if (!mxcUri?.startsWith('mxc://')) return
-                const imageId = `sanitized-img-${uuidv4()}`
-                currentNode.setAttribute('id', imageId)
-                currentNode.setAttribute('src', '/assets/images/image-loading.png')
-                nextTick(() => {
-                    const timelineId = document.querySelector('[data-timeline-id]')?.getAttribute('data-timeline-id')
-                    if (!timelineId) return
-                    let mediaCacheEntries = mediaCacheByTimelineId[timelineId]
-                    if (!mediaCacheEntries) {
-                        mediaCacheByTimelineId[timelineId] = useMediaCache()
-                        mediaCacheEntries = mediaCacheByTimelineId[timelineId]
-                    }
-                    const img = document.getElementById(imageId)
-                    if (img) {
-                        const hasOnlyImg = img.parentElement?.childElementCount === 1 &&
-                            img.parentElement.firstElementChild?.tagName === 'IMG' &&
-                            img.parentElement.textContent.trim() === ''
-                        img.classList.toggle('p-chattimeline-event-jumbo-emoji', hasOnlyImg)
-                    }
-                    mediaCacheEntries.getMxcObjectUrl(mxcUri, { type: 'thumbnail', width: 96, height: 96, method: 'scale' }).then((src) => {
-                        const img = document.getElementById(imageId)
-                        if (!img) return
-                        img.setAttribute('src', src)
-                        if (!img.parentElement) return
-                    }).catch((error) => {
-                        document.getElementById(imageId)?.setAttribute('src', '/assets/images/image-load-error.svg')
-                    })
-                })
-            } else if (currentNode?.tagName === 'SPAN') {
-                if (currentNode.getAttribute('data-mx-spoiler') != null) {
-                    currentNode.setAttribute('role', 'button')
-                    currentNode.setAttribute('tabindex', '0')
-                    currentNode.setAttribute('aria-label', 'Spoiler')
-                    currentNode.setAttribute('aria-expanded', 'false')
-                }
-            }
-        },
-    },
+    // hooks: {
+    //     uponSanitizeElement: (currentNode: HTMLElement) => {
+    //         if (currentNode?.tagName === 'IMG') {
+    //             const mxcUri = currentNode.getAttribute('src')
+    //             if (!mxcUri?.startsWith('mxc://')) return
+    //             const imageId = `sanitized-img-${uuidv4()}`
+    //             currentNode.setAttribute('id', imageId)
+    //             currentNode.setAttribute('src', '/assets/images/image-loading.png')
+    //             nextTick(() => {
+    //                 const timelineId = document.querySelector('[data-timeline-id]')?.getAttribute('data-timeline-id')
+    //                 if (!timelineId) return
+    //                 let mediaCacheEntries = mediaCacheByTimelineId[timelineId]
+    //                 if (!mediaCacheEntries) {
+    //                     mediaCacheByTimelineId[timelineId] = useMediaCache()
+    //                     mediaCacheEntries = mediaCacheByTimelineId[timelineId]
+    //                 }
+    //                 const img = document.getElementById(imageId)
+    //                 if (img) {
+    //                     const hasOnlyImg = img.parentElement?.childElementCount === 1 &&
+    //                         img.parentElement.firstElementChild?.tagName === 'IMG' &&
+    //                         img.parentElement.textContent.trim() === ''
+    //                     img.classList.toggle('p-chattimeline-event-jumbo-emoji', hasOnlyImg)
+    //                 }
+    //                 mediaCacheEntries.getMxcObjectUrl(mxcUri, { type: 'thumbnail', width: 96, height: 96, method: 'scale' }).then((src) => {
+    //                     const img = document.getElementById(imageId)
+    //                     if (!img) return
+    //                     img.setAttribute('src', src)
+    //                     if (!img.parentElement) return
+    //                 }).catch((error) => {
+    //                     document.getElementById(imageId)?.setAttribute('src', '/assets/images/image-load-error.svg')
+    //                 })
+    //             })
+    //         } else if (currentNode?.tagName === 'SPAN') {
+    //             if (currentNode.getAttribute('data-mx-spoiler') != null) {
+    //                 currentNode.setAttribute('role', 'button')
+    //                 currentNode.setAttribute('tabindex', '0')
+    //                 currentNode.setAttribute('aria-label', 'Spoiler')
+    //                 currentNode.setAttribute('aria-expanded', 'false')
+    //             }
+    //         }
+    //     },
+    // },
 })
 
 app.mount('#app')

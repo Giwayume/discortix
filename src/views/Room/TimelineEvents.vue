@@ -18,6 +18,11 @@
                     ref="oldMessagePlaceholder"
                     :key="`oldMessagePlaceholderFor${room.roomId}`"
                 />
+                <MessageBeginning
+                    v-else
+                    :room="props.room"
+                    @inviteUsers="emit('inviteUsers')"
+                />
                 <div
                     v-for="(eventChunkList, eventChunkBufferIndex) of eventChunkBuffers"
                     :key="eventChunkBufferIndex"
@@ -27,22 +32,18 @@
                     }"
                 >
                     <div ref="eventChunkBufferContainers" class="p-chattimeline-scroll-content-chunks">
-                        <template v-for="chunk of eventChunkList" :key="chunk.id">
-                            <TimelineEventRender
-                                v-for="e of chunk.events"
-                                :key="e.event.eventId"
-                                :room="props.room"
-                                :e="e"
-                                :i18nText="i18nText"
-                                :messageActionsTargetEventId="messageActionsTargetEventId"
-                                :messageActionsContextMenuTargetEventId="messageActionsContextMenuTargetEventId"
-                                :highlightEventId="highlightEventId"
-                                :referenceEventId="referenceEventId"
-                                :currentRoomCustomEmojiByCode="currentRoomCustomEmojiByCode"
-                                @inviteUsers="emit('inviteUsers')"
-                                @viewPhoto="viewPhoto($event)"
-                            />
-                        </template>
+                        <div
+                            v-timeline-event-render="{
+                                eventChunkList,
+                                i18nText,
+                                messageActionsTargetEventId,
+                                messageActionsContextMenuTargetEventId,
+                                highlightEventId,
+                                referenceEventId,
+                                currentRoomCustomEmojiByCode,
+                                useMediaCache: true,
+                            }"
+                        />
                     </div>
                     <!-- New messages bar -->
                     <!--div class="p-chattimeline-new-divider">
@@ -124,6 +125,8 @@ import { useFloating, offset as floatingOffset, autoUpdate as floatingAutoUpdate
 import { throttle } from '@/utils/timing'
 import { downloadFile } from '@/utils/file-access'
 
+import { vTimelineEventRender } from '@/directives/timeline-event-render'
+
 import { useApplication } from '@/composables/application'
 import { useEmoji } from '@/composables/emoji'
 import { useKeyboard } from '@/composables/keyboard'
@@ -142,10 +145,10 @@ const DeleteMessageConfirm = defineAsyncComponent(() => import('./DeleteMessageC
 const EditGroup = defineAsyncComponent(() => import('./EditGroup.vue'))
 const EventSourceViewerDialog = defineAsyncComponent(() => import('./EventSourceViewerDialog.vue'))
 const FixDecryptionDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/FixDecryptionDialog.vue'))
+import MessageBeginning from './MessageBeginning.vue'
 import MessagePlaceholder from './MessagePlaceholder.vue'
 const MessagePreviewDialog = defineAsyncComponent(() => import('./MessagePreviewDialog.vue'))
 const PhotoViewer = defineAsyncComponent(() => import('./PhotoViewer.vue'))
-import TimelineEventRender from './TimelineEventRender.vue'
 
 import Button from 'primevue/button'
 import ContextMenu from 'primevue/contextmenu'
@@ -183,7 +186,12 @@ const { settings } = useClientSettingsStore()
 const { decryptEvent: decryptMegolmEvent } = useMegolmStore()
 const { profiles } = storeToRefs(useProfileStore())
 const roomStore = useRoomStore()
-const { currentRoomEncryptionEnabledTimestamp, currentRoomPermissions, decryptedRoomEvents } = storeToRefs(roomStore)
+const {
+    currentRoomEncryptionEnabledTimestamp,
+    currentRoomPermissions,
+    decryptedRoomEvents,
+    spoilersMarkedVisible,
+} = storeToRefs(roomStore)
 const { getTimelineEventById, getTimelineEventIndexById } = roomStore
 const { userId: sessionUserId } = storeToRefs(useSessionStore())
 
@@ -1117,8 +1125,13 @@ function onPointerUpTimeline(event: PointerEvent) {
     ) {
         const link = (event.target as HTMLElement)?.closest('a[href],[data-link-id],[data-mx-spoiler]')
         if (!link) return
+        const eventId = link.closest('[data-event-id]')?.getAttribute('data-event-id') ?? undefined
         if (link.getAttribute('data-mx-spoiler') != null && link.getAttribute('aria-expanded') != 'true') {
             link.setAttribute('aria-expanded', 'true')
+            const spoilerIndex = Array.from(
+                link.closest('.p-chattimeline-event-content')?.querySelectorAll('[data-mx-spoiler]') ?? []
+            ).findIndex((spoilerLink) => spoilerLink === link)
+            spoilersMarkedVisible.value.add(`${eventId}_body_spoiler_${spoilerIndex}`)
             return
         }
         const href = link.getAttribute('href')
@@ -1139,7 +1152,6 @@ function onPointerUpTimeline(event: PointerEvent) {
             return
         }
         const linkId = link.getAttribute('data-link-id')
-        const eventId = link.closest('[data-event-id]')?.getAttribute('data-event-id') ?? undefined
         switch (linkId) {
             case 'addReaction':
                 const reactionKey = link.getAttribute('data-reaction-key')
@@ -1162,7 +1174,7 @@ function onPointerUpTimeline(event: PointerEvent) {
                 return
             case 'downloadFile': {
                 if (!props.room.visibleTimeline) return
-                const event = getTimelineEventById(props.room.visibleTimeline, eventId)
+                const event = findRenderedEvent(eventId)
                 if (!event) return
                 downloadFileFromEvent(event)
                 return
@@ -1182,12 +1194,24 @@ function onPointerUpTimeline(event: PointerEvent) {
                 if (!jumpToEventId) return
                 jumpToMessage(jumpToEventId)
                 return
+            case 'removeMediaSpoiler':
+                link.classList.add('p-chattimeline-spoiler-visible')
+                spoilersMarkedVisible.value.add(`${eventId}_image`)
+                return
             case 'replyToMessage':
                 emit('update:replyToEventId', eventId ?? messageActionsTargetEventId.value)
                 return
             case 'retrySendMessage':
                 emit('retrySendMessage', eventId)
                 return
+            case 'viewFullImage': {
+                if (!props.room.visibleTimeline) return
+                const event = findRenderedEvent(eventId)
+                if (!event) return
+                photoViewerImageEvent.value = event
+                photoViewerVisible.value = true
+                return
+            }
             case 'viewUserProfile':
                 const userId = link.getAttribute('data-user-id')
                 if (!userId) return
@@ -1207,9 +1231,23 @@ function onClickTimeline(event: MouseEvent) {
     event.preventDefault()
 }
 
-function viewPhoto(event: ApiV3SyncClientEventWithoutRoomId<EventImageContent>) {
-    photoViewerImageEvent.value = event
-    photoViewerVisible.value = true
+// function viewPhoto(event: ApiV3SyncClientEventWithoutRoomId<EventImageContent>) {
+//     photoViewerImageEvent.value = event
+//     photoViewerVisible.value = true
+// }
+
+function findRenderedEvent(eventId?: string) {
+    let event: ApiV3SyncClientEventWithoutRoomId | undefined = undefined
+    findEvent:
+    for (const eventChunk of eventChunkBuffers.value[activeEventChunkBufferIndex.value]!) {
+        for (const e of eventChunk.events) {
+            if (e.event.eventId === eventId) {
+                event = e.event
+                break findEvent
+            }
+        }
+    }
+    return event
 }
 
 function downloadFileFromEvent(event: ApiV3SyncClientEventWithoutRoomId<EventFileContent>) {

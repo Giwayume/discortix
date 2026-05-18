@@ -1,5 +1,5 @@
 import {
-    registerPlugin, State, createTokenClass, find,
+    registerPlugin, State, createTokenClass,
     type ScannerInit, type ParserInit,
 } from 'linkifyjs'
 import { useSessionStore } from '@/stores/session'

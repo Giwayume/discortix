@@ -30,6 +30,7 @@
     --p-chattimeline-event-background: transparent;
 
     background: var(--p-chattimeline-event-background);
+    contain: style paint;
     position: relative;
     padding: 0.125rem 1.5rem 0.125rem 4.5rem;
     line-height: 1.375rem;
@@ -135,8 +136,11 @@
         top: 1.75rem;
     }
 
-    ~ .p-chattimeline-event-content > .p-chattimeline-event-content-formatted > blockquote:first-child {
-        display: none;
+    ~ .p-chattimeline-event-content > .p-chattimeline-event-content-formatted {
+        > blockquote:first-child,
+        > mx-reply {
+            display: none;
+        }
     }
 }
 
@@ -546,20 +550,35 @@
 .p-chattimeline-event-video {
     display: block;
     width: fit-content;
+    max-width: 100%;
     margin: 0.125rem 0;
+
+    &:has(.p-chattimeline-video-placeholder) {
+        width: 100%;
+    }
 
     video, .p-chattimeline-video-placeholder {
         background: black;
         border: none;
-        height: var(--video-target-height, auto);
-        width: auto;
-        max-height: 21.875rem;
-        max-width: 100%;
         overflow: hidden;
-        aspect-ratio: var(--video-aspect-ratio, auto);
         border-radius: 0.5rem;
         object-fit: cover;
         cursor: pointer;
+    }
+
+    video {
+        height: var(--video-target-height, auto);
+        width: auto;
+        max-height: 21.875rem;
+        aspect-ratio: var(--video-aspect-ratio, auto);
+    }
+
+    .p-chattimeline-video-placeholder {
+        width: min(
+            calc(min(var(--video-target-height), 21.875rem) * var(--video-aspect-ratio)),
+            100%
+        );
+        aspect-ratio: var(--video-aspect-ratio);
     }
 }
 

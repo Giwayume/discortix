@@ -1,5 +1,5 @@
 <template>
-    <slot v-if="!hasErrorSlot || !loadError" :src="src" :error="loadError"></slot>
+    <slot v-if="!hasErrorSlot || !loadError" :src="src" :loading="loading" :error="loadError"></slot>
     <slot v-if="loadError" name="error"></slot>
 </template>
 

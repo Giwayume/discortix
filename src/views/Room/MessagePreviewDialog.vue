@@ -13,12 +13,12 @@
             <div class="p-dialog-title">{{ t('messagePreviewDialog.title') }}</div>
         </template>
         <div class="message-preview-dialog__message-preview">
-            <TimelineEventRender
-                v-if="eventRenderInfo"
-                :room="props.room"
-                :e="eventRenderInfo"
-                :i18nText="i18nText"
-                :currentRoomCustomEmojiByCode="currentRoomCustomEmojiByCode"
+            <div
+                v-timeline-event-render="{
+                    eventChunkList: [{ id: '', loading: false, events: eventRenderInfo ? [eventRenderInfo] : [] }],
+                    i18nText,
+                    currentRoomCustomEmojiByCode,
+                }"
             />
         </div>
         
@@ -33,6 +33,8 @@ import { computed, reactive, type PropType } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 
+import { vTimelineEventRender } from '@/directives/timeline-event-render'
+
 import { messageEventTypes, settingsEventTypes } from '@/composables/event-timeline'
 import { useEmoji } from '@/composables/emoji'
 
@@ -42,8 +44,6 @@ import { useMegolmStore } from '@/stores/megolm'
 import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
-
-import TimelineEventRender from './TimelineEventRender.vue'
 
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'

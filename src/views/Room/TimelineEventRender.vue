@@ -447,8 +447,6 @@ const emit = defineEmits<{
 |                |
 \*--------------*/
 
-const spoilerVisible = ref<boolean>(false)
-
 const formattedBody = computed<string | undefined>(() => {
     if (
         props.e.event.type === 'm.room.message'
