@@ -140,7 +140,7 @@ import type {
 
 const { t } = useI18n()
 const { getCurrentUserDevices, deleteDevice } = useDevices()
-const { userId: sessionUserId, deviceId: sessionDeviceId } = storeToRefs(useSessionStore())
+const { deviceId: sessionDeviceId } = storeToRefs(useSessionStore())
 
 const loading = ref<boolean>(true)
 const loadError = ref<Error | undefined>()

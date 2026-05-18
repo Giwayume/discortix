@@ -686,21 +686,20 @@
             "userSettings": "User Settings",
             "myAccount": "My Account",
             "contentSocial": "Content & Social",
-            "dataPrivacy": "Data & Privacy",
             "encryption": "Encryption",
             "authorizedApps": "Authorized Apps",
             "devices": "Devices",
             "connections": "Connections",
             "notifications": "Notifications",
-            "appSettings": "App Settings",
+            "experience": "Experience",
+            "voiceVideo": "Voice & Video",
             "appearance": "Appearance",
             "accessibility": "Accessibility",
-            "voiceVideo": "Voice & Video",
-            "chat": "Chat",
             "keybinds": "Keybinds",
             "languageTime": "Language & Time",
-            "streamerMode": "Streamer Mode",
             "advanced": "Advanced",
+            "expression": "Expression",
+            "emoji": "Emoji",
             "activitySettings": "Activity Settings",
             "activityPrivacy": "Activity Privacy",
             "logOut": "Log Out"
@@ -763,6 +762,21 @@
                 "deleteCurrentRoomKeys": "Delete Current Room Keys"
             },
             "storageManagementApplyButton": "Apply"
+        },
+        "emoji": {
+            "instructions": "Add up to 150 custom emoji that you can use in any chat room.",
+            "noEmoji": "No custom emoji have been uploaded.",
+            "uploadButton": "Upload Emoji",
+            "editEmoji": "Edit Emoji",
+            "deleteEmoji": "Delete Emoji",
+            "table": {
+                "heading": "Emoji",
+                "image": "Image",
+                "name": "Name"
+            },
+            "loadError": {
+                "unknown": "An error occurred when retrieving the list of devices. Please try again later."
+            }
         },
         "activityPrivacy": {
             "activitySharingHeading": "Activity Sharing",

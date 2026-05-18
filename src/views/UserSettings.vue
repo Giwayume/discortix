@@ -122,20 +122,8 @@
                         <EncryptionSettings v-if="selectedMenuItem.key === 'encryption'" />
                         <DevicesSettings v-else-if="selectedMenuItem.key === 'devices'" />
                         <AdvancedSettings v-else-if="selectedMenuItem.key === 'advanced'" />
+                        <EmojiSettings v-else-if="selectedMenuItem.key === 'emoji'" />
                         <ActivityPrivacySettings v-else-if="selectedMenuItem.key === 'activityPrivacy'" />
-                        <div v-if="hasPendingChanges" class="absolute left-0 bottom-0 right-0 p-4">
-                            <div class="flex items-center justify-between mx-auto max-w-174 p-[0.625rem] pl-4 bg-(--background-surface-highest) border-1 border-(--border-subtle) rounded-(--radius-sm) shadow-(--legacy-elevation-high)">
-                                <span class="font-medium">{{ t('userSettings.youHaveUnsavedChanges') }}</span>
-                                <div class="flex items-center gap-4">
-                                    <span class="link text-sm" tabindex="0" role="button">{{ t('userSettings.resetLink') }}</span>
-                                    <Button
-                                        severity="success"
-                                        size="small"
-                                        :label="t('userSettings.saveChangesButton')"
-                                    />
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -173,6 +161,7 @@ import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
 const DevicesSettings = defineAsyncComponent(() => import('./UserSettings/Devices.vue'))
 const EncryptionSettings = defineAsyncComponent(() => import('./UserSettings/Encryption.vue'))
 const AdvancedSettings = defineAsyncComponent(() => import('./UserSettings/Advanced.vue'))
+const EmojiSettings = defineAsyncComponent(() => import('./UserSettings/Emoji.vue'))
 const ActivityPrivacySettings = defineAsyncComponent(() => import('./UserSettings/ActivityPrivacy.vue'))
 
 import Avatar from 'primevue/avatar'
@@ -244,12 +233,6 @@ const menuItems = ref([
                 command: selectMenuItem,
             },
             {
-                key: 'dataPrivacy',
-                label: t('userSettings.menu.dataPrivacy'),
-                icon: 'pi pi-lock',
-                command: selectMenuItem,
-            },
-            {
                 key: 'encryption',
                 label: t('userSettings.menu.encryption'),
                 icon: 'pi pi-key',
@@ -282,8 +265,14 @@ const menuItems = ref([
         ],
     },
     {
-        label: t('userSettings.menu.appSettings'),
+        label: t('userSettings.menu.experience'),
         items: [
+            {
+                key: 'voiceVideo',
+                label: t('userSettings.menu.voiceVideo'),
+                icon: 'pi pi-microphone',
+                command: selectMenuItem,
+            },
             {
                 key: 'appearance',
                 label: t('userSettings.menu.appearance'),
@@ -294,18 +283,6 @@ const menuItems = ref([
                 key: 'accessibility',
                 label: t('userSettings.menu.accessibility'),
                 icon: 'pi pi-star',
-                command: selectMenuItem,
-            },
-            {
-                key: 'voiceVideo',
-                label: t('userSettings.menu.voiceVideo'),
-                icon: 'pi pi-microphone',
-                command: selectMenuItem,
-            },
-            {
-                key: 'chat',
-                label: t('userSettings.menu.chat'),
-                icon: 'pi pi-comment',
                 command: selectMenuItem,
             },
             {
@@ -321,15 +298,20 @@ const menuItems = ref([
                 command: selectMenuItem,
             },
             {
-                key: 'streamerMode',
-                label: t('userSettings.menu.streamerMode'),
-                icon: 'pi pi-video',
-                command: selectMenuItem,
-            },
-            {
                 key: 'advanced',
                 label: t('userSettings.menu.advanced'),
                 icon: 'pi pi-ellipsis-h',
+                command: selectMenuItem,
+            },
+        ],
+    },
+    {
+        label: t('userSettings.menu.expression'),
+        items: [
+            {
+                key: 'emoji',
+                label: t('userSettings.menu.emoji'),
+                icon: 'pi pi-face-smile',
                 command: selectMenuItem,
             },
         ],
