@@ -1,8 +1,9 @@
 :root {
     --p-datatable-border-color: var(--border-subtle);
     --p-datatable-border-radius: var(--radius-md);
+    --p-datatable-padding-x: 1rem;
 
-    --p-datatable-header-cell-padding: 0.5rem 1rem;
+    --p-datatable-header-cell-padding: 0.5rem;
     --p-datatable-header-cell-background: var(--background-mod-muted);
     --p-datatable-header-cell-border-color: transparent;
     --p-datatable-header-cell-color: var(--text-default);
@@ -15,7 +16,7 @@
     --p-datatable-row-color: var(--text-default);
 
     --p-datatable-body-cell-border-color: var(--border-subtle);
-    --p-datatable-body-cell-padding: 0.5rem 1rem;
+    --p-datatable-body-cell-padding: 0.5rem;
 
     --p-datatable-transition-duration: 0.2s;
 }
@@ -31,12 +32,24 @@
 
     &:first-child {
         border-top-left-radius: var(--p-datatable-border-radius);
+        padding-left: var(--p-datatable-padding-x);
     }
     &:last-child {
         border-top-right-radius: var(--p-datatable-border-radius);
+        padding-right: var(--p-datatable-padding-x);
     }
 }
 
+.p-datatable-tbody {
+    > tr {
+        > td:first-child {
+            padding-left: var(--p-datatable-padding-x);
+        }
+        > td:last-child {
+            padding-right: var(--p-datatable-padding-x);
+        }
+    }
+}
 .p-datatable-tbody > tr:last-child {
     --p-datatable-body-cell-border-color: transparent;
 }

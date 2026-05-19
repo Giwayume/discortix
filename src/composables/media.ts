@@ -25,9 +25,13 @@ const videoMediaTypes = [
     'video/mp4', 'video/ogg', 'video/quicktime', 'video/webm', 'video/x-matroska',
 ]
 
-const thumbnailMaxDimension = 800
+const defaultThumbnailMaxDimension = 800
 
-export async function createMediaInfo(objectUrlOrBlob: string | Blob, generateThumbnail?: boolean): Promise<MediaInfo> {
+export async function createMediaInfo(
+    objectUrlOrBlob: string | Blob,
+    generateThumbnail?: boolean,
+    thumbnailMaxDimension?: number,
+): Promise<MediaInfo> {
     let objectUrl = (typeof objectUrlOrBlob === 'string') ? objectUrlOrBlob : undefined
     let blob: Blob | null
     try {
@@ -65,8 +69,8 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob, generateTh
             let thumbnailBlob: Blob | undefined = undefined
             let thumbnailWidth: number = 0
             let thumbnailHeight: number = 0
-            if (generateThumbnail && Math.max(image.width, image.height) >= thumbnailMaxDimension) {
-                const thumbnailScale = thumbnailMaxDimension / Math.max(image.width, image.height)
+            if (generateThumbnail && Math.max(image.width, image.height) >= (thumbnailMaxDimension ?? defaultThumbnailMaxDimension)) {
+                const thumbnailScale = (thumbnailMaxDimension ?? defaultThumbnailMaxDimension) / Math.max(image.width, image.height)
                 const canvas = document.createElement('canvas')
                 canvas.width = Math.floor(image.width * thumbnailScale)
                 canvas.height = Math.floor(image.height * thumbnailScale)
@@ -148,7 +152,7 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob, generateTh
             let thumbnailBlob: Blob | undefined = undefined
             let thumbnailWidth: number = 0
             let thumbnailHeight: number = 0
-            if (generateThumbnail && Math.max(video.videoWidth, video.videoHeight) >= thumbnailMaxDimension) {
+            if (generateThumbnail && Math.max(video.videoWidth, video.videoHeight) >= (thumbnailMaxDimension ?? defaultThumbnailMaxDimension)) {
                 await new Promise<void>((resolve) => {
                     let isResolved = false
                     function onLoadedData() {
@@ -174,7 +178,7 @@ export async function createMediaInfo(objectUrlOrBlob: string | Blob, generateTh
                     }, 1000)
                 })
 
-                const thumbnailScale = thumbnailMaxDimension / Math.max(video.videoWidth, video.videoHeight)
+                const thumbnailScale = (thumbnailMaxDimension ?? defaultThumbnailMaxDimension) / Math.max(video.videoWidth, video.videoHeight)
                 const canvas = document.createElement('canvas')
                 canvas.width = Math.floor(video.videoWidth * thumbnailScale)
                 canvas.height = Math.floor(video.videoHeight * thumbnailScale)

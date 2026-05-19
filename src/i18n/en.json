@@ -764,7 +764,7 @@
             "storageManagementApplyButton": "Apply"
         },
         "emoji": {
-            "instructions": "Add up to 150 custom emoji that you can use in any chat room.",
+            "instructions": "Add custom emoji that you can use in any chat room.",
             "noEmoji": "No custom emoji have been uploaded.",
             "uploadButton": "Upload Emoji",
             "editEmoji": "Edit Emoji",
@@ -775,6 +775,9 @@
                 "name": "Name"
             },
             "loadError": {
+                "tooManyEmoji": "You reached the limit of what your homeserver will store, try deleting some emoji or give them shorter names.",
+                "uploadImageFail": "Some of the images you selected could not be uploaded. Please try again later.",
+                "selectFileFail": "Some or all of the files selected were not image files that can be used.",
                 "unknown": "An error occurred when retrieving the list of devices. Please try again later."
             }
         },

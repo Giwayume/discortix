@@ -205,7 +205,11 @@ function createEventNodeFragment(e: EventWithRenderInfo, binding: RenderBinding,
     if (e.category === 'message') {
         if (e.event.type === 'm.room.message' && eventContent) {
             // Message Text
-            if (eventContent.msgtype === 'm.text' || (eventContent.body && eventContent.filename && eventContent.body !== eventContent.filename)) {
+            if (
+                eventContent.msgtype === 'm.text'
+                || eventContent.msgtype === 'm.notice'
+                || (eventContent.body && eventContent.filename && eventContent.body !== eventContent.filename)
+            ) {
                 const eventContentDiv = document.createElement('div')
                 eventContentDiv.className = 'p-chattimeline-event-content'
                 eventNodeRoot.append(eventContentDiv)
@@ -752,6 +756,8 @@ function render(el: HTMLElement, binding: DirectiveBinding<RenderBinding>) {
                     e.event.type
                 }_${
                     e.reactions.map((reaction) => reaction.key + '_' + reaction.displaynames.length).join(',')
+                }_${
+                    e.event.content?.msgtype === 'm.image' && mediaElementCache.has(e.event.eventId)
                 }`
             let eventNodeFragment = eventNodeFragments.get(e.event.eventId)
             if (!eventNodeFragment || elementBindingFragmentCacheIds.get(eventNodeFragment) !== fragmentCacheId) {
@@ -786,7 +792,7 @@ function loadMedia(el: HTMLElement, i18nText: Record<string, string>, useElement
         if (imageIntersectionObserver) {
             imageIntersectionObserver.observe(image)
         } else {
-            loadImage(image, mediaCacheEntries)
+            loadImage(image, mediaCacheEntries, useElementCache)
         }
     }
 
@@ -899,7 +905,15 @@ function loadMedia(el: HTMLElement, i18nText: Record<string, string>, useElement
 
 }
 
-function loadImage(image: Element, mediaCacheEntries: ReturnType<typeof useMediaCache>) {
+function loadImage(image: Element, mediaCacheEntries: ReturnType<typeof useMediaCache>, useElementCache: boolean) {
+    const eventId = image.closest('[data-event-id]')?.getAttribute('data-event-id')
+    const isMainEventImage = image.parentElement?.classList?.contains('p-chattimeline-event-image')
+    if (useElementCache && eventId && isMainEventImage && mediaElementCache.has(eventId)) {
+        image.after(mediaElementCache.get(eventId)!)
+        image.remove()
+        return
+    }
+
     const mxcUriOrFile = image.getAttribute('data-mxc-uri')
         || image.getAttribute('data-avatar-mxc-uri')
         || JSON.parse(image.getAttribute('data-encrypted-file') ?? '{}')
@@ -922,7 +936,11 @@ function loadImage(image: Element, mediaCacheEntries: ReturnType<typeof useMedia
             image.append(innerImage)
         } else {
             image.setAttribute('src', src)
+            useElementCache && isMainEventImage && mediaElementCache.set(eventId, image as HTMLImageElement)
         }
+        image.removeAttribute('data-mxc-uri')
+        image.removeAttribute('data-avatar-mxc-uri')
+        image.removeAttribute('data-encrypted-file')
     }).catch(() => {
         if (!image.hasAttribute('data-avatar-mxc-uri')) {
             image.setAttribute('src', '/assets/images/image-load-error.svg')
@@ -938,7 +956,7 @@ function onIntersectImagePlaceholder(this: HTMLElement, entries: IntersectionObs
     for (const entry of entries) {
         if (entry.isIntersecting) {
             imageIntersectionObservers.get(this)?.unobserve(entry.target)
-            loadImage(entry.target, mediaCacheEntries)
+            loadImage(entry.target, mediaCacheEntries, true)
         }
     }
 }

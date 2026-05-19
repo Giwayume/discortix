@@ -25,7 +25,8 @@ export function pickFile(options: PickFileOptions = {}): any {
     return new Promise((resolve, reject) => {
         let input = document.getElementById('fallback-file-input') as HTMLInputElement | null
         let isChangeFired = false
-        if (!input) {
+        if (!input || input.hasAttribute('multiple') !== !!options.multiple) {
+            document.getElementById('fallback-file-input')?.remove()
             input = document.createElement('input')
             input.setAttribute('type', 'file')
             input.id = 'fallback-file-input'

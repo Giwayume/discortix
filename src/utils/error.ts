@@ -24,6 +24,14 @@ export class EncryptionVerificationError extends Error {
     }
 }
 
+export class RequestTooBigError extends Error {
+    constructor(message?: string) {
+        const defaultMessage = 'The network request exceeds the size limit.'
+        super(message ?? defaultMessage)
+        this.name = 'RequestTooBigError'
+    }
+}
+
 export class FileTooBigError extends Error {
     constructor(message?: string) {
         const defaultMessage = 'The file exceeds the maximum file size limit.'

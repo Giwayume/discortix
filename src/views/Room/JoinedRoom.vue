@@ -674,8 +674,6 @@ async function onSubmitMessageForm() {
     const mediaToUpload = editEventId.value == null ? selectedMedia.value : []
     if (message.value.trim() === '' && mediaToUpload.length === 0) return
 
-    await timelineEvents.value?.scrollToBottom()
-
     const roomId = props.room.roomId
     const txnId = uuidv4()
     const { body, unredactedBody, formattedBody } = formatMessage(message.value, currentRoomCustomEmojiByCode.value, t)
@@ -819,6 +817,8 @@ async function onSubmitMessageForm() {
         populateSentMessageEvent(roomId, event)
         mediaEvents.push(event)
     }
+
+    await timelineEvents.value?.scrollToBottom()
 
     // Upload the files and send the media events.
     for (const mediaEvent of mediaEvents) {
