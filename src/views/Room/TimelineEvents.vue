@@ -34,6 +34,7 @@
                     <div ref="eventChunkBufferContainers" class="p-chattimeline-scroll-content-chunks">
                         <div
                             v-timeline-event-render="{
+                                isVisible: eventChunkBufferIndex === activeEventChunkBufferIndex,
                                 eventChunkList,
                                 i18nText,
                                 messageActionsTargetEventId,
@@ -177,7 +178,7 @@ const toast = useToast()
 
 const { isTouchEventsDetected } = useApplication()
 const { currentRoomCustomEmojiByCode } = useEmoji()
-const { isShiftKeyPressed } = useKeyboard()
+const { isCtrlKeyPressed, isShiftKeyPressed } = useKeyboard()
 const { getMxcBlob } = useMediaCache()
 const { getMessageEvent, getPreviousMessages, redactEvent } = useRooms()
 
@@ -529,7 +530,7 @@ onUpdated(() => {
     }
 })
 
-function swapEventChunkBuffers() {
+async function swapEventChunkBuffers() {
     if (!eventChunkSwapReadyUuid.value) return
 
     const inactiveEventChunkBufferIndex = activeEventChunkBufferIndex.value === 0 ? 1 : 0
@@ -546,6 +547,15 @@ function swapEventChunkBuffers() {
         if (!newReferenceEvent) {
             oldReferenceEvent = oldEvents[oldEvents.length - 1]
             newReferenceEvent = inactiveContainer.querySelector(`[data-event-id="${oldReferenceEvent?.getAttribute('data-event-id')}"]`)
+        }
+        if (!newReferenceEvent) {
+            await nextTick()
+            oldReferenceEvent = oldEvents[0]
+            newReferenceEvent = inactiveContainer.querySelector(`[data-event-id="${oldReferenceEvent?.getAttribute('data-event-id')}"]`)
+            if (!newReferenceEvent) {
+                oldReferenceEvent = oldEvents[oldEvents.length - 1]
+                newReferenceEvent = inactiveContainer.querySelector(`[data-event-id="${oldReferenceEvent?.getAttribute('data-event-id')}"]`)
+            }
         }
         if (!oldReferenceEvent || !newReferenceEvent) break manageScrollSwap
 
@@ -723,6 +733,8 @@ onMounted(() => {
     // 403 M_FORBIDDEN
     // May need to reset sync in some cases if can't request more message history. Prompt user?
 
+    document.addEventListener('keydown', onKeydownTimeline, true)
+
     nextTick(() => {
         isJustMounted.value = true
 
@@ -736,6 +748,8 @@ onUnmounted(() => {
     scrollPanelContent.value?.removeEventListener('wheel', onWheelContent)
     fetchOldEventsAbortController?.abort()
     fetchNewEventsAbortController?.abort()
+
+    document.removeEventListener('keydown', onKeydownTimeline, true)
 })
 
 async function loadPreviousMessagesUpToChunk(targetOffsetChunk: number, targetOffsetEventId?: string, abortController?: AbortController) {
@@ -1229,6 +1243,23 @@ function onPointerUpTimeline(event: PointerEvent) {
 
 function onClickTimeline(event: MouseEvent) {
     event.preventDefault()
+}
+
+function onKeydownTimeline(event: KeyboardEvent) {
+    if (isShiftKeyPressed.value && isCtrlKeyPressed.value && event.key === 'R') {
+        event.preventDefault()
+        props.room.nonSequentialUpdateUuid = uuidv4()
+        props.room.visibleTimeline.push({
+            eventId: uuidv4(),
+            originServerTs: Date.now(),
+            type: 'm.room.message',
+            sender: '@test:example.com',
+            content: {
+                body: 'Automated test!',
+                msgtype: 'm.text',
+            },
+        })
+    }
 }
 
 // function viewPhoto(event: ApiV3SyncClientEventWithoutRoomId<EventImageContent>) {

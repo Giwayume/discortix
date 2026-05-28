@@ -151,6 +151,7 @@ export interface LeftRoom {
 
 export interface SpaceClientSettings {
     collapsedCategoryNames: string[];
+    lastVisitedRoomId?: string;
 }
 
 export interface EventWithRenderInfo {

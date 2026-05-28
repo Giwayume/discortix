@@ -141,8 +141,10 @@
         "untitledSpace": "Untitled Space",
         "untitledRoom": "Untitled Room",
         "memberCount": "{count} Members",
-        "noSpacesFound": "No spaces were found in this server. You can try searching in a different homeserver to find more spaces.",
-        "noRoomsFound": "No rooms were found in this server. You can try searching in a different homeserver to find more rooms."
+        "noSpacesFound": "We did not find any spaces that were published to the room directory. You can try searching in a different homeserver to find more spaces.",
+        "noSpacesForSearchFound": "No public spaces were found with your search criteria. You can try searching in a different homeserver to find more spaces.",
+        "noRoomsFound": "We did not find any rooms that were published to the room directory. You can try searching in a different homeserver to find more rooms.",
+        "noRoomsForSearchFound": "No public rooms were found with your search criteria. You can try searching in a different homeserver to find more rooms."
     },
     "editGroup": {
         "title": "Edit Group",
@@ -554,7 +556,7 @@
         "blockButton": "Block",
         "roomEncryptionEnabled": "Chat room encryption is enabled.",
         "noticeTag": "Notice",
-        "messageUnencryptedWarning": "This message is not encrypted.",
+        "messageUnencryptedWarning": "This message is not encrypted. ",
         "messageUnencryptedWarningLearnMoreLink": "Why is this a problem?",
         "editGroupIconButton": "Edit Group Icon",
         "changedGroupIcon": "changed the group icon.",

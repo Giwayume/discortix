@@ -29,6 +29,7 @@ export interface EventChunk {
 }
 
 interface RenderBinding {
+    isVisible: boolean;
     eventChunkList: EventChunk[];
     i18nText: Record<string, string>;
     messageActionsTargetEventId?: string;
@@ -773,7 +774,10 @@ function render(el: HTMLElement, binding: DirectiveBinding<RenderBinding>) {
 
     el.innerHTML = ''
     el.append(listFragment)
-    loadMedia(el, binding.value.i18nText, binding.value.useMediaCache ?? false)
+
+    if (binding.value.isVisible) {
+        loadMedia(el, binding.value.i18nText, binding.value.useMediaCache ?? false)
+    }
 }
 
 function loadMedia(el: HTMLElement, i18nText: Record<string, string>, useElementCache: boolean) {
@@ -968,11 +972,15 @@ export const vTimelineEventRender: ObjectDirective<any, RenderBinding> = {
             root: el.closest('.application__main__body'),
             rootMargin: '100px',
             threshold: 0.0,
+
+            
         }))
     },
     updated(el: HTMLElement, binding: DirectiveBinding<RenderBinding>) {
         if (binding.value.eventChunkList !== binding.oldValue?.eventChunkList) {
             render(el, binding)
+        } else if (binding.value.isVisible && !binding.oldValue.isVisible) {
+            loadMedia(el, binding.value.i18nText, binding.value.useMediaCache ?? false)
         }
         if (
             binding.value.messageActionsTargetEventId !== binding.oldValue?.messageActionsTargetEventId

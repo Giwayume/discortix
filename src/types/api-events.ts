@@ -14,13 +14,13 @@ const EventRelatesToContentSchema = z.object({
 })
 
 // Custom
-export const EventComReeksiteDiscortixHiddenRoomMetadataSchema = z.object({
+export const EventInvalidDiscortixHiddenRoomMetadataSchema = z.object({
     hiddenAt: z.number().optional(), // Timestamp
 })
 export const EventInvalidDiscortixHiddenRoomsContentSchema = z.object({
     hiddenRooms: z.record(
         z.string(), // Room ID
-        EventComReeksiteDiscortixHiddenRoomMetadataSchema,
+        EventInvalidDiscortixHiddenRoomMetadataSchema,
     )
 })
 export type EventInvalidDiscortixHiddenRoomsContent = z.infer<typeof EventInvalidDiscortixHiddenRoomsContentSchema>

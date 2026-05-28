@@ -131,7 +131,6 @@ const queuedDeletions = ref<Set<string>>(new Set())
 
 const loadErrorMessage = computed<string | undefined>(() => {
     if (!loadError.value) return
-    console.log(loadError.value)
     if (loadError.value instanceof ZodError) {
         return t('errors.schemaValidation')
     } else if (loadError.value instanceof RequestTooBigError) {
@@ -288,11 +287,6 @@ async function save() {
             }
         }
 
-        const userEmotesLength = new TextEncoder().encode(JSON.stringify(userEmotes)).length
-        if (userEmotesLength > 65536) {
-            throw new RequestTooBigError('Max event length exceeded')
-        }
-
         for (const [name, mediaUpload] of mediaUploads) {
             try {
                 await mediaUpload.upload()
@@ -300,6 +294,11 @@ async function save() {
                 delete userEmotes.images![name]
                 hasPartialErrors = true
             }
+        }
+
+        const userEmotesLength = new TextEncoder().encode(JSON.stringify(userEmotes)).length
+        if (userEmotesLength > 65536) {
+            throw new RequestTooBigError('Max event length exceeded')
         }
 
         await setAccountDataByType('im.ponies.user_emotes', userEmotes)

@@ -142,8 +142,10 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const { isTouchEventsDetected, toggleApplicationSidebar } = useApplication()
-const { invitedDirectMessageRooms } = storeToRefs(useRoomStore())
-const { currentTopLevelSpaceId, joinedSpaces } = storeToRefs(useSpaceStore())
+const { joined: joinedRooms, invitedDirectMessageRooms } = storeToRefs(useRoomStore())
+const spaceStore = useSpaceStore()
+const { currentTopLevelSpaceId, joinedSpaces } = storeToRefs(spaceStore)
+const { getSpaceClientSettings, updateSpaceClientSettings } = spaceStore
 
 /*-----------*\
 |             |
@@ -363,7 +365,14 @@ function viewDirectMessages() {
 }
 
 function viewSpace(space: SpaceSummary) {
-    router.push({ name: 'room', params: { roomId: space.roomId } })
+    const clientSettings = getSpaceClientSettings(space.roomId)
+    if (!joinedRooms.value[clientSettings.lastVisitedRoomId!]) {
+        delete clientSettings.lastVisitedRoomId
+        updateSpaceClientSettings(space.roomId, clientSettings)
+    }
+    router.push({ name: 'room', params: {
+        roomId: clientSettings.lastVisitedRoomId ?? space.roomId
+    } })
 }
 
 function viewDiscover() {

@@ -95,6 +95,7 @@ const nextBatch = ref<string>()
 const prevBatch = ref<string>()
 const roomHeaderColors = ref<Record<string, string>>({})
 const searchText = ref<string>('')
+const lastQueriedSearchText = ref<string>('')
 const isSearching = ref<boolean>(false)
 const isHeaderTransparent = ref<boolean>(true)
 
@@ -111,7 +112,9 @@ const featuredTitle = computed(() => {
 })
 
 const nothingFound = computed(() => {
-    return route.name === 'discover-spaces' ? t('discover.noSpacesFound') : t('discover.noRoomsFound')
+    return route.name === 'discover-spaces'
+        ? (lastQueriedSearchText.value.length > 0 ? t('discover.noSpacesForSearchFound') : t('discover.noSpacesFound'))
+        : (lastQueriedSearchText.value.length > 0 ? t('discover.noRoomsForSearchFound') : t('discover.noRoomsFound'))
 })
 
 onMounted(() => {
@@ -147,11 +150,13 @@ function updateRoomHeaderColor(roomId: string, color: string) {
 async function searchRooms() {
     isSearching.value = true
     try {
+        const currentSearchText = searchText.value
         const searchResponse = await searchRoomDirectory(
-            searchText.value,
+            currentSearchText,
             props.selectedHomeserver,
             route.name === 'discover-spaces' ? ['m.space'] : [null],
         )
+        lastQueriedSearchText.value = currentSearchText
         rooms.value = searchResponse.chunk
         nextBatch.value = searchResponse.nextBatch
         prevBatch.value = searchResponse.prevBatch

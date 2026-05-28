@@ -18,6 +18,7 @@
         <div class="delete-message-confirm__message-preview">
             <div
                 v-timeline-event-render="{
+                    isVisible: true,
                     eventChunkList: [{ id: '', loading: false, events: eventRenderInfoWithHeader ? [eventRenderInfoWithHeader] : [] }],
                     i18nText,
                     currentRoomCustomEmojiByCode,

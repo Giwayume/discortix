@@ -15,6 +15,7 @@
         <div class="message-preview-dialog__message-preview">
             <div
                 v-timeline-event-render="{
+                    isVisible: true,
                     eventChunkList: [{ id: '', loading: false, events: eventRenderInfo ? [eventRenderInfo] : [] }],
                     i18nText,
                     currentRoomCustomEmojiByCode,

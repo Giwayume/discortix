@@ -383,15 +383,20 @@ function onPointerUpRoom(event: PointerEvent, item: MenuItem | RoomSummary) {
 }
 
 function selectRoom(item: MenuItem | RoomSummary) {
-    if ((item as MenuItem)?.key) {
-        router.push({ name: 'room', params: { roomId: (item as MenuItem).key } }).then(() => {
+    const roomId = (item as MenuItem)?.key ?? (item as RoomSummary)?.roomId
+    if (roomId) {
+        router.push({ name: 'room', params: { roomId } }).then(() => {
             toggleApplicationSidebar(false)
-        })
-    } else if ((item as RoomSummary)?.roomId) {
-        router.push({ name: 'room', params: { roomId: (item as RoomSummary).roomId } }).then(() => {
-            toggleApplicationSidebar(false)
+            setSpaceLastVisitedRoom(roomId)
         })
     }
+}
+
+function setSpaceLastVisitedRoom(roomId: string) {
+    if (!currentTopLevelSpaceId.value) return
+    const clientSettings = getSpaceClientSettings(currentTopLevelSpaceId.value)
+    clientSettings.lastVisitedRoomId = roomId
+    updateSpaceClientSettings(currentTopLevelSpaceId.value, clientSettings)
 }
 
 /*-------------------*\
