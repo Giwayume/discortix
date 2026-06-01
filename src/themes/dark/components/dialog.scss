@@ -52,6 +52,14 @@
     padding: 1rem 0 0 0.75rem;
 }
 
+.p-dialog-fullwidth {
+    border-radius: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    width: 100dvw !important;
+    height: 100dvh !important;
+}
+
 .p-dialog-lg-fullwidth {
     @media screen and (max-width: 1024px) {
         border-radius: 0 !important;

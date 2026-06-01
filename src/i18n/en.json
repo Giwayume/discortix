@@ -629,6 +629,45 @@
             "group": "Edit Group",
             "space": "Space Settings",
             "room": "Room Settings"
+        },
+        "menu": {
+            "spaceProfile": "Space Profile",
+            "engagement": "Engagement",
+            "expression": "Expression",
+            "emoji": "Emoji & Stickers",
+            "people": "People",
+            "members": "Members",
+            "permissions": "Permissions",
+            "invites": "Invites",
+            "access": "Access",
+            "moderation": "Moderation",
+            "auditLog": "Audit Log",
+            "bans": "Bans"
+        },
+        "escapeButton": "Esc",
+        "spaceProfile": {
+            "summary": "Customize how your space appears in invite links and the room directory",
+            "nameLabel": "Name",
+            "iconLabel": "Icon",
+            "iconInstructions": "We recommend an image of at least 512x512.",
+            "changeIconButton": "Change Space Icon",
+            "removeIconButton": "Remove Icon",
+            "descriptionLabel": "Description",
+            "descriptionPrompt": "How did your space get started? Why should people join?",
+            "descriptionPlaceholder": "Tell the world a bit about this space.",
+            "error": {
+                "unknown": "An unknown error has occurred. Please try again later."
+            }
+        },
+        "engagement": {
+            "summary": "Manage settings that help keep your space active."
+        },
+        "emoji": {
+            "summary": {
+                "space": "Add emoji or stickers that anyone in this space can use.",
+                "room": "Add emoji or stickers that anyone in this chat room can use."
+            },
+            "imagePacksHeading": "Image Packs"
         }
     },
     "sidebarListSpaceRooms": {
@@ -701,7 +740,7 @@
             "languageTime": "Language & Time",
             "advanced": "Advanced",
             "expression": "Expression",
-            "emoji": "Emoji",
+            "emoji": "Emoji & Stickers",
             "activitySettings": "Activity Settings",
             "activityPrivacy": "Activity Privacy",
             "logOut": "Log Out"

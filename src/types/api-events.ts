@@ -226,6 +226,17 @@ export const EventImageContentSchema = z.object({
 })
 export type EventImageContent = z.infer<typeof EventImageContentSchema>
 
+export const EventImagePackRoomsContentSchema = z.object({
+    rooms: z.record(
+        z.string(), // Room ID
+        z.record(
+            z.string(), // State key
+            z.object({}),
+        ),
+    ),
+})
+export type EventImagePackRoomsContent = z.infer<typeof EventImagePackRoomsContentSchema>
+
 export const EventImPoniesImageSchema = z.object({
     info: z.object({
         h: z.number().optional(),
@@ -547,6 +558,41 @@ export const EventRoomHistoryVisibilityContentSchema = z.object({
 })
 export type EventRoomHistoryVisibilityContent = z.infer<typeof EventRoomHistoryVisibilityContentSchema>
 
+export const EventRoomImagePackContentImageSchema = z.object({
+    url: z.string(),
+    body: z.string().optional(),
+    info: z.object({
+        h: z.number().optional(),
+        isAnimated: z.boolean().optional(),
+        mimetype: z.string().optional(),
+        size: z.number().optional(),
+        thumbnailFile: EncryptedFileSchema.optional(),
+        thumbnailInfo: z.object({
+            h: z.number().optional(),
+            mimetype: z.string().optional(),
+            size: z.number().optional(),
+            w: z.number().optional(),
+        }).optional(),
+        thumbnailUrl: z.string().optional(),
+        w: z.number().optional(),
+    }).optional(),
+})
+export type EventRoomImagePackContentImage = z.infer<typeof EventRoomImagePackContentImageSchema>
+
+export const EventRoomImagePackContentSchema = z.object({
+    images: z.record(
+        z.string(), // shortcode
+        EventRoomImagePackContentImageSchema,
+    ),
+    pack: z.object({
+        displayName: z.string().optional(),
+        avatarUrl: z.string().optional(),
+        usage: z.enum(['emoticon', 'sticker']).optional(),
+        attribution: z.string().optional(),
+    }).optional(),
+})
+export type EventRoomImagePackContent = z.infer<typeof EventRoomImagePackContentSchema>
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mroomjoin_rules */
 export const EventRoomJoinRulesContentSchema = z.object({
     allow: z.array(z.object({
@@ -798,6 +844,7 @@ export const eventContentSchemaByType = {
     'm.forwarded_room_key': EventForwardedRoomKeyContentSchema,
     'm.fully_read': EventFullyReadContentSchema,
     'm.image': EventImageContentSchema,
+    'm.image_pack.rooms': EventImagePackRoomsContentSchema,
     'm.key.verification.accept': EventKeyVerificationAcceptContentSchema,
     'm.key.verification.cancel': EventKeyVerificationCancelContentSchema,
     'm.key.verification.done': EventKeyVerificationDoneContentSchema,
@@ -820,6 +867,7 @@ export const eventContentSchemaByType = {
     'm.room.encryption': EventRoomEncryptionContentSchema,
     'm.room.guest_access': EventRoomGuestAccessContentSchema,
     'm.room.history_visibility': EventRoomHistoryVisibilityContentSchema,
+    'm.room.image_pack': EventRoomImagePackContentSchema,
     'm.room.join_rules': EventRoomJoinRulesContentSchema,
     'm.room.member': EventRoomMemberContentSchema,
     'm.room.message': EventRoomMessageContentSchema,
@@ -854,6 +902,7 @@ export interface EventContentByType {
     'm.forwarded_room_key': EventForwardedRoomKeyContent,
     'm.fully_read': EventFullyReadContent,
     'm.image': EventImageContent,
+    'm.image_pack.rooms': EventImagePackRoomsContent,
     'm.key.verification.accept': EventKeyVerificationAcceptContent,
     'm.key.verification.cancel': EventKeyVerificationCancelContent,
     'm.key.verification.done': EventKeyVerificationDoneContent,
@@ -876,6 +925,7 @@ export interface EventContentByType {
     'm.room.encryption': EventRoomEncryptionContent,
     'm.room.guest_access': EventRoomGuestAccessContent,
     'm.room.history_visibility': EventRoomHistoryVisibilityContent,
+    'm.room.image_pack': EventRoomImagePackContent,
     'm.room.join_rules': EventRoomJoinRulesContent,
     'm.room.member': EventRoomMemberContent,
     'm.room.message': EventRoomMessageContent,

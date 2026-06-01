@@ -482,6 +482,8 @@ function showSpaceContextMenu(event: MouseEvent, space: SpaceSummary) {
         width: 100%;
         height: 100%;
         object-fit: cover;
+        text-indent: -9999px;
+        font-size: 1px;
     }
 }
 

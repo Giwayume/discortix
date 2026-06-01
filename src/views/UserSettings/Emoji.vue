@@ -73,7 +73,7 @@
             <div v-else class="text-muted">{{ t('userSettings.emoji.noEmoji') }}</div>
         </div>
     </div>
-    <SaveChangesFooter :visible="hasUnsavedChanges" @reset="reset" @save="save" />
+    <SaveChangesFooter :visible="hasUnsavedChanges && !loading" @reset="reset" @save="save" />
 </template>
 
 <script setup lang="ts">
@@ -139,7 +139,7 @@ const loadErrorMessage = computed<string | undefined>(() => {
     return t('userSettings.emoji.loadError.unknown')
 })
 
-onMounted(async () => {
+onMounted(() => {
     reset()
 })
 

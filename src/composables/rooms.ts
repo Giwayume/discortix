@@ -444,7 +444,7 @@ export function useRooms() {
         stateKey: string,
         eventContent: E
     ): Promise<ApiV3RoomSendStateEventResponse> {
-        return await fetchJson(
+        const response = await fetchJson(
             `${homeserverBaseUrl.value}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/state/${eventType}/${stateKey}`,
             {
                 method: 'PUT',
@@ -455,6 +455,13 @@ export function useRooms() {
                 jsonSchema: ApiV3RoomSendStateEventResponseSchema,
             }
         )
+        const existingStateEvent: ApiV3SyncClientEventWithoutRoomId | undefined = joined.value[roomId]?.stateEventsByType[eventType]?.find(
+            (event: ApiV3SyncClientEventWithoutRoomId) => event.stateKey === stateKey
+        )
+        if (existingStateEvent) {
+            existingStateEvent.content = eventContent
+        }
+        return response
     }
 
     function removeOwnLocalMessageReaction(

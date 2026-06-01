@@ -293,7 +293,7 @@ function onClickFriendItem(event: MouseEvent, friend: UserProfile) {
 async function tryAddFriend() {
     isAdding.value = true
     try {
-        const userId = await addFriend(addFriendUsername.value)
+        const userId = await addFriend(addFriendUsername.value.replace(/^"/, '').replace(/"$/, ''))
         addFriendStatus.value = 'success'
         addedFriendDisplayname.value = profiles.value[userId]?.displayname ?? userId
     } catch (error) {

@@ -567,9 +567,13 @@
     }
 
     video {
-        height: var(--video-target-height, auto);
+        // height: var(--video-target-height, auto);
         width: auto;
-        max-height: 21.875rem;
+        width: min(
+            calc(min(var(--video-target-height), 21.875rem) * var(--video-aspect-ratio)),
+            100%
+        );
+        // max-height: 21.875rem;
         aspect-ratio: var(--video-aspect-ratio, auto);
     }
 

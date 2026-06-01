@@ -3,6 +3,7 @@
 
     --p-menu-submenu-label-background: transparent;
     --p-menu-submenu-label-padding: 1.5rem 0.5rem 0.25rem 0.5rem;
+    --p-menu-submenu-label-padding-first: 0.5rem 0.5rem 0.25rem 0.5rem;
     --p-menu-submenu-label-color: var(--text-muted);
     --p-menu-submenu-label-font-weight: normal;
 
@@ -19,6 +20,8 @@
     --p-menu-item-focus-background: var(--background-mod-muted);
 
     --p-menu-item-active-background: var(--background-mod-normal);
+
+    --p-menu-item-link-min-height: 2.25rem;
 }
 
 .p-menu {
@@ -39,7 +42,7 @@
     }
 
     &:first-child {
-        --p-menu-submenu-label-padding: 0.5rem 0.5rem 0.25rem 0.5rem;
+        --p-menu-submenu-label-padding: var(--p-menu-submenu-label-padding-first);
 
         &:before {
             display: none;
@@ -48,7 +51,7 @@
 }
 
 .p-menu-item-link {
-    min-height: 2.25rem;
+    min-height: var(--p-menu-item-link-min-height);
 }
 
 .p-menu-item-link-active {

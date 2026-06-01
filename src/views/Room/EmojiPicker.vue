@@ -33,15 +33,22 @@
                         <template v-for="(category, categoryIndex) of emojiCategories" :key="category.id">
                             <a :data-category-header-id="category.id" />
                             <div class="emoji-picker__category-header" :hidden="searchText !== ''">
-                                <Button severity="secondary" variant="text" size="small" @click="category.hidden = !category.hidden">
+                                <Button severity="secondary" variant="text" size="small" @click="toggleHiddenCategory(category.id)">
                                     <div class="p-button-label">
                                         <span :class="getCategoryIcon(category.id)" aria-hidden="true" />
                                         {{ category.category }}
-                                        <span class="pi" :class="{ 'pi-chevron-down': !category.hidden, 'pi-chevron-up': category.hidden }" aria-hidden="true" />
+                                        <span
+                                            class="pi"
+                                            :class="{
+                                                'pi-chevron-down': !hiddenCategories[category.id],
+                                                'pi-chevron-up': !!hiddenCategories[category.id]
+                                            }"
+                                            aria-hidden="true"
+                                        />
                                     </div>
                                 </Button>
                             </div>
-                            <div class="emoji-picker__emoji-list" :hidden="category.hidden">
+                            <div class="emoji-picker__emoji-list" :hidden="!!hiddenCategories[category.id]">
                                 <div
                                     v-for="(emoji, emojiIndex) of category.emoji"
                                     :key="emoji.emoji"
@@ -131,15 +138,16 @@ const emojiCategories = computed<EmojiPickerCategory[]>(() => {
     return categories
 })
 
+const hiddenCategories = ref<Record<string, boolean>>({})
 const emojiContainer = ref<HTMLDivElement>()
 const selectedEmoji = ref<EmojiPickerEmojiItem | undefined>(emojiCategories.value[0]?.emoji[0])
 const searchText = ref<string>('')
 
 function getCategoryIcon(categoryId: string) {
+    if (categoryId.startsWith('yourEmoji')) return 'pi pi-user'
+    if (categoryId.startsWith('spaceEmoji')) return 'pi pi-home'
+    if (categoryId.startsWith('roomEmoji')) return 'pi pi-home'
     switch (categoryId) {
-        case 'yourEmoji': return 'pi pi-user'
-        case 'spaceEmoji': return 'pi pi-home'
-        case 'roomEmoji': return 'pi pi-home'
         case 'people': return 'pi pi-face-smile'
         case 'nature': return 'pi pi-sun'
         case 'food': return 'pi pi-shopping-cart'
@@ -148,7 +156,6 @@ function getCategoryIcon(categoryId: string) {
         case 'objects': return 'pi pi-box'
         case 'symbols': return 'pi pi-heart'
         case 'flags': return 'pi pi-flag'
-
     }
 }
 
@@ -192,6 +199,14 @@ function onPointerUpEmojis(event: PointerEvent) {
         if (emoji) {
             emit('selectEmoji', emoji)
         }
+    }
+}
+
+function toggleHiddenCategory(categoryId: string) {
+    if (hiddenCategories.value[categoryId]) {
+        delete hiddenCategories.value[categoryId]
+    } else {
+        hiddenCategories.value[categoryId] = true
     }
 }
 

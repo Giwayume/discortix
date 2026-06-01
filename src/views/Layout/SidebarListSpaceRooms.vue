@@ -131,6 +131,7 @@
         </template>
         <!-- p-contextmenu-item-label p-contextmenu-item-link p-contextmenu-item-content -->
     </ContextMenu>
+    <RoomSettings v-model:visible="roomSettingsVisible" :roomId="roomSettingsRoomId" />
 </template>
 
 <script setup lang="ts">
@@ -145,6 +146,7 @@ import { useRooms } from '@/composables/rooms'
 import { useClientSettingsStore } from '@/stores/client-settings'
 import { useSpaceStore } from '@/stores/space'
 
+import RoomSettings from '@/views/RoomSettings.vue'
 import SidebarListBody from './SidebarListBody.vue'
 import SidebarListHeader from './SidebarListHeader.vue'
 
@@ -309,6 +311,8 @@ async function runSpaceMenuCommand(event: MenuItemCommandEvent) {
         case 'inviteToSpace':
             break
         case 'spaceSettings':
+            roomSettingsRoomId.value = currentTopLevelSpaceId.value
+            roomSettingsVisible.value = true
             break
         case 'createRoom':
             break
@@ -351,6 +355,15 @@ function onClickSpaceDropdown(event: MouseEvent) {
 function onContextMenuSpaceDropdown(event: Event) {
 
 }
+
+/*------------------------*\
+|                          |
+|   Room Settings Dialog   |
+|                          |
+\*------------------------*/
+
+const roomSettingsVisible = ref<boolean>(false)
+const roomSettingsRoomId = ref<string>()
 
 /*----------------------------*\
 |                              |
