@@ -4,19 +4,19 @@
             <div v-html="micromark(t('userSettings.emoji.instructions'))" class="gap-6 text-md"></div>
         </div>
         <div class="px-3 py-2">
-            <Button :label="t('userSettings.emoji.uploadButton')" @click="uploadEmoji" />
+            <Button :label="t('userSettings.emoji.uploadButton')" :disabled="loading" @click="uploadEmoji" />
         </div>
         <div class="border-t border-(--border-subtle) my-10 mx-3" />
         <div class="px-3 py-2">
             <div class="text-strong text-xl mb-3">
                 {{ t('userSettings.emoji.table.heading') }}
             </div>
-            <div v-if="loadErrorMessage" class="px-3 py-2">
+            <div v-if="errorMessage" class="px-3 py-2">
                 <Message severity="error" size="small" variant="simple">
                     <template #icon>
                         <span class="pi pi-exclamation-circle !text-xs !leading-3 -mt-[1px]" aria-hidden="true" />
                     </template>
-                    {{ loadErrorMessage }}
+                    {{ errorMessage }}
                 </Message>
             </div>
             <ProgressBar v-if="loading" mode="indeterminate" class="mb-4" />
@@ -45,7 +45,7 @@
                     <template #body="{ data }">
                         <InputGroup>
                             <InputGroupAddon>:</InputGroupAddon>
-                            <InputText v-model="data.name" @input="hasUnsavedChanges = true" @change="sanitizeName(data)" />
+                            <InputText v-model="data.name" maxlength="100" @input="hasUnsavedChanges = true" @change="sanitizeName(data)" />
                             <InputGroupAddon>:</InputGroupAddon>
                         </InputGroup>
                     </template>
@@ -124,19 +124,19 @@ const { getAccountDataByType, setAccountDataByType } = useAccountData()
 const { isTouchEventsDetected } = useApplication()
 
 const loading = ref<boolean>(true)
-const loadError = ref<Error | undefined>()
+const error = ref<Error | undefined>()
 const userEmotesRows = ref<UserEmoteRow[]>([])
 const hasUnsavedChanges = ref<boolean>(false)
 const queuedDeletions = ref<Set<string>>(new Set())
 
-const loadErrorMessage = computed<string | undefined>(() => {
-    if (!loadError.value) return
-    if (loadError.value instanceof ZodError) {
+const errorMessage = computed<string | undefined>(() => {
+    if (!error.value) return
+    if (error.value instanceof ZodError) {
         return t('errors.schemaValidation')
-    } else if (loadError.value instanceof RequestTooBigError) {
-        return t('userSettings.emoji.loadError.tooManyEmoji')
+    } else if (error.value instanceof RequestTooBigError) {
+        return t('userSettings.emoji.error.tooManyEmoji')
     }
-    return t('userSettings.emoji.loadError.unknown')
+    return t('userSettings.emoji.error.unknown')
 })
 
 onMounted(() => {
@@ -147,7 +147,7 @@ async function reset() {
     hasUnsavedChanges.value = false
     queuedDeletions.value.clear()
     loading.value = true
-    loadError.value = undefined
+    error.value = undefined
     try {
         for (const row of userEmotesRows.value) {
             if (row.previewUrl) {
@@ -175,11 +175,11 @@ async function reset() {
         userEmotesRows.value.sort((a, b) => {
             return a.name < b.name ? -1 : 1
         })
-    } catch (error) {
-        if (error instanceof Error) {
-            loadError.value = error
+    } catch (e) {
+        if (e instanceof Error) {
+            error.value = e
         } else {
-            loadError.value = new Error('A non-error object was thrown.')
+            error.value = new Error('A non-error object was thrown.')
         }
     } finally {
         loading.value = false
@@ -187,7 +187,7 @@ async function reset() {
 }
 
 function sanitizeName(row: UserEmoteRow) {
-    row.name = row.name.replace(/[^a-zA-Z\d]/g, '')
+    row.name = row.name.replace(/[^a-zA-Z\d\-_]/g, '')
 }
 
 async function uploadEmoji() {
@@ -220,7 +220,7 @@ async function uploadEmoji() {
         }
     }
     if (hasErrors) {
-        toast.add({ severity: 'error', summary: t('userSettings.emoji.loadError.selectFileFail'), life: 7000 })
+        toast.add({ severity: 'error', summary: t('userSettings.emoji.error.selectFileFail'), life: 7000 })
     }
 }
 
@@ -303,17 +303,17 @@ async function save() {
 
         await setAccountDataByType('im.ponies.user_emotes', userEmotes)
         reset()
-    } catch (error) {
-        if (error instanceof Error) {
-            loadError.value = error
+    } catch (e) {
+        if (e instanceof Error) {
+            error.value = e
         } else {
-            loadError.value = new Error('A non-error object was thrown.')
+            error.value = new Error('A non-error object was thrown.')
         }
     } finally {
         loading.value = false
     }
     if (hasPartialErrors) {
-        toast.add({ severity: 'error', summary: t('userSettings.emoji.loadError.uploadImageFail'), life: 7000 })
+        toast.add({ severity: 'error', summary: t('userSettings.emoji.error.uploadImageFail'), life: 7000 })
     }
 
 }

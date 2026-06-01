@@ -46,7 +46,7 @@
                     />
                 </aside>
                 <div
-                    class="p-dialog-main block! relative! py-15 px-10"
+                    class="p-dialog-main block! relative!"
                     :class="{ 'p-dialog-main--visible': mainPanelVisible, 'p-dialog-main--animating': isAnimatingSidebarToggle }"
                     :style="{ '--dialog-main-sidebar-offset': mainPanelSidebarOffset + 'px' }"
                 >
@@ -54,13 +54,13 @@
                         icon="pi pi-arrow-left"
                         severity="secondary"
                         variant="text"
-                        class="p-dialog-mobile-only-button p-0! w-10! h-10! absolute! top-2! left-8!"
+                        class="p-dialog-mobile-only-button bg-(--p-dialog-background)! p-0! w-10! h-10! absolute! top-2! left-8! z-2!"
                         :style="{ '--p-icon-size': '1.125rem' }"
                         :aria-label="t('userSettings.navBackButton')"
                         @click="mainPanelVisible = false"
                     />
                     <Button
-                        class="p-dialog-mobile-only-button p-dialog-close-button w-10! h-10! absolute! top-2! right-8!"
+                        class="p-dialog-mobile-only-button bg-(--p-dialog-background)! p-dialog-close-button w-10! h-10! absolute! top-2! right-8! z-2!"
                         icon="pi pi-times"
                         severity="secondary"
                         variant="text"
@@ -68,17 +68,21 @@
                         :aria-label="t('dialog.close')"
                         @click="emit('update:visible', false)"
                     />
-                    <SpaceProfileSettings v-if="selectedMenuItem.key === 'spaceProfile'" :roomId="roomId" />
-                    <EngagementSettings v-else-if="selectedMenuItem.key === 'engagement'" :roomId="roomId" />
-                    <EmojiSettings v-else-if="selectedMenuItem.key === 'emoji'" :roomId="roomId" />
-                    <MembersSettings v-else-if="selectedMenuItem.key === 'members'" :roomId="roomId" />
-                    <PermissionsSettings v-else-if="selectedMenuItem.key === 'permissions'" :roomId="roomId" />
-                    <InvitesSettings v-else-if="selectedMenuItem.key === 'invites'" :roomId="roomId" />
-                    <AccessSettings v-else-if="selectedMenuItem.key === 'access'" :roomId="roomId" />
-                    <AuditLogSettings v-else-if="selectedMenuItem.key === 'auditLog'" :roomId="roomId" />
-                    <BansSettings v-else-if="selectedMenuItem.key === 'bans'" :roomId="roomId" />
+                    <ScrollPanel class="h-full">
+                        <div class="room-settings__content-padding">
+                            <SpaceProfileSettings v-if="selectedMenuItem.key === 'spaceProfile'" :roomId="roomId" />
+                            <EngagementSettings v-else-if="selectedMenuItem.key === 'engagement'" :roomId="roomId" />
+                            <EmojiSettings v-else-if="selectedMenuItem.key === 'emoji'" :roomId="roomId" />
+                            <MembersSettings v-else-if="selectedMenuItem.key === 'members'" :roomId="roomId" />
+                            <PermissionsSettings v-else-if="selectedMenuItem.key === 'permissions'" :roomId="roomId" />
+                            <InvitesSettings v-else-if="selectedMenuItem.key === 'invites'" :roomId="roomId" />
+                            <AccessSettings v-else-if="selectedMenuItem.key === 'access'" :roomId="roomId" />
+                            <AuditLogSettings v-else-if="selectedMenuItem.key === 'auditLog'" :roomId="roomId" />
+                            <BansSettings v-else-if="selectedMenuItem.key === 'bans'" :roomId="roomId" />
+                        </div>
+                    </ScrollPanel>
                 </div>
-                <div class="p-dialog-custom-close pt-15 pr-4">
+                <div class="p-dialog-custom-close pt-15 pr-4 pl-4">
                     <Button v-slot="slotProps" asChild>
                         <button
                             v-bind="slotProps.a11yAttrs"
@@ -388,6 +392,9 @@ aside {
         font-size: 0.75rem;
     }
 }
+.room-settings__content-padding {
+    padding: 3.75rem 1.5rem 3.75rem 2.5rem;
+}
 .room-settings__close {
     color: var(--interactive-text-default);
     display: flex;
@@ -413,6 +420,9 @@ aside {
         &:deep(.p-menu-item) {
             --p-menu-item-active-background: var(--p-menu-item-background);
         }
+    }
+    .room-settings__content-padding {
+        padding: 3.75rem 2.5rem;
     }
     .p-dialog-main {
         background: var(--p-dialog-background);

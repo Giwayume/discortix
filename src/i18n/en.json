@@ -667,7 +667,29 @@
                 "space": "Add emoji or stickers that anyone in this space can use.",
                 "room": "Add emoji or stickers that anyone in this chat room can use."
             },
-            "imagePacksHeading": "Image Packs"
+            "imagePacksHeading": "Image Packs",
+            "imagePacksSummary": "Emoji and stickers are pulled from image packs.",
+            "defaultPackName": "Untitled Image Pack",
+            "defaultFluffyChatPackName": "Untitled Fluffy Chat Image Pack",
+            "defaultStateKey": "default",
+            "addPackButton": "Add Image Pack",
+            "editPackButton": "Edit Image Pack",
+            "deletePackButton": "Delete Image Pack",
+            "deletePackConfirmTitle": "Delete Image Pack",
+            "deletePackConfirmSubtitle": "Are you sure you want to delete the image pack \"{packName}\"? This cannot be undone, and emoji reactions using this image pack will break.",
+            "deletePackCancelButton": "Cancel",
+            "deletePackConfirmButton": "Delete",
+            "editImagePackHeading": "Edit Image Pack",
+            "noEmoji": "No custom emoji have been uploaded.",
+            "uploadImageButton": "Upload Image",
+            "cancelEditingButton": "Cancel Changes",
+            "error": {
+                "emptyName": "One or more emoji do not have a name, please type a unique name for each emoji.",
+                "tooManyEmoji": "You reached the limit of what your homeserver will store, try deleting some emoji or give them shorter names.",
+                "uploadImageFail": "Some of the images you selected could not be uploaded. Please try again later.",
+                "selectFileFail": "Some or all of the files selected were not image files that can be used.",
+                "unknown": "An error occurred when retrieving the list of devices. Please try again later."
+            }
         }
     },
     "sidebarListSpaceRooms": {
@@ -815,7 +837,7 @@
                 "image": "Image",
                 "name": "Name"
             },
-            "loadError": {
+            "error": {
                 "tooManyEmoji": "You reached the limit of what your homeserver will store, try deleting some emoji or give them shorter names.",
                 "uploadImageFail": "Some of the images you selected could not be uploaded. Please try again later.",
                 "selectFileFail": "Some or all of the files selected were not image files that can be used.",

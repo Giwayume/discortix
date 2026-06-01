@@ -47,10 +47,6 @@ let decryptMegolmEvent: ((roomId: string,
         eventContent: EventRoomEncryptedContent
     ) => any) | undefined = undefined
 
-function isRoomStateEventType(type: string) {
-    return /^(m\.room|m\.space)/.test(type)
-}
-
 function getRoomStateEventsByType(room: InvitedRoom, type: string): ApiV3SyncStrippedStateEvent[];
 function getRoomStateEventsByType(room: KnockedRoom, type: string): ApiV3SyncStrippedStateEvent[];
 function getRoomStateEventsByType(room: JoinedRoom, type: string): ApiV3SyncClientEventWithoutRoomId[];
@@ -128,37 +124,37 @@ function addJoinedOrLeftRoomStateEvent(room: JoinedRoom | LeftRoom, event: ApiV3
     }
 
     // If an event exists with the same event ID, remove it.
-    const eventIdIndex = eventsByType.findIndex((otherEvent) => otherEvent.eventId === (event as ApiV3SyncClientEventWithoutRoomId).eventId)
-    if (eventIdIndex > -1) {
-        eventsByType.splice(eventIdIndex, 1)
-        delete room.stateEventsById[eventIdIndex]
-    }
+    let eventIdIndex = -1
+    do {
+        eventIdIndex = eventsByType.findIndex((otherEvent) => otherEvent.eventId === (event as ApiV3SyncClientEventWithoutRoomId).eventId)
+        const oldEvent = eventsByType[eventIdIndex]
+        if (eventIdIndex > -1 && oldEvent) {
+            if (oldEvent.originServerTs < event.originServerTs) {
+                eventsByType.splice(eventIdIndex, 1)
+                delete room.stateEventsById[eventIdIndex]
+            } else {
+                return // Existing event is newer, don't continue and add.
+            }
+        }
+    } while (eventIdIndex > -1)
 
-    // Remove existing event based on type / eventId.
-    const replaceEventId = event.unsigned?.replacesState
-    if (replaceEventId) {
-        const eventIdIndex = eventsByType.findIndex((otherEvent) => otherEvent.eventId === replaceEventId)
-        if (eventIdIndex > -1) {
-            eventsByType.splice(eventIdIndex, 1, event)
-        }
-        delete room.stateEventsById[replaceEventId]
-    } else {
-        const outdatedEventIndices = eventsByType.reduce((accumulator, currentValue, currentIndex) => {
-            if (currentValue.stateKey === event.stateKey) {
-                accumulator.push(currentIndex)
-            }
-            return accumulator
-        }, [] as number[])
-        for (let i = outdatedEventIndices.length - 1; i >= 0; i--) {
-            const indexInEventTypeArray = outdatedEventIndices[i]
-            if (eventsByType[i]?.eventId) {
-                delete room.stateEventsById[eventsByType[i]!.eventId!]
-            }
-            if (indexInEventTypeArray != null) {
-                eventsByType.splice(indexInEventTypeArray, 1)
+    // If an event exists with the same stateKey, remove it.
+    let eventStateKeyIndex = -1
+    do {
+        eventStateKeyIndex = eventsByType.findIndex((otherEvent) => otherEvent.stateKey === event.stateKey)
+        const oldEvent = eventsByType[eventStateKeyIndex]
+        if (eventStateKeyIndex > -1 && oldEvent) {
+            if (oldEvent.originServerTs < event.originServerTs) {
+                const eventId = oldEvent.eventId
+                eventsByType.splice(eventStateKeyIndex, 1)
+                if (eventId) {
+                    delete room.stateEventsById[eventId]
+                }
+            } else {
+                return // Existing event is newer, don't continue and add.
             }
         }
-    }
+    } while (eventStateKeyIndex > -1)
 
     // Add new state event.
     eventsByType.push(event)
@@ -686,7 +682,7 @@ export const useRoomStore = defineStore('room', () => {
                     manageTimelineGap(joined.value[roomId], joinedRoomSync.timeline, sync.nextBatch)
                     if (joinedRoomSync.timeline.events) {
                         for (const timelineEvent of joinedRoomSync.timeline.events) {
-                            if (isRoomStateEventType(timelineEvent.type)) {
+                            if (joined.value[roomId].stateEventsByType[timelineEvent.type]) {
                                 addJoinedOrLeftRoomStateEvent(joined.value[roomId], timelineEvent)
                             }
                             await addJoinedOrLeftRoomTimelineEvent(joined.value[roomId], timelineEvent, decryptedRoomEvents)
@@ -763,7 +759,7 @@ export const useRoomStore = defineStore('room', () => {
                     manageTimelineGap(left.value[roomId], leftRoomSync.timeline, sync.nextBatch)
                     if (leftRoomSync.timeline.events) {
                         for (const timelineEvent of leftRoomSync.timeline.events) {
-                            if (isRoomStateEventType(timelineEvent.type)) {
+                            if (left.value[roomId].stateEventsByType[timelineEvent.type]) {
                                 addJoinedOrLeftRoomStateEvent(left.value[roomId], timelineEvent)
                             }
                             await addJoinedOrLeftRoomTimelineEvent(left.value[roomId], timelineEvent, decryptedRoomEvents)

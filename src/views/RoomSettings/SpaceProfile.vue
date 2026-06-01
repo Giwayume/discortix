@@ -97,7 +97,7 @@ import { useRooms } from '@/composables/rooms'
 import { useRoomStore } from '@/stores/room'
 
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
-import SaveChangesFooter from '@/views/UserSettings/SaveChangesFooter.vue'
+import SaveChangesFooter from '@/views/RoomSettings/SaveChangesFooter.vue'
 
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'

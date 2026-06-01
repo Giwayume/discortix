@@ -37,7 +37,7 @@
                     {{ activeTab === 'online' ? t('home.onlineFriendCount', onlineFriendCount) : t('home.allFriendCount', allFriendCount) }}
                 </h2>
                 <div class="px-3 relative -top-[1px]">
-                    <template 
+                    <template
                         v-for="(friend, friendIndex) of activeTab === 'online' ? onlineFriendsFiltered : allFriendsFiltered"
                         :key="friend.userId"
                     >

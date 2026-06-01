@@ -153,6 +153,14 @@ export class MissingEncryptionKeyError extends Error {
     }
 }
 
+export class MissingRequiredInputError extends Error {
+    constructor(message?: string) {
+        const defaultMessage = 'Missing required input.'
+        super(message ?? defaultMessage)
+        this.name = 'MissingRequiredInputError'
+    }
+}
+
 export class MissingSessionDataError extends Error {
     constructor(message?: string) {
         const defaultMessage = 'Session data is missing.'

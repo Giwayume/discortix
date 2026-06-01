@@ -45,13 +45,19 @@ const emit = defineEmits<{
 <style scoped lang="scss">
 .save-changes-footer {
     position: fixed;
-    left: 16rem;
+    left: calc((100vw - 69rem) / 2 + 16rem);
     bottom: 0;
-    right: 0;
+    right: calc((100vw - 69rem) / 2 + 3.25rem);
     padding: 1rem;
+
+    @media screen and (max-width: 1104px) {
+        left: 16rem;
+        right: 3.25rem;
+    }
 
     @media screen and (max-width: 800px) {
         left: 0;
+        right: 0;
     }
 }
 </style>
