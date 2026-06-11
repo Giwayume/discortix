@@ -6,10 +6,13 @@
         :data-timeline-id="componentUuid"
         class="p-chattimeline"
         @pointerdown="onPointerDownTimeline"
+        @pointermove="onPointerMoveTimeline"
         @pointerup="onPointerUpTimeline"
         @mouseover="onMouseOverTimeline"
         @mouseleave="onMouseLeaveTimeline"
+        @dragstart.prevent
         @click.capture="onClickTimeline"
+        @contextmenu.capture="onContextMenuTimeline"
     >
         <ScrollPanel ref="scrollPanel">
             <div ref="scrollContentContainer" class="p-chattimeline-scroll-content-container">
@@ -58,58 +61,34 @@
                     :key="`newMessagePlaceholderFor${room.roomId}`"
                 />
             </div>
-            <div
-                v-if="!isTouchEventsDetected"
-                ref="messageActionsContainer"
-                :hidden="!messageActionsTargetElement"
-                class="timeline-events__message-actions"
-                :style="messageActionsFloatingStyles"
-                @wheel="onWheelMessageActionsContainer"
-            >
-                <Button
-                    v-if="currentRoomPermissions.sendReaction"
-                    v-tooltip.top="{ value: i18nText.addReaction }"
-                    icon="pi pi-face-smile" :aria-label="i18nText.addReaction" severity="secondary" variant="text"
-                    data-link-id="addReaction"
-                />
-                <Button
-                    v-if="currentRoomPermissions.sendMessage && messageActionsTargetEventSender === sessionUserId"
-                    v-tooltip.top="{ value: i18nText.editMessage }"
-                    icon="pi pi-pencil" :aria-label="i18nText.editMessage" severity="secondary" variant="text"
-                    data-link-id="editMessage"
-                />
-                <Button
-                    v-if="currentRoomPermissions.sendMessage && messageActionsTargetEventSender !== sessionUserId"
-                    v-tooltip.top="{ value: i18nText.replyMessage }"
-                    icon="pi pi-reply -scale-x-100" :aria-label="i18nText.replyMessage" severity="secondary" variant="text"
-                    data-link-id="replyToMessage"
-                />
-                <Button
-                    v-tooltip.top="{ value: i18nText.forwardMessage }"
-                    icon="pi pi-reply" :aria-label="i18nText.forwardMessage" severity="secondary" variant="text"
-                />
-                <Button
-                    v-tooltip.top="{ value: i18nText.moreActionsMessage }"
-                    icon="pi pi-ellipsis-h" :aria-label="i18nText.moreActionsMessage" severity="secondary" variant="text"
-                    @click="showMoreMessageActions($event)"
-                />
-            </div>
+            <TimelineEventsMessageActions
+                ref="timelineEventsMessageActions"
+                :i18nText="i18nText"
+                :messageActionsTargetEventSender="messageActionsTargetEventSender"
+                :scrollPanelContent="scrollPanelContent"
+                :targetElement="messageActionsTargetElement"
+                @showMoreMessageActions="showMoreMessageActions"
+            />
         </ScrollPanel>
-        <ContextMenu ref="moreMessageActionsContextMenu" :model="moreMessageActionsContextMenuItems" @hide="onHideMoreMessageActionsContextMenu">
-            <template #item="{ item, props }">
-                <a class="p-contextmenu-item-link" v-bind="props.action">
-                    <span class="p-contextmenu-item-label" :class="item.labelClassName">{{ item.label }}</span>
-                    <span v-if="item.icon" :class="item.icon" class="ml-auto px-1 text-subtle" aria-hidden="true" />
-                    <i v-if="item.items" class="pi pi-angle-right ml-auto"></i>
-                </a>
-            </template>
-        </ContextMenu>
+        <TimelineEventsMoreMessageActions
+            ref="timelineEventsMoreMessageActions"
+            v-model:targetEventId="messageActionsContextMenuTargetEventId"
+            :activeEventChunkBufferIndex="activeEventChunkBufferIndex"
+            :eventChunkBuffers="eventChunkBuffers"
+            :i18nText="i18nText"
+            :messageActionsTargetEventId="messageActionsTargetEventId"
+            :room="props.room"
+            :targetEventSender="messageActionsContextMenuTargetEventSender"
+            @hide="onHideMoreMessageActionsContextMenu"
+            @keepMessageActionsContextMenuTargetEventId="keepMessageActionsContextMenuTargetEventId = true"
+            @selectEmoji="(event, referenceEventId) => emit('selectEmoji', event, referenceEventId)"
+            @update:editEventId="emit('update:editEventId', $event)"
+            @update:replyToEventId="emit('update:replyToEventId', $event)"
+        />
         <MessagePreviewDialog v-model:visible="messagePreviewDialogVisble" :room="props.room" :event="messagePreviewEvent" :i18nText="i18nText" />
-        <DeleteMessageConfirm v-model:visible="deleteMessageConfirmVisible" :room="props.room" :eventRenderInfo="deleteMessageConfirmEventRenderInfo" :i18nText="i18nText" />
         <EditGroup v-model:visible="editGroupDialogVisible" :roomId="props.room.roomId" />
         <PhotoViewer v-model:visible="photoViewerVisible" :imageEvent="photoViewerImageEvent" />
         <FixDecryptionDialog v-model:visible="fixDecryptDialogVisible" :roomId="room.roomId" :eventId="fixDecryptEventId" />
-        <EventSourceViewerDialog v-model:visible="eventSourceViewerDialogVisible" :eventRenderInfo="eventSourceRenderInfo" />
     </div>
 </template>
 
@@ -121,7 +100,6 @@ import {
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { v4 as uuidv4 } from 'uuid'
-import { useFloating, offset as floatingOffset, autoUpdate as floatingAutoUpdate } from '@floating-ui/vue'
 
 import { throttle } from '@/utils/timing'
 import { downloadFile } from '@/utils/file-access'
@@ -142,21 +120,17 @@ import { useProfileStore } from '@/stores/profile'
 import { useRoomStore } from '@/stores/room'
 import { useSessionStore } from '@/stores/session'
 
-const DeleteMessageConfirm = defineAsyncComponent(() => import('./DeleteMessageConfirm.vue'))
 const EditGroup = defineAsyncComponent(() => import('./EditGroup.vue'))
-const EventSourceViewerDialog = defineAsyncComponent(() => import('./EventSourceViewerDialog.vue'))
 const FixDecryptionDialog = defineAsyncComponent(() => import('@/views/EncryptionSetup/FixDecryptionDialog.vue'))
 import MessageBeginning from './MessageBeginning.vue'
 import MessagePlaceholder from './MessagePlaceholder.vue'
 const MessagePreviewDialog = defineAsyncComponent(() => import('./MessagePreviewDialog.vue'))
 const PhotoViewer = defineAsyncComponent(() => import('./PhotoViewer.vue'))
+import TimelineEventsMessageActions from './TimelineEventsMessageActions.vue'
+import TimelineEventsMoreMessageActions from './TimelineEventsMoreMessageActions.vue'
 
-import Button from 'primevue/button'
-import ContextMenu from 'primevue/contextmenu'
 import ScrollPanel from 'primevue/scrollpanel'
 import { useToast } from 'primevue/usetoast'
-import vTooltip from 'primevue/tooltip'
-import type { MenuItem, MenuItemCommandEvent } from 'primevue/menuitem'
 
 import {
     type JoinedRoom, type RoomEventReactionRender,
@@ -180,7 +154,7 @@ const { isTouchEventsDetected } = useApplication()
 const { currentRoomCustomEmojiByCode } = useEmoji()
 const { isCtrlKeyPressed, isShiftKeyPressed } = useKeyboard()
 const { getMxcBlob } = useMediaCache()
-const { getMessageEvent, getPreviousMessages, redactEvent } = useRooms()
+const { getMessageEvent, getPreviousMessages } = useRooms()
 
 const { userNicknames } = storeToRefs(useAccountDataStore())
 const { settings } = useClientSettingsStore()
@@ -189,7 +163,6 @@ const { profiles } = storeToRefs(useProfileStore())
 const roomStore = useRoomStore()
 const {
     currentRoomEncryptionEnabledTimestamp,
-    currentRoomPermissions,
     decryptedRoomEvents,
     spoilersMarkedVisible,
 } = storeToRefs(roomStore)
@@ -734,6 +707,7 @@ onMounted(() => {
     // May need to reset sync in some cases if can't request more message history. Prompt user?
 
     document.addEventListener('keydown', onKeydownTimeline, true)
+    window.addEventListener('pointercancel', onPointerCancelTimeline, true)
 
     nextTick(() => {
         isJustMounted.value = true
@@ -750,6 +724,7 @@ onUnmounted(() => {
     fetchNewEventsAbortController?.abort()
 
     document.removeEventListener('keydown', onKeydownTimeline, true)
+    window.removeEventListener('pointercancel', onPointerCancelTimeline, true)
 })
 
 async function loadPreviousMessagesUpToChunk(targetOffsetChunk: number, targetOffsetEventId?: string, abortController?: AbortController) {
@@ -859,197 +834,16 @@ async function scrollToBottom() {
 |                     |
 \*-------------------*/
 
-const messageActionsContainer = ref<HTMLDivElement>()
+const timelineEventsMessageActions = ref<InstanceType<typeof TimelineEventsMessageActions>>()
+
 const messageActionsTargetEventId = ref<string>()
 const messageActionsTargetEventSender = ref<string>()
 const messageActionsContextMenuTargetEventId = ref<string>()
 const keepMessageActionsContextMenuTargetEventId = ref<boolean>(false)
 const messageActionsContextMenuTargetEventSender = ref<string>()
 const messageActionsTargetElement = ref<HTMLElement>()
-const { floatingStyles: messageActionsFloatingStyles, update: updateMessageActionsFloating } = useFloating(
-    messageActionsTargetElement, messageActionsContainer, {
-        whileElementsMounted: floatingAutoUpdate,
-        transform: false,
-        placement: 'top-end',
-        middleware: [floatingOffset({ mainAxis: -12, crossAxis: -8 })]
-    }
-);
 
-const deleteMessageConfirmVisible = ref<boolean>(false)
-const deleteMessageConfirmEventRenderInfo = ref<EventWithRenderInfo>()
-
-const eventSourceViewerDialogVisible = ref<boolean>(false)
-const eventSourceRenderInfo = ref<EventWithRenderInfo>()
-
-const moreMessageActionsContextMenu = ref<InstanceType<typeof ContextMenu>>()
-const moreMessageActionsContextMenuItems = computed(() => {
-    const contextMenuItems: MenuItem[] = []
-    if (currentRoomPermissions.value.sendReaction) {
-        contextMenuItems.push({
-            key: 'addReaction',
-            label: t('room.moreMessageActions.addReaction'),
-            icon: 'pi pi-face-smile',
-            command: runMoreMessageActionsContextMenuCommand,
-        })
-        contextMenuItems.push({ separator: true })
-    }
-    if (currentRoomPermissions.value.sendMessage && sessionUserId.value === messageActionsContextMenuTargetEventSender.value) {
-        contextMenuItems.push({
-            key: 'editMessage',
-            label: t('room.moreMessageActions.editMessage'),
-            icon: 'pi pi-pencil',
-            command: runMoreMessageActionsContextMenuCommand,
-        })
-    }
-    if (currentRoomPermissions.value.sendMessage) {
-        contextMenuItems.push({
-            key: 'replyToMessage',
-            label: t('room.moreMessageActions.reply'),
-            icon: 'pi pi-reply -scale-x-100',
-            command: runMoreMessageActionsContextMenuCommand,
-        })
-    }
-    contextMenuItems.push({
-        key: 'forwardMessage',
-        label: t('room.moreMessageActions.forward'),
-        icon: 'pi pi-reply',
-        command: runMoreMessageActionsContextMenuCommand,
-    })
-    if (currentRoomPermissions.value.sendMessage) {
-        contextMenuItems.push({
-            key: 'createThread',
-            label: t('room.moreMessageActions.createThread'),
-            icon: 'pi pi-receipt',
-            command: runMoreMessageActionsContextMenuCommand,
-        })
-    }
-    contextMenuItems.push({ separator: true })
-    contextMenuItems.push({
-        key: 'copyText',
-        label: t('room.moreMessageActions.copyText'),
-        icon: 'pi pi-copy',
-        command: runMoreMessageActionsContextMenuCommand,
-    })
-    if (currentRoomPermissions.value.changePinnedEvents) {
-        contextMenuItems.push({
-            key: 'pinMessage',
-            label: t('room.moreMessageActions.pinMessage'),
-            icon: 'pi pi-thumbtack',
-            command: runMoreMessageActionsContextMenuCommand,
-        })
-    }
-    contextMenuItems.push({
-        key: 'markUnread',
-        label: t('room.moreMessageActions.markUnread'),
-        icon: 'pi pi-book',
-        command: runMoreMessageActionsContextMenuCommand,
-    })
-    contextMenuItems.push({
-        key: 'copyMessageLink',
-        label: t('room.moreMessageActions.copyMessageLink'),
-        icon: 'pi pi-link',
-        command: runMoreMessageActionsContextMenuCommand,
-    })
-    contextMenuItems.push({
-        key: 'speakMessage',
-        label: t('room.moreMessageActions.speakMessage'),
-        icon: 'pi pi-headphones',
-        command: runMoreMessageActionsContextMenuCommand,
-    })
-    contextMenuItems.push({ separator: true })
-    if (
-        (currentRoomPermissions.value.redactOwnEvent && sessionUserId.value === messageActionsContextMenuTargetEventSender.value)
-        || (currentRoomPermissions.value.redactOtherUserEvent && sessionUserId.value !== messageActionsContextMenuTargetEventSender.value)
-    ) {
-        contextMenuItems.push({
-            key: 'deleteMessage',
-            label: t('room.moreMessageActions.deleteMessage'),
-            icon: 'pi pi-trash !text-feedback-critical',
-            labelClassName: 'text-feedback-critical',
-            command: runMoreMessageActionsContextMenuCommand,
-        })
-        contextMenuItems.push({ separator: true })
-    }
-    if (settings.isDeveloperMode) {
-        contextMenuItems.push({
-            key: 'viewEventSource',
-            label: t('room.moreMessageActions.viewEventSource'),
-            icon: 'pi pi-code',
-            command: runMoreMessageActionsContextMenuCommand,
-        })
-        contextMenuItems.push({
-            key: 'copyMessageId',
-            label: t('room.moreMessageActions.copyMessageId'),
-            icon: 'pi pi-id-card',
-            command: runMoreMessageActionsContextMenuCommand,
-        })
-    }
-    if (contextMenuItems[contextMenuItems.length - 1]?.separator) {
-        contextMenuItems.pop()
-    }
-    return contextMenuItems
-})
-
-async function runMoreMessageActionsContextMenuCommand(event: MenuItemCommandEvent) {
-    const eventId = messageActionsContextMenuTargetEventId.value || messageActionsTargetEventId.value
-    if (!eventId) return
-    switch (event.item.key) {
-        case 'addReaction':
-            emit('selectEmoji', event.originalEvent, eventId)
-            messageActionsContextMenuTargetEventId.value = eventId
-            keepMessageActionsContextMenuTargetEventId.value = true
-            break
-        case 'editMessage':
-            emit('update:editEventId', eventId)
-            break
-        case 'replyToMessage':
-            emit('update:replyToEventId', eventId)
-            break
-        case 'deleteMessage':
-            if (isShiftKeyPressed.value) {
-                redactEvent(props.room.roomId, eventId)
-            } else {
-                deleteMessageConfirmEventRenderInfo.value = undefined
-
-                findEventRenderInfo:
-                for (const chunk of eventChunkBuffers.value[activeEventChunkBufferIndex.value]!) {
-                    for (const e of chunk.events) {
-                        if (e.event.eventId === messageActionsContextMenuTargetEventId.value) {
-                            deleteMessageConfirmEventRenderInfo.value = e
-                            break findEventRenderInfo
-                        }
-                    }
-                }
-
-                deleteMessageConfirmVisible.value = true
-            }
-            break
-        case 'viewEventSource':
-            eventSourceViewerDialogVisible.value = true
-            eventSourceRenderInfo.value = undefined
-
-            findEventRenderInfo:
-            for (const chunk of eventChunkBuffers.value[activeEventChunkBufferIndex.value]!) {
-                for (const e of chunk.events) {
-                    if (e.event.eventId === messageActionsContextMenuTargetEventId.value) {
-                        eventSourceRenderInfo.value = e
-                        break findEventRenderInfo
-                    }
-                }
-            }
-
-            break
-        case 'copyMessageId':
-            try {
-                if (!navigator.clipboard) throw new Error('Clipboard API missing.')
-                await navigator.clipboard.writeText(eventId)
-                toast.add({ severity: 'success', summary: t('room.copyMessageIdConfirm', { eventId }), life: 3000 })
-            } catch (error) {
-                toast.add({ severity: 'error', summary: t('errors.clipboardApiNotSupported'), life: 4000 })
-            }
-            break
-    }
-}
+const timelineEventsMoreMessageActions = ref<InstanceType<typeof TimelineEventsMoreMessageActions>>()
 
 function resetMessageActionsContextMenuTargetEventId() {
     messageActionsContextMenuTargetEventId.value = undefined
@@ -1057,23 +851,14 @@ function resetMessageActionsContextMenuTargetEventId() {
 }
 
 function showMoreMessageActions(event: MouseEvent) {
-    if (!moreMessageActionsContextMenu.value) return
+    if (!timelineEventsMoreMessageActions.value) return
     if (messageActionsContextMenuTargetEventId.value) {
-        moreMessageActionsContextMenu.value.hide()
+        timelineEventsMoreMessageActions.value.hide()
     } else {
         messageActionsContextMenuTargetEventId.value = messageActionsTargetEventId.value
         messageActionsContextMenuTargetEventSender.value = messageActionsTargetEventSender.value
-        moreMessageActionsContextMenu.value.show(event)
+        timelineEventsMoreMessageActions.value.show(event)
     }
-}
-
-function onWheelMessageActionsContainer(e: WheelEvent) {
-    e.preventDefault()
-    scrollPanelContent.value?.scrollBy({
-        left: e.deltaX,
-        top: e.deltaY,
-        behavior: 'auto',
-    })
 }
 
 function onHideMoreMessageActionsContextMenu() {
@@ -1086,7 +871,7 @@ function onHideMoreMessageActionsContextMenu() {
 
 function onMouseOverTimeline(event: MouseEvent) {
     const target = event.target as HTMLElement
-    if (isTouchEventsDetected.value || !target?.getAttribute || messageActionsContainer.value?.contains(target)) return
+    if (isTouchEventsDetected.value || !target?.getAttribute || timelineEventsMessageActions.value?.$el?.contains(target)) return
     const eventElement = target?.closest('[data-event-id]')
     const eventId = eventElement?.getAttribute('data-event-id')
     const eventSender = eventElement?.getAttribute('data-event-sender') ?? ''
@@ -1095,7 +880,7 @@ function onMouseOverTimeline(event: MouseEvent) {
         messageActionsTargetEventId.value = eventId
         messageActionsTargetEventSender.value = eventSender
         nextTick(() => {
-            updateMessageActionsFloating()
+            timelineEventsMessageActions.value?.updateMessageActionsFloating()
         })
     } else {
         messageActionsTargetElement.value = undefined
@@ -1115,23 +900,66 @@ function onMouseLeaveTimeline(event: MouseEvent) {
 \*------------------------------------*/
 
 let pointerDownTimelineTarget: HTMLElement | null
+let pointerDownTimelinePointerId: number = -1
 let pointerDownTimelineItemX: number = 0
 let pointerDownTimelineItemY: number = 0
+let pointerMoveTimelineItemX: number = 0
+let pointerMoveTimelineItemY: number = 0
 let pointerDownTimelineTimestamp: number = 0
+let pointerPressTimelineTimeoutHandle: number | undefined = undefined
 
 function onPointerDownTimeline(event: PointerEvent) {
     if (event.button === 0) {
+        pointerDownTimelinePointerId = event.pointerId
         pointerDownTimelineTarget = event.target as HTMLElement
         pointerDownTimelineItemX = event.pageX
         pointerDownTimelineItemY = event.pageY
+        pointerMoveTimelineItemX = event.pageX
+        pointerMoveTimelineItemY = event.pageY
         pointerDownTimelineTimestamp = window.performance.now()
+        console.log('down ', pointerDownTimelineItemX)
+    }
+
+    clearTimeout(pointerPressTimelineTimeoutHandle)
+    if (event.button === 0 && isTouchEventsDetected.value) {
+        pointerPressTimelineTimeoutHandle = setTimeout(() => {
+            console.log(pointerMoveTimelineItemX, pointerDownTimelineItemX)
+            if (
+                Math.abs(pointerMoveTimelineItemX - pointerDownTimelineItemX) < settings.pointerMoveRadius
+                && Math.abs(pointerMoveTimelineItemY - pointerDownTimelineItemY) < settings.pointerMoveRadius
+            ) {
+                onPointerPressTimeline(event)
+            }
+        }, settings.pointerPressTimeout)
+    } else {
+        pointerPressTimelineTimeoutHandle = undefined
+    }
+}
+
+function onPointerCancelTimeline(event: PointerEvent) {
+    clearTimeout(pointerPressTimelineTimeoutHandle)
+}
+
+function onPointerMoveTimeline(event: PointerEvent) {
+    if (event.pointerId === pointerDownTimelinePointerId) {
+        pointerMoveTimelineItemX = event.pageX
+        pointerMoveTimelineItemY = event.pageY
     }
 }
 
 function onPointerUpTimeline(event: PointerEvent) {
     // "Click" / "Tap" simulation. Need to do this because of the Safari "double tap with hover states" issue.
+    if (event.button === 0) {
+        clearTimeout(pointerPressTimelineTimeoutHandle)
+    }
+    let isPrimaryPointerUp = false
+    if (event.pointerId === pointerDownTimelinePointerId) {
+        isPrimaryPointerUp = true
+        pointerDownTimelinePointerId = -1
+    }
     if (
         event.button === 0
+        && isPrimaryPointerUp
         && event.target && event.target === pointerDownTimelineTarget
         && window.performance.now() - pointerDownTimelineTimestamp <= settings.pointerClickTimeout
         && Math.abs(event.pageX - pointerDownTimelineItemX) < settings.pointerMoveRadius
@@ -1180,7 +1008,7 @@ function onPointerUpTimeline(event: PointerEvent) {
                     if (eventId) {
                         messageActionsContextMenuTargetEventId.value = eventId
                     }
-                    runMoreMessageActionsContextMenuCommand({
+                    timelineEventsMoreMessageActions.value?.runContextMenuCommand({
                         originalEvent: event,
                         item: { key: 'addReaction' },
                     })
@@ -1241,8 +1069,28 @@ function onPointerUpTimeline(event: PointerEvent) {
     }
 }
 
+function onPointerPressTimeline(event: PointerEvent) {
+    pointerDownTimelinePointerId = -1
+    const target = event.target as Element
+    const eventElement = target?.closest('[data-event-id]')
+    const eventId = eventElement?.getAttribute('data-event-id')
+    const eventSender = eventElement?.getAttribute('data-event-sender') ?? ''
+    messageActionsContextMenuTargetEventId.value = eventId ?? undefined
+    messageActionsContextMenuTargetEventSender.value = eventSender
+    if (eventId) {
+        timelineEventsMoreMessageActions.value?.show(event)
+        window.navigator.vibrate?.(100)
+    }
+}
+
 function onClickTimeline(event: MouseEvent) {
     event.preventDefault()
+}
+
+function onContextMenuTimeline(event: Event) {
+    if (isTouchEventsDetected.value) {
+        event.preventDefault()
+    }
 }
 
 function onKeydownTimeline(event: KeyboardEvent) {
@@ -1401,26 +1249,5 @@ defineExpose({
 }
 .p-chattimeline:deep(.p-scrollpanel-bar.p-scrollpanel-bar-y) {
     margin-left: -0.125rem;
-}
-
-.timeline-events__message-actions {
-    display: flex;
-    position: absolute;
-    padding: 0.125rem;
-    background: var(--background-surface-high);
-    border: 1px solid var(--border-muted);
-    border-radius: 0.5rem;
-    box-shadow: var(--shadow-low);
-    width: max-content;
-    top: 0;
-    left: auto !important;
-    right: 0.5rem !important;
-    z-index: 5;
-
-    > .p-button {
-        padding: 0.125rem !important;
-        width: 1.75rem !important;
-        height: 1.75rem !important;
-    }
 }
 </style>

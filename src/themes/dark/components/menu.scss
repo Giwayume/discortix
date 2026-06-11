@@ -1,6 +1,13 @@
 :root {
     --p-menu-transition-duration: var(--p-menu-transition-duration);
 
+    --p-menu-background: transparent;
+    --p-menu-color: var(--text-muted);
+    --p-menu-border-color: transparent;
+    --p-menu-border-radius: 0;
+
+    --p-menu-separator-border-color: var(--border-subtle);
+
     --p-menu-submenu-label-background: transparent;
     --p-menu-submenu-label-padding: 1.5rem 0.5rem 0.25rem 0.5rem;
     --p-menu-submenu-label-padding-first: 0.5rem 0.5rem 0.25rem 0.5rem;
@@ -26,6 +33,10 @@
 
 .p-menu {
     user-select: none;
+}
+
+.p-menu-separator {
+    margin: 0.25rem 0;
 }
 
 .p-menu-submenu-label {

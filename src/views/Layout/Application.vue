@@ -102,6 +102,7 @@ import { useSync } from '@/composables/sync'
 
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
 import { useSessionStore } from '@/stores/session'
+import { useClientSettingsStore } from '@/stores/client-settings'
 import { useSpaceStore } from '@/stores/space'
 
 import CrashError from './CrashError.vue'
@@ -138,6 +139,7 @@ const {
     initialize: initializeCryptoKeys,
 } = useCryptoKeys()
 const { onInboundMessage, sendMessageToDevices } = useOlm()
+const { settings } = useClientSettingsStore()
 const {
     getFriendlyErrorMessage: getFriendlySyncErrorMessage,
     initialize: initializeSync,
@@ -268,7 +270,11 @@ onUnmounted(() => {
 })
 
 function onWindowResize() {
+    let wasMobileView = isMobileView.value
     isMobileView.value = window.innerWidth <= 800
+    if (isMobileView.value && !wasMobileView) {
+        settings.showChatAside = false
+    }
     if (sidebarOpenOffset.value > 0) {
         sidebarOpenOffset.value = window.innerWidth - sidebarOpenRightPadding
     }
@@ -392,6 +398,9 @@ function onPointerMoveMobileLayout(event: PointerEvent) {
         )
     ) {
         isDraggingDrawer.value = true
+        window.dispatchEvent(new PointerEvent('pointercancel', {
+            pointerId: event.pointerId, bubbles: true, cancelable: false,
+        }))
     }
     if (isDraggingDrawer.value) {
         event.preventDefault()
@@ -404,7 +413,9 @@ function onPointerMoveMobileLayout(event: PointerEvent) {
     }
 }
 function onPointerCancelMobileLayout(event: PointerEvent) {
-    onPointerUpWindow(event)
+    if (event.isTrusted) {
+        onPointerUpWindow(event)
+    }
 }
 function onPointerUpWindow(event: PointerEvent) {
     if (primaryPointerDown && isDraggingDrawer.value) {
@@ -451,10 +462,10 @@ function onPointerUpWindow(event: PointerEvent) {
     background: var(--background-base-lowest);
     overflow: hidden; // Hide overflow for mobile view, main view slides right which creates horizontal scrollbar
 
-    padding-top: env(safe-area-inset-top);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-top: var(--safe-area-top, env(safe-area-inset-top));
+    padding-left: var(--safe-area-left, env(safe-area-inset-left));
+    padding-right: var(--safe-area-right, env(safe-area-inset-right));
+    padding-bottom: var(--safe-area-bottom, env(safe-area-inset-bottom));
 
     > .p-splitter {
         flex-grow: 1;

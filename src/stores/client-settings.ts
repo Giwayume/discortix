@@ -4,6 +4,7 @@ import { defineStore } from 'pinia'
 import { deepToRaw } from '@/utils/vue'
 
 import { createLogger } from '@/composables/logger'
+import { useApplication } from '@/composables/application'
 import { useBroadcast } from '@/composables/broadcast'
 
 import {
@@ -28,7 +29,7 @@ export const useClientSettingsStore = defineStore('clientSettings', () => {
         isDeveloperMode: false,
         pointerClickTimeout: 500,
         pointerMoveRadius: 8,
-        pointerPressTimeout: 1500,
+        pointerPressTimeout: 501,
         prefersEnableEncryption: false,
         sendReadReceipts: true,
         sendTypingIndicators: true,

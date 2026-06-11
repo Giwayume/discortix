@@ -13,6 +13,11 @@
     --radius-xxl: 2rem;
     --radius-round: 2147483647px;
 
+    --safe-area-top: env(safe-area-inset-top);
+    --safe-area-left: env(safe-area-inset-left);
+    --safe-area-right: env(safe-area-inset-right);
+    --safe-area-bottom: env(safe-area-inset-bottom);
+
     --shadow-border: 0 0 0 1px hsl(none 0% 100%/0.08);
     --shadow-low: 0 1px 4px 0 hsl(none 0% 0%/0.14);
     --shadow-medium: 0 4px 8px 0 hsl(none 0% 0%/0.16);

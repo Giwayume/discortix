@@ -30,7 +30,7 @@
                     </template>
                 </AvatarGroup>
             </template>
-            <h1 class="font-medium text-strong mr-2">
+            <h1 class="font-medium text-strong text-nowrap overflow-hidden text-ellipsis mr-2">
                 <template v-if="roomName">{{ roomName }}</template>
                 <template v-else>{{ roomMemberListDisplay }}</template>
             </h1>

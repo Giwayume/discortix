@@ -7,20 +7,25 @@
             <div class="flex px-4 py-2 items-center overflow-hidden w-full">
                 <span class="pi pi-users w-8 text-center text-(--channel-icon)" />
                 <h1 class="font-medium text-strong mr-3">{{ t('home.title') }}</h1>
-                <div class="rounded-full w-1 h-1 bg-(--border-subtle) mr-3"></div>
-                <div class="flex gap-4">
-                    <Button :label="t('home.friendFilters.online')" :aria-pressed="activeTab === 'online'" severity="secondary" variant="text" size="small" @click="activeTab = 'online'" />
-                    <Button :label="t('home.friendFilters.all')" :aria-pressed="activeTab === 'all'" severity="secondary" variant="text" size="small" @click="activeTab = 'all'" />
-                    <Button :label="t('home.friendFilters.addFriend')" :aria-pressed="activeTab === 'addFriend'" severity="primary" size="small" @click="activeTab = 'addFriend'" />
+                <div class="rounded-full w-1 h-1 bg-(--border-subtle) mr-3 max-[500px]:hidden"></div>
+                <div class="flex overflow-hidden gap-4 items-center h-full text-nowrap max-[500px]:hidden">
+                    <Button :label="t('home.friendFilters.online')" :aria-pressed="activeTab === 'online'" severity="secondary" variant="text" size="small" class="shrink-0 text-nowrap" @click="activeTab = 'online'" />
+                    <Button :label="t('home.friendFilters.all')" :aria-pressed="activeTab === 'all'" severity="secondary" variant="text" size="small" class="shrink-0 text-nowrap" @click="activeTab = 'all'" />
+                    <Button :label="t('home.friendFilters.addFriend')" :aria-pressed="activeTab === 'addFriend'" severity="primary" size="small" class="shrink-0 text-nowrap" @click="activeTab = 'addFriend'" />
                 </div>
                 <Button
                     v-tooltip.bottom="{ value: isTouchEventsDetected ? undefined : t('home.newGroupDm') }"
-                    icon="pi pi-comment" severity="secondary" variant="text" class="ml-auto !w-8 !h-8"
+                    icon="pi pi-comment" severity="secondary" variant="text" class="ml-auto shrink-0 !w-8 !h-8"
                     :aira-label="t('home.newGroupDm')" @click="newMessageDialogVisible = true"
                 />
             </div>
         </MainHeader>
         <MainBody>
+            <div class="flex overflow-hidden gap-4 pl-6 pr-4 pt-3 items-center text-nowrap min-[500px]:hidden">
+                <Button :label="t('home.friendFilters.online')" :aria-pressed="activeTab === 'online'" severity="secondary" variant="text" size="small" class="shrink-0 text-nowrap" @click="activeTab = 'online'" />
+                <Button :label="t('home.friendFilters.all')" :aria-pressed="activeTab === 'all'" severity="secondary" variant="text" size="small" class="shrink-0 text-nowrap" @click="activeTab = 'all'" />
+                <Button :label="t('home.friendFilters.addFriend')" :aria-pressed="activeTab === 'addFriend'" severity="primary" size="small" class="shrink-0 text-nowrap" @click="activeTab = 'addFriend'" />
+            </div>
             <template v-if="activeTab === 'online' || activeTab === 'all'">
                 <div class="pt-3 pl-6 pr-4 pb-2">
                     <IconField>
@@ -180,6 +185,7 @@ import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
+import ScrollPanel from 'primevue/scrollpanel'
 import vTooltip from 'primevue/tooltip'
 
 import type {

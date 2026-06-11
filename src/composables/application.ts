@@ -1,6 +1,8 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import mitt from 'mitt'
 
+import { useClientSettingsStore } from '@/stores/client-settings'
+
 const emitter = mitt()
 
 const isMobileView = ref<boolean>(window.innerWidth <= 800)
@@ -11,6 +13,8 @@ const isAnimatingSidebarToggle = ref<boolean>(false)
 const sidebarOpenRightPadding = 0
 const sidebarOpenOffset = ref<number>(window.innerWidth - sidebarOpenRightPadding)
 
+let clientSettingsStore: ReturnType<typeof useClientSettingsStore> | undefined = undefined
+
 function toggleApplicationSidebar(visible?: boolean) {
     isAnimatingSidebarToggle.value = true
 
@@ -19,8 +23,10 @@ function toggleApplicationSidebar(visible?: boolean) {
         applicationContainer.value.scrollTop = 0
     }
 
+    let isClosingSidebar = false
     if (visible == null) {
         if (sidebarOpenOffset.value > 0) {
+            isClosingSidebar = true
             sidebarOpenOffset.value = 0
         } else {
             sidebarOpenOffset.value = window.innerWidth - sidebarOpenRightPadding
@@ -28,8 +34,17 @@ function toggleApplicationSidebar(visible?: boolean) {
     } else if (visible) {
         sidebarOpenOffset.value = window.innerWidth - sidebarOpenRightPadding
     } else {
+        isClosingSidebar = true
         sidebarOpenOffset.value = 0
     }
+
+    if (isMobileView.value && isClosingSidebar) {
+        if (!clientSettingsStore) {
+            clientSettingsStore = useClientSettingsStore()
+        }
+        clientSettingsStore.settings.showChatAside = false
+    }
+
     setTimeout(() => {
         isAnimatingSidebarToggle.value = false
     }, 300)

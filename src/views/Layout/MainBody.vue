@@ -89,8 +89,29 @@ onMounted(() => {
     flex-shrink: 1;
     width: 100%;
 }
+@keyframes application-main-body-aside-reveal {
+    0% {
+        transform: translateX(50%);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
 .application__main__body__aside {
     position: relative;
     border-left: 1px solid var(--border-subtle);
+
+    @media screen and (max-width: 800px) {
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        bottom: 0;
+        background: var(--background-base-lower);
+        z-index: 1;
+        animation: application-main-body-aside-reveal 0.3s forwards;
+    }
 }
 </style>

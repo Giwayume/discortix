@@ -121,7 +121,7 @@
         </div>
         <div class="hidden"><Menu /></div> <!-- Inject menu styles, hacky. -->
     </SidebarListBody>
-    <ContextMenu ref="spaceMenu" :model="spaceMenuItems" @hide="onHideSpaceMenu">
+    <ResponsiveContextMenu ref="spaceMenu" :model="spaceMenuItems" @hide="onHideSpaceMenu">
         <template #item="{ item, props }">
             <a class="p-contextmenu-item-link" v-bind="props.action">
                 <span class="p-contextmenu-item-label">{{ item.label }}</span>
@@ -129,8 +129,7 @@
                 <span v-else-if="item.items" class="pi pi-angle-right ml-auto" />
             </a>
         </template>
-        <!-- p-contextmenu-item-label p-contextmenu-item-link p-contextmenu-item-content -->
-    </ContextMenu>
+    </ResponsiveContextMenu>
     <RoomSettings v-model:visible="roomSettingsVisible" :roomId="roomSettingsRoomId" />
 </template>
 
@@ -146,12 +145,12 @@ import { useRooms } from '@/composables/rooms'
 import { useClientSettingsStore } from '@/stores/client-settings'
 import { useSpaceStore } from '@/stores/space'
 
+import ResponsiveContextMenu from '@/views/Common/ResponsiveContextMenu.vue'
 import RoomSettings from '@/views/RoomSettings.vue'
 import SidebarListBody from './SidebarListBody.vue'
 import SidebarListHeader from './SidebarListHeader.vue'
 
 import Button from 'primevue/button'
-import ContextMenu, { type ContextMenuContext } from 'primevue/contextmenu'
 import Menu from 'primevue/menu'
 import type { MenuItem, MenuItemCommandEvent } from 'primevue/menuitem'
 import Skeleton from 'primevue/skeleton'
@@ -203,7 +202,7 @@ const browseRoomsItem = computed<MenuItem>(() => ({
 |                              |
 \*----------------------------*/
 
-const spaceMenu = ref<InstanceType<typeof ContextMenu>>()
+const spaceMenu = ref<InstanceType<typeof ResponsiveContextMenu>>()
 const isSpaceMenuVisible = ref<boolean>(false)
 
 const spaceMenuItems = computed(() => {
@@ -307,6 +306,7 @@ const spaceMenuItems = computed(() => {
 })
 
 async function runSpaceMenuCommand(event: MenuItemCommandEvent) {
+    spaceMenu.value?.hide()
     switch (event.item.key) {
         case 'inviteToSpace':
             break
