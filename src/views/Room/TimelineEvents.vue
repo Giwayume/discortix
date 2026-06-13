@@ -917,13 +917,11 @@ function onPointerDownTimeline(event: PointerEvent) {
         pointerMoveTimelineItemX = event.pageX
         pointerMoveTimelineItemY = event.pageY
         pointerDownTimelineTimestamp = window.performance.now()
-        console.log('down ', pointerDownTimelineItemX)
     }
 
     clearTimeout(pointerPressTimelineTimeoutHandle)
     if (event.button === 0 && isTouchEventsDetected.value) {
         pointerPressTimelineTimeoutHandle = setTimeout(() => {
-            console.log(pointerMoveTimelineItemX, pointerDownTimelineItemX)
             if (
                 Math.abs(pointerMoveTimelineItemX - pointerDownTimelineItemX) < settings.pointerMoveRadius
                 && Math.abs(pointerMoveTimelineItemY - pointerDownTimelineItemY) < settings.pointerMoveRadius

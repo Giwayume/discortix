@@ -1,3 +1,4 @@
+import { ref } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
@@ -67,6 +68,49 @@ const router = createRouter({
             },
         },
     ],
+})
+
+let isJustNavigatedViaApi = false
+
+const routerGo = router.go
+router.go = function() {
+    isJustNavigatedViaApi = true
+    return routerGo.apply(this, arguments as never)
+}
+
+const routerPush = router.push
+router.push = function() {
+    isJustNavigatedViaApi = true
+    return routerPush.apply(this, arguments as never)
+}
+
+const routerBack = router.back
+router.back = function() {
+    isJustNavigatedViaApi = true
+    return routerBack.apply(this, arguments as never)
+}
+
+const routerForward = router.forward
+router.forward = function() {
+    isJustNavigatedViaApi = true
+    return routerForward.apply(this, arguments as never)
+}
+
+const routerReplace = router.replace
+router.replace = function() {
+    isJustNavigatedViaApi = true
+    return routerReplace.apply(this, arguments as never)
+}
+
+router.lastNavigationSource = ref<'browser' | 'api'>('browser')
+
+router.afterEach(() => {
+    if (isJustNavigatedViaApi) {
+        router.lastNavigationSource.value = 'api'
+    } else {
+        router.lastNavigationSource.value = 'browser'
+    }
+    isJustNavigatedViaApi = false
 })
 
 export default router

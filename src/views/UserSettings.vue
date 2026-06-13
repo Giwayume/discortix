@@ -150,10 +150,12 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
 import { useApplication } from '@/composables/application'
 import { useLogout } from '@/composables/logout'
+import { useRouterHistory, onHistoryNavigation } from '@/composables/router-history'
 
 import { useProfileStore } from '@/stores/profile'
 
@@ -175,9 +177,12 @@ import ScrollPanel from 'primevue/scrollpanel'
 import type { MenuItem, MenuItemCommandEvent } from 'primevue/menuitem'
 
 const { t } = useI18n()
+const router = useRouter()
+const route = useRoute()
 
-const { onOpenUserSettings } = useApplication()
+const { isMobileView, onOpenUserSettings } = useApplication()
 const { logout } = useLogout()
+const { historyStack, historyPosition } = useRouterHistory()
 
 const { authenticatedUserAvatarUrl, authenticatedUserDisplayName } = storeToRefs(useProfileStore())
 
@@ -192,6 +197,28 @@ watch(() => props.visible, (visible, wasVisible) => {
     if (visible && !wasVisible) {
         mainPanelVisible.value = false
         mainPanelSidebarOffset.value = 0
+        if (!route.hash.startsWith('#user-settings')) {
+            router.push('#user-settings')
+        }
+    } else if (!visible && wasVisible) {
+        if (route.hash.startsWith('#user-settings')) {
+            let delta = 0
+            let isNonUserSettingsHistoryFound = false
+            for (let position = historyPosition.value; position >= 0; position--) {
+                const current = historyStack.value[position]?.current
+                if (!current) break
+                if (!current.includes('#user-settings')) {
+                    isNonUserSettingsHistoryFound = true
+                    break
+                }
+                delta--
+            }
+            if (isNonUserSettingsHistoryFound && delta < 0) {
+                router.go(delta)
+            } else {
+                router.replace(route.fullPath.split('#')[0]!)
+            }
+        }
     }
 })
 
@@ -201,6 +228,32 @@ const emit = defineEmits<{
 
 const mainPanelVisible = ref<boolean>(false)
 watch(() => mainPanelVisible.value, () => {
+
+    if (!mainPanelVisible.value && route.hash.startsWith('#user-settings:')) {
+        let delta = 0
+        let isUserSettingsHistoryFound = false
+        for (let position = historyPosition.value; position >= 0; position--) {
+            const current = historyStack.value[position]?.current
+            if (!current) break
+            const currentHash = '#' + current.split('#')[1]
+            if (currentHash === '#user-settings') {
+                isUserSettingsHistoryFound = true
+            }
+            if (!currentHash.startsWith('#user-settings')) {
+                if (isUserSettingsHistoryFound) {
+                    delta++
+                }
+                break
+            }
+            delta--
+        }
+        if (isUserSettingsHistoryFound && delta < 0) {
+            router.go(delta)
+        } else {
+            router.replace('#user-settings')
+        }
+    }
+
     isAnimatingSidebarToggle.value = true
     setTimeout(() => {
         isAnimatingSidebarToggle.value = false
@@ -333,14 +386,20 @@ function selectMenuItem(event: MenuItemCommandEvent) {
     selectedMenuItem.value = event.item
     mainPanelSidebarOffset.value = 0
     mainPanelVisible.value = true
+
+    if (isMobileView.value) {
+        if (route.hash.startsWith('#user-settings:')) {
+            router.replace('#user-settings:' + selectedMenuItem.value.key)
+        } else {
+            router.push('#user-settings:' + selectedMenuItem.value.key)
+        }
+    }
 }
 
 const selectedMenuItem = ref<MenuItem>(menuItems.value[0]!.items[0]!)
 const selectedMenuTitle = computed<string>(() => {
     return selectedMenuItem.value?.label + ''
 })
-
-const hasPendingChanges = ref<boolean>(false)
 
 const logoutConfirmVisible = ref<boolean>(false)
 
@@ -442,6 +501,31 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('pointerup', onPointerUpWindow, true)
+})
+
+onHistoryNavigation((to, from, info) => {
+    if (info.source === 'browser') {
+        if (to.hash.startsWith('#user-settings')) {
+            if (!props.visible) {
+                emit('update:visible', true)
+            }
+            if (to.hash === '#user-settings') {
+                mainPanelVisible.value = false
+            } else {
+                const menuItemKey = to.hash.replace('#user-settings:', '')
+                const menuItem = menuItems.value.reduce((accumulator, currentCategory) => {
+                    const menuItem = currentCategory.items.find((item) => item.key === menuItemKey)
+                    return menuItem ?? accumulator
+                }, undefined as MenuItem | undefined)
+                if (menuItem) {
+                    selectMenuItem({ originalEvent: new Event('click'), item: menuItem })
+                    mainPanelVisible.value = true
+                }
+            }
+        } else if (props.visible) {
+            emit('update:visible', false)
+        }
+    }
 })
 
 onOpenUserSettings((menuItemKey) => {

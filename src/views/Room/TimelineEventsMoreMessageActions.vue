@@ -227,7 +227,6 @@ const contextMenuItems = computed(() => {
 async function runContextMenuCommand(event: MenuItemCommandEvent) {
     contextMenu.value?.hide()
     const eventId = props.targetEventId || props.messageActionsTargetEventId
-    console.log(eventId)
     if (!eventId) return
     switch (event.item.key) {
         case 'addReaction':
