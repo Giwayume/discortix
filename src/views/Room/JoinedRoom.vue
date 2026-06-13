@@ -176,6 +176,14 @@
                     :aria-label="t('room.messageSendButton')"
                 />
             </form>
+            <ExpressionPicker
+                v-if="isMobileView"
+                ref="expressionPicker"
+                :emojiOnly="expressionPickerEmojiOnly"
+                @selectEmoji="onEmojiSelected"
+                @selectSticker="onStickerSelected"
+                @hidden="onExpressionPickerHidden"
+            />
         </template>
     </MainBody>
     <ContextMenu ref="mediaContextMenu" :model="addMediaContextMenuItems">
@@ -196,9 +204,11 @@
         :roomId="props.room.roomId"
     />
     <ExpressionPicker
+        v-if="!isMobileView"
         ref="expressionPicker"
         :emojiOnly="expressionPickerEmojiOnly"
         @selectEmoji="onEmojiSelected"
+        @selectSticker="onStickerSelected"
         @hidden="onExpressionPickerHidden"
     />
     <UserProfilePopover
@@ -265,6 +275,7 @@ import {
     type EncryptedFile,
     type EventAudioContent,
     type EventFileContent,
+    type EventStickerContent,
     type EventImageContent,
     type EventTextContent,
     type EventVideoContent,
@@ -277,7 +288,7 @@ const log = createLogger(import.meta.url)
 const { t } = useI18n()
 const toast = useToast()
 
-const { isTouchEventsDetected } = useApplication()
+const { isMobileView, isTouchEventsDetected } = useApplication()
 const { fetchUserKeys } = useCryptoKeys()
 const { currentRoomCustomEmojiByCode } = useEmoji()
 const { getOutboundGroupSession, restoreRoomKeysFromBackup } = useMegolm()
@@ -544,6 +555,7 @@ async function onEmojiSelected(emoji: EmojiPickerEmojiItem, referenceEventId?: s
             toast.add({ severity: 'error', summary: messageText, life: 4000 })
             log.error('Error sending reaction.', error)
         }
+        expressionPicker.value?.hide()
     } else if (messageTextarea.value) {
         const textarea = (messageTextarea.value as any).$el as HTMLTextAreaElement
         if (textarea.selectionStart > -1) {
@@ -552,8 +564,55 @@ async function onEmojiSelected(emoji: EmojiPickerEmojiItem, referenceEventId?: s
             message.value = beforeText + (beforeText.length > 0 && beforeText.charAt(beforeText.length - 1) !== ' ' ? ' ' : '')
                 + emoji.emoji + (afterText.length > 0 && afterText.charAt(0) !== '' ? ' ' : '') + afterText
         }
+        if (!isMobileView.value) {
+            expressionPicker.value?.hide()
+        }
     }
+}
+
+async function onStickerSelected(emoji: EmojiPickerEmojiItem) {
     expressionPicker.value?.hide()
+
+    const roomId = props.room.roomId
+    const txnId = uuidv4()
+
+    const image = emoji.image
+    if (!image?.url) return
+    let eventContent: EventStickerContent = {
+        body: emoji.description,
+        url: image.url,
+        info: image.info ?? {},
+    }
+
+    if (replyToEventId.value) {
+        eventContent['m.relates_to'] = {
+            'm.in_reply_to': {
+                eventId: replyToEventId.value,
+            },
+        }
+    }
+
+    const event = reactive<ApiV3SyncClientEventWithoutRoomId<EventStickerContent>>({
+        content: eventContent,
+        eventId: `PLACEHOLDER_${txnId}`,
+        originServerTs: Date.now(),
+        sender: sessionUserId.value!,
+        type: 'm.sticker',
+        txnId,
+        sendError: false,
+    })
+
+    populateSentMessageEvent(roomId, event)
+    try {
+        let groupSession: GroupSession | undefined = await getOutboundGroupSession(roomId)
+        const response = await sendMessageEvent<EventStickerContent>(
+            roomId, event.type, txnId, event.content, groupSession
+        )
+        associateTransactionIdWithEventId(roomId, txnId, response.eventId)
+    } catch (error) {
+        log.error('Error sending message:', error)
+        event.sendError = true
+    }
 }
 
 async function onExpressionPickerHidden() {

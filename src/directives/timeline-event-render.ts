@@ -233,7 +233,6 @@ function createEventNodeFragment(e: EventWithRenderInfo, binding: RenderBinding,
                 }
 
                 if (formattedBody) {
-                    const slotCacheId = `${e.event.eventId}_body`
                     const formattedBodyContainer = document.createElement('div')
                     formattedBodyContainer.className = eventContent.format === 'org.matrix.custom.html'
                         ? 'p-chattimeline-event-content-formatted' : ''

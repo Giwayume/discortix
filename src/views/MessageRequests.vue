@@ -14,27 +14,28 @@
                 <div v-for="room of invites" :key="room.roomId" class="message-request-item">
                     <AuthenticatedImage :mxcUri="room.avatarUrl" type="thumbnail" :width="48" :height="48" method="scale">
                         <template v-slot="{ src }">
-                            <Avatar :image="src" shape="circle" size="large" :aria-label="t('layout.userAvatarImage')" />
+                            <Avatar :image="src" shape="circle" size="large" :aria-label="t('layout.userAvatarImage')" class="shrink-0" />
                         </template>
                         <template #error>
-                            <Avatar :icon="room.heroes.length > 1 ? 'pi pi-users' : 'pi pi-user'" shape="circle" size="large" :aria-label="t('layout.userAvatarImage')" />
+                            <Avatar :icon="room.heroes.length > 1 ? 'pi pi-users' : 'pi pi-user'" shape="circle" size="large" :aria-label="t('layout.userAvatarImage')" class="shrink-0" />
                         </template>
                     </AuthenticatedImage>
                     <div class="grow-1">
                         <div>
                             <span class="text-strong">{{ room.name || room.displayname }}</span>
-                            <time class="text-xs text-muted ml-2" :datetime="room.datetime">
+                            <br class="min-sm:hidden">
+                            <time class="text-xs text-muted min-sm:ml-2" :datetime="room.datetime">
                                 {{ room.displayTime }}
                             </time>
                         </div>
                         <div class="text-xs text-muted">{{ room.heroes.join(', ') }}</div>
                     </div>
                     <Button severity="primary" size="small" :loading="room.loadingJoinRoom" :disabled="room.loadingIgnoreRoom" @click="tryJoinRoom(room.roomId)">
-                        <div class="p-button-label">{{ i18nText.acceptDmButton }}</div>
+                        <div class="p-button-label text-nowrap">{{ i18nText.acceptDmButton }}</div>
                         <div class="p-button-loading-dots" />
                     </Button>
                     <Button severity="secondary" size="small" :loading="room.loadingIgnoreRoom" :disabled="room.loadingJoinRoom" @click="tryIgnoreRoom(room.roomId)">
-                        <div class="p-button-label">{{ i18nText.ignoreButton }}</div>
+                        <div class="p-button-label text-nowrap">{{ i18nText.ignoreButton }}</div>
                         <div class="p-button-loading-dots" />
                     </Button>
                 </div>

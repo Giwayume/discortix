@@ -185,7 +185,6 @@ export interface EmojiPickerEmojiItem {
     description: string;
     codes: string[];
     image?: EventImPoniesImage,
-    hidden?: boolean;
 }
 
 export interface EmojiPickerCategory {

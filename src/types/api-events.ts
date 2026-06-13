@@ -587,7 +587,7 @@ export const EventRoomImagePackContentSchema = z.object({
     pack: z.object({
         displayName: z.string().optional(),
         avatarUrl: z.string().optional(),
-        usage: z.enum(['emoticon', 'sticker']).optional(),
+        usage: z.array(z.enum(['emoticon', 'sticker'])).optional(),
         attribution: z.string().optional(),
     }).optional(),
 })
@@ -748,6 +748,50 @@ export const EventSpaceParentContentSchema = z.object({
 })
 export type EventSpaceParentContent = z.infer<typeof EventSpaceParentContentSchema>
 
+/** @see https://spec.matrix.org/v1.18/client-server-api/#msticker */
+export const EventStickerContentSchema = z.object({
+    body: z.string(),
+    info: z.object({
+        h: z.number().optional(),
+        is_animated: z.boolean().optional(),
+        mimetype: z.string().optional(),
+        size: z.number().optional(),
+        thumbnail_file: EncryptedFileSchema.optional(),
+        thumbnail_info: z.object({
+            h: z.number().optional(),
+            mimetype: z.string().optional(),
+            size: z.number().optional(),
+            w: z.number().optional(),
+        }).optional(),
+        thumbnail_url: z.string().optional(),
+        w: z.number().optional(),
+    }),
+    'invalid.discortix.unredacted_body': z.string().optional(),
+    'm.new_content': z.object({
+        body: z.string(),
+        'invalid.discortix.unredacted_body': z.string().optional(),
+        info: z.object({
+            h: z.number().optional(),
+            is_animated: z.boolean().optional(),
+            mimetype: z.string().optional(),
+            size: z.number().optional(),
+            thumbnail_file: EncryptedFileSchema.optional(),
+            thumbnail_info: z.object({
+                h: z.number().optional(),
+                mimetype: z.string().optional(),
+                size: z.number().optional(),
+                w: z.number().optional(),
+            }).optional(),
+            thumbnail_url: z.string().optional(),
+            w: z.number().optional(),
+        }),
+        url: z.string(),
+    }).optional(),
+    'm.relates_to': EventRelatesToContentSchema.optional(),
+    url: z.string(),
+})
+export type EventStickerContent = z.infer<typeof EventStickerContentSchema>
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mtext */
 export const EventTextContentSchema = z.object({
     body: z.string(),
@@ -882,6 +926,7 @@ export const eventContentSchemaByType = {
     'm.secret.send': EventSecretSendContentSchema,
     'm.space.child': EventSpaceChildContentSchema,
     'm.space.parent': EventSpaceParentContentSchema,
+    'm.sticker': EventStickerContentSchema,
     'm.tag': EventTagContentSchema,
     'm.text': EventTextContentSchema,
     'm.typing': EventTypingContentSchema,
@@ -940,6 +985,7 @@ export interface EventContentByType {
     'm.secret.send': EventSecretSendContent,
     'm.space.child': EventSpaceChildContent,
     'm.space.parent': EventSpaceParentContent,
+    'm.sticker': EventStickerContent,
     'm.tag': EventTagContent,
     'm.text': EventTextContent,
     'm.typing': EventTypingContent,

@@ -49,9 +49,16 @@
                         :aria-label="t('room.messageSendButton')"
                     />
                 </form>
+                <ExpressionPicker
+                    v-if="isMobileView"
+                    ref="expressionPicker"
+                    :emojiOnly="true"
+                    @selectEmoji="onEmojiSelected"
+                />
             </template>
         </MainBody>
         <ExpressionPicker
+            v-if="!isMobileView"
             ref="expressionPicker"
             :emojiOnly="true"
             @selectEmoji="onEmojiSelected"
@@ -111,7 +118,7 @@ const { t } = useI18n()
 const router = useRouter()
 const toast = useToast()
 
-const { isTouchEventsDetected } = useApplication()
+const { isMobileView, isTouchEventsDetected } = useApplication()
 const { currentRoomCustomEmojiByCode } = useEmoji()
 const { createGroupSession } = useMegolm()
 const { createRoom, sendMessageEvent, sendStateEvent } = useRooms()
@@ -248,7 +255,9 @@ async function onEmojiSelected(emoji: EmojiPickerEmojiItem) {
         message.value = beforeText + (beforeText.length > 0 && beforeText.charAt(beforeText.length - 1) !== ' ' ? ' ' : '')
             + emoji.emoji + (afterText.length > 0 && afterText.charAt(0) !== '' ? ' ' : '') + afterText
     }
-    expressionPicker.value?.hide()
+    if (!isMobileView.value) {
+        expressionPicker.value?.hide()
+    }
 }
 
 /*------------------------------*\
@@ -403,7 +412,7 @@ async function onSubmitMessageForm() {
 </script>
 
 <style lang="scss" scoped>
-:deep(.p-scrollpanel-content) {
+:deep(.application__main__body-container > .p-scrollpanel .p-scrollpanel-content) {
     display: flex;
     flex-direction: column;
     align-items: flex-start;

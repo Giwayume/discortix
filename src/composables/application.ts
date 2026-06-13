@@ -13,6 +13,9 @@ const isAnimatingSidebarToggle = ref<boolean>(false)
 const sidebarOpenRightPadding = 0
 const sidebarOpenOffset = ref<number>(window.innerWidth - sidebarOpenRightPadding)
 
+const viewportWidth = ref<number>(window.innerWidth)
+const viewportHeight = ref<number>(window.innerHeight)
+
 let clientSettingsStore: ReturnType<typeof useClientSettingsStore> | undefined = undefined
 
 function toggleApplicationSidebar(visible?: boolean) {
@@ -70,6 +73,8 @@ export function useApplication() {
         isAnimatingSidebarToggle,
         sidebarOpenRightPadding,
         sidebarOpenOffset,
+        viewportWidth,
+        viewportHeight,
         toggleApplicationSidebar,
         openUserSettings,
         onOpenUserSettings,

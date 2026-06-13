@@ -1,38 +1,40 @@
 <template>
-    <div class="emoji-picker">
-        <header class="emoji-picker__header">
+    <div class="sticker-picker">
+        <header class="sticker-picker__header">
             <IconField class="grow-1">
                 <InputIcon class="pi pi-search" />
-                <InputText v-model.trim="searchText" class="w-full" :placeholder="selectedEmoji?.codes[0]" @input="onInputSearch" />
+                <InputText v-model.trim="searchText" class="w-full" :placeholder="t('stickerPicker.searchPlaceholder')" @input="onInputSearch" />
                 <Button
                     v-if="searchText" icon="pi pi-times-circle" class="!absolute right-1 top-[50%] -translate-y-[50%]"
-                    rounded severity="secondary" variant="text" :aria-label="t('emojiPicker.clearSearchButton')"
+                    rounded severity="secondary" variant="text" :aria-label="t('stickerPicker.clearSearchButton')"
                     @click="clearSearchText()"
                 />
             </IconField>
-            <Button :label="t('emojiPicker.addEmojiButton')" severity="secondary" class="shrink-0" />
         </header>
-        <div class="emoji-picker__body">
-            <div class="emoji-picker__categories">
+        <div class="sticker-picker__body">
+            <div class="sticker-picker__categories">
                 <ScrollPanel>
-                    <div class="emoji-picker__category-items">
-                        <template v-for="category of defaultEmojiCategories" :key="category.id">
+                    <div class="sticker-picker__category-items">
+                        <template v-for="category of stickerCategories" :key="category.id">
                             <Button :icon="getCategoryIcon(category.id)" severity="secondary" variant="text" @click="scrollToCategory(category.id)" />
                         </template>
                     </div>
                 </ScrollPanel>
             </div>
             <div
-                class="emoji-picker__emojis"
-                @mouseover="onMouseoverEmojis"
-                @pointerdown="onPointerDownEmojis"
-                @pointerup="onPointerUpEmojis"
+                class="sticker-picker__stickers"
+                @mouseover="onMouseoverStickers"
+                @pointerdown="onPointerDownStickers"
+                @pointerup="onPointerUpStickers"
             >
                 <ScrollPanel>
-                    <div ref="emojiContainer" class="relative">
-                        <template v-for="(category, categoryIndex) of emojiCategories" :key="category.id">
+                    <div ref="stickerContainer" class="relative">
+                        <div v-if="stickerCategories.length === 0" class="text-muted p-4">
+                            {{ t('stickerPicker.noStickers') }}
+                        </div>
+                        <template v-for="(category, categoryIndex) of stickerCategories" :key="category.id">
                             <a :data-category-header-id="category.id" />
-                            <div class="emoji-picker__category-header" :hidden="searchText !== ''">
+                            <div class="sticker-picker__category-header" :hidden="searchText !== ''">
                                 <Button severity="secondary" variant="text" size="small" @click="toggleHiddenCategory(category.id)">
                                     <div class="p-button-label">
                                         <span :class="getCategoryIcon(category.id)" aria-hidden="true" />
@@ -48,48 +50,48 @@
                                     </div>
                                 </Button>
                             </div>
-                            <div class="emoji-picker__emoji-list" :hidden="!!hiddenCategories[category.id]">
+                            <div class="sticker-picker__sticker-list" :hidden="!!hiddenCategories[category.id]">
                                 <div
-                                    v-for="(emoji, emojiIndex) of category.emoji"
-                                    :key="emoji.emoji"
-                                    class="emoji-picker__emoji-item"
+                                    v-for="(sticker, stickerIndex) of category.emoji"
+                                    :key="sticker.emoji"
+                                    class="sticker-picker__sticker-item"
                                     :data-category-index="categoryIndex"
-                                    :data-emoji-index="emojiIndex"
-                                    :hidden="!!hiddenEmoji[categoryIndex]?.[emojiIndex]"
+                                    :data-sticker-index="stickerIndex"
+                                    :hidden="!!hiddenStickers[categoryIndex]?.[stickerIndex]"
                                     role="button"
                                     tabindex="0"
                                 >
-                                    <AuthenticatedImage v-if="emoji.image" :mxcUri="emoji.image.url" type="thumbnail" :width="48" :height="48" method="scale">
+                                    <AuthenticatedImage v-if="sticker.image" :mxcUri="sticker.image.url" type="thumbnail" :width="96" :height="96" method="scale">
                                         <template v-slot="{ src }">
-                                            <img :src="src" :aria-label="emoji.description"  />
+                                            <img :src="src" :aria-label="sticker.description"  />
                                         </template>
                                         <template #error>
                                             
                                         </template>
                                     </AuthenticatedImage>
                                     <template v-else>
-                                        {{ emoji.emoji }}
+                                        {{ sticker.emoji }}
                                     </template>
                                 </div>
                             </div>
                         </template>
                     </div>
                 </ScrollPanel>
-                <div class="emoji-picker__emoji-code">
-                    <div class="emoji-picker__selected-emoji-preview">
-                        <AuthenticatedImage v-if="selectedEmoji?.image" :mxcUri="selectedEmoji.image.url" type="thumbnail" :width="48" :height="48" method="scale">
+                <div class="sticker-picker__sticker-code">
+                    <div class="sticker-picker__selected-sticker-preview">
+                        <AuthenticatedImage v-if="selectedSticker?.image" :mxcUri="selectedSticker.image.url" type="thumbnail" :width="48" :height="48" method="scale">
                             <template v-slot="{ src }">
-                                <img :src="src" :aria-label="selectedEmoji.description"  />
+                                <img :src="src" :aria-label="selectedSticker.description"  />
                             </template>
                             <template #error>
                                 
                             </template>
                         </AuthenticatedImage>
                         <template v-else>
-                            {{ selectedEmoji?.emoji }}
+                            {{ selectedSticker?.emoji }}
                         </template>
                     </div>
-                    <span v-for="code of selectedEmoji?.codes" class="mr-1">
+                    <span v-for="code of selectedSticker?.codes" class="mr-1">
                         {{ code }}
                     </span>
                 </div>
@@ -101,7 +103,6 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import defaultEmojiCategories from '@/i18n/default-emoji/default-emoji.en.json'
 
 import { throttle } from '@/utils/timing'
 
@@ -121,84 +122,71 @@ import { type EmojiPickerCategory, type EmojiPickerEmojiItem } from '@/types'
 
 const { t } = useI18n()
 const { settings } = useClientSettingsStore()
-const { currentRoomCustomEmoji } = useEmoji()
+const { currentRoomCustomStickers } = useEmoji()
 
 const emit = defineEmits<{
-    (e: 'selectEmoji', emoji: EmojiPickerEmojiItem): void
+    (e: 'selectSticker', emoji: EmojiPickerEmojiItem): void
 }>()
 
-const emojiCategories = computed<EmojiPickerCategory[]>(() => {
+const stickerCategories = computed<EmojiPickerCategory[]>(() => {
     const categories: EmojiPickerCategory[] = []
-    for (const category of currentRoomCustomEmoji.value) {
+    for (const category of currentRoomCustomStickers.value) {
         categories.push(category)
-    }
-    for (const category of defaultEmojiCategories) {
-        categories.push(reactive(category))
     }
     return categories
 })
 
 const hiddenCategories = ref<Record<string, boolean>>({})
-const hiddenEmoji = ref<Record<string, Record<string, boolean>>>({})
-const emojiContainer = ref<HTMLDivElement>()
-const selectedEmoji = ref<EmojiPickerEmojiItem | undefined>(emojiCategories.value[0]?.emoji[0])
+const hiddenStickers = ref<Record<string, Record<string, boolean>>>({})
+const stickerContainer = ref<HTMLDivElement>()
+const selectedSticker = ref<EmojiPickerEmojiItem | undefined>(stickerCategories.value[0]?.emoji[0])
 const searchText = ref<string>('')
 
 function getCategoryIcon(categoryId: string) {
     if (categoryId.startsWith('yourEmoji')) return 'pi pi-user'
     if (categoryId.startsWith('spaceEmoji')) return 'pi pi-home'
     if (categoryId.startsWith('roomEmoji')) return 'pi pi-home'
-    switch (categoryId) {
-        case 'people': return 'pi pi-face-smile'
-        case 'nature': return 'pi pi-sun'
-        case 'food': return 'pi pi-shopping-cart'
-        case 'travel': return 'pi pi-truck'
-        case 'activities': return 'pi pi-headphones'
-        case 'objects': return 'pi pi-box'
-        case 'symbols': return 'pi pi-heart'
-        case 'flags': return 'pi pi-flag'
-    }
 }
 
-function onMouseoverEmojis(event: MouseEvent) {
+function onMouseoverStickers(event: MouseEvent) {
     if (!event.target) return
     const hoverItem = (event.target as HTMLElement).closest<HTMLElement>('[data-category-index]')
     if (!hoverItem) return
     const categoryIndex = parseInt(hoverItem.getAttribute('data-category-index') ?? '0')
-    const emojiIndex = parseInt(hoverItem.getAttribute('data-emoji-index') ?? '0')
-    selectedEmoji.value = emojiCategories.value[categoryIndex]?.emoji[emojiIndex]
+    const stickerIndex = parseInt(hoverItem.getAttribute('data-sticker-index') ?? '0')
+    selectedSticker.value = stickerCategories.value[categoryIndex]?.emoji[stickerIndex]
 }
 
-let pointerDownEmojiTarget: HTMLElement | null
-let pointerDownEmojiItemX: number = 0
-let pointerDownEmojiItemY: number = 0
-let pointerDownEmojiTimestamp: number = 0
+let pointerDownStickerTarget: HTMLElement | null
+let pointerDownStickerItemX: number = 0
+let pointerDownStickerItemY: number = 0
+let pointerDownStickerTimestamp: number = 0
 
-function onPointerDownEmojis(event: PointerEvent) {
+function onPointerDownStickers(event: PointerEvent) {
     if (event.button === 0) {
-        pointerDownEmojiTarget = event.target as HTMLElement
-        pointerDownEmojiItemX = event.pageX
-        pointerDownEmojiItemY = event.pageY
-        pointerDownEmojiTimestamp = window.performance.now()
+        pointerDownStickerTarget = event.target as HTMLElement
+        pointerDownStickerItemX = event.pageX
+        pointerDownStickerItemY = event.pageY
+        pointerDownStickerTimestamp = window.performance.now()
     }
 }
 
-function onPointerUpEmojis(event: PointerEvent) {
+function onPointerUpStickers(event: PointerEvent) {
     // "Click" / "Tap" simulation. Need to do this because of the Safari "double tap with hover states" issue.
     if (
         event.button === 0
-        && event.target && event.target === pointerDownEmojiTarget
-        && window.performance.now() - pointerDownEmojiTimestamp <= settings.pointerClickTimeout
-        && Math.abs(event.pageX - pointerDownEmojiItemX) < settings.pointerMoveRadius
-        && Math.abs(event.pageY - pointerDownEmojiItemY) < settings.pointerMoveRadius
+        && event.target && event.target === pointerDownStickerTarget
+        && window.performance.now() - pointerDownStickerTimestamp <= settings.pointerClickTimeout
+        && Math.abs(event.pageX - pointerDownStickerItemX) < settings.pointerMoveRadius
+        && Math.abs(event.pageY - pointerDownStickerItemY) < settings.pointerMoveRadius
     ) {
-        const emojiItem = (event.target as HTMLElement).closest<HTMLElement>('[data-category-index]')
-        if (!emojiItem) return
-        const categoryIndex = parseInt(emojiItem.getAttribute('data-category-index') ?? '0')
-        const emojiIndex = parseInt(emojiItem.getAttribute('data-emoji-index') ?? '0')
-        const emoji = emojiCategories.value[categoryIndex]?.emoji[emojiIndex]
-        if (emoji) {
-            emit('selectEmoji', emoji)
+        const stickerItem = (event.target as HTMLElement).closest<HTMLElement>('[data-category-index]')
+        if (!stickerItem) return
+        const categoryIndex = parseInt(stickerItem.getAttribute('data-category-index') ?? '0')
+        const stickerIndex = parseInt(stickerItem.getAttribute('data-sticker-index') ?? '0')
+        const sticker = stickerCategories.value[categoryIndex]?.emoji[stickerIndex]
+        if (sticker) {
+            emit('selectSticker', sticker)
         }
     }
 }
@@ -214,7 +202,7 @@ function toggleHiddenCategory(categoryId: string) {
 function clearSearchText() {
     if (searchText.value !== '') {
         searchText.value = ''
-        hiddenEmoji.value = {}
+        hiddenStickers.value = {}
     }
 }
 
@@ -222,8 +210,8 @@ async function scrollToCategory(categoryId: string) {
     clearSearchText()
     await nextTick()
 
-    if (!emojiContainer.value) return
-    const categoryHeader = emojiContainer.value.querySelector<HTMLElement>(`[data-category-header-id="${categoryId}"]`)
+    if (!stickerContainer.value) return
+    const categoryHeader = stickerContainer.value.querySelector<HTMLElement>(`[data-category-header-id="${categoryId}"]`)
     if (!categoryHeader) return
     const scrollPanelContent = categoryHeader.closest<HTMLElement>('.p-scrollpanel-content')
     if (!scrollPanelContent) return
@@ -234,23 +222,23 @@ const onInputSearch = throttle(() => {
     const searchTerms = searchText.value.toLowerCase().split(' ')
     let allSearchTermsFound = false
     let termFoundInCodesOrDescription = false
-    let foundFirstVisibleEmoji = false
-    for (const [categoryIndex, category] of emojiCategories.value.entries()) {
-        if (!hiddenEmoji.value[categoryIndex]) {
-            hiddenEmoji.value[categoryIndex] = {}
+    let foundFirstVisibleSticker = false
+    for (const [categoryIndex, category] of stickerCategories.value.entries()) {
+        if (!hiddenStickers.value[categoryIndex]) {
+            hiddenStickers.value[categoryIndex] = {}
         }
-        const hiddenCategory = hiddenEmoji.value[categoryIndex]
-        for (const [emojiIndex, emoji] of category.emoji.entries()) {
+        const hiddenCategory = hiddenStickers.value[categoryIndex]
+        for (const [stickerIndex, sticker] of category.emoji.entries()) {
             allSearchTermsFound = true
             for (const searchTerm of searchTerms) {
                 termFoundInCodesOrDescription = false
-                for (const code of emoji.codes) {
+                for (const code of sticker.codes) {
                     if (code.toLowerCase().includes(searchTerm)) {
                         termFoundInCodesOrDescription = true
                         break
                     }
                 }
-                if (!termFoundInCodesOrDescription && emoji.description.includes(searchTerm)) {
+                if (!termFoundInCodesOrDescription && sticker.description.includes(searchTerm)) {
                     termFoundInCodesOrDescription = true
                 }
                 if (!termFoundInCodesOrDescription) {
@@ -260,13 +248,13 @@ const onInputSearch = throttle(() => {
             }
             const isHidden = !allSearchTermsFound
             if (isHidden) {
-                hiddenCategory[emojiIndex] = true
+                hiddenCategory[stickerIndex] = true
             } else {
-                hiddenCategory[emojiIndex] = false
+                hiddenCategory[stickerIndex] = false
             }
-            if (!isHidden && !foundFirstVisibleEmoji) {
-                foundFirstVisibleEmoji = true
-                selectedEmoji.value = emoji
+            if (!isHidden && !foundFirstVisibleSticker) {
+                foundFirstVisibleSticker = true
+                selectedSticker.value = sticker
             }
         }
     }
@@ -275,26 +263,26 @@ const onInputSearch = throttle(() => {
 </script>
 
 <style lang="scss" scoped>
-.emoji-picker {
+.sticker-picker {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
 }
 
-.emoji-picker__header {
+.sticker-picker__header {
     display: flex;
     gap: 1rem;
     padding: 0 1rem 0.75rem 1rem;
     border-bottom: 1px solid var(--border-subtle);
 }
-.emoji-picker__body {
+.sticker-picker__body {
     display: flex;
     flex-grow: 1;
     flex-shrink: 1;
     overflow: hidden;
 }
-.emoji-picker__categories {
+.sticker-picker__categories {
     width: 3rem;
     flex-shrink: 0;
     background-color: var(--background-base-lower);
@@ -303,7 +291,7 @@ const onInputSearch = throttle(() => {
         height: 100%;
     }
 }
-.emoji-picker__category-items {
+.sticker-picker__category-items {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -318,7 +306,7 @@ const onInputSearch = throttle(() => {
         --p-icon-size: 1.25rem;
     }
 }
-.emoji-picker__emojis {
+.sticker-picker__stickers {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
@@ -329,7 +317,7 @@ const onInputSearch = throttle(() => {
         overflow: hidden;
     }
 
-    > .emoji-picker__emoji-code {
+    > .sticker-picker__sticker-code {
         display: flex;
         align-items: center;
         flex-shrink: 0;
@@ -342,7 +330,7 @@ const onInputSearch = throttle(() => {
         overflow: hidden;
         white-space: nowrap;
 
-        > .emoji-picker__selected-emoji-preview {
+        > .sticker-picker__selected-sticker-preview {
             display: inline-block;
             font-size: 1.5rem;
             width: 1.75rem;
@@ -358,7 +346,7 @@ const onInputSearch = throttle(() => {
         }
     }
 }
-.emoji-picker__category-header {
+.sticker-picker__category-header {
     display: flex;
     align-items: center;
     background-color: var(--background-surface-high);
@@ -389,17 +377,18 @@ const onInputSearch = throttle(() => {
         }
     }
 }
-.emoji-picker__emoji-list {
+.sticker-picker__sticker-list {
     display: flex;
     flex-wrap: wrap;
     padding: 0 0.25rem 0 0.5rem;
+    gap: 0.5rem;
 }
-.emoji-picker__emoji-item {
+.sticker-picker__sticker-item {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 3rem;
-    height: 3rem;
+    width: 6rem;
+    height: 6rem;
     padding: 0.25rem;
     border-radius: 0.25rem;
     font-size: 2rem;
@@ -409,14 +398,19 @@ const onInputSearch = throttle(() => {
 
     &:hover {
         background-color: var(--interactive-background-selected);
+        border-radius: 1rem;
+
+        img {
+            border-radius: 1.125rem;
+        }
     }
 
     img {
         display: block;
         overflow: hidden;
         text-indent: -9999px;
-        width: 2.5rem;
-        height: 2.5rem;
+        width: 6rem;
+        height: 6rem;
         object-fit: contain;
     }
 }

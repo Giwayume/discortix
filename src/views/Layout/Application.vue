@@ -133,6 +133,8 @@ const {
     sidebarOpenRightPadding,
     sidebarOpenOffset,
     isAnimatingSidebarToggle,
+    viewportHeight,
+    viewportWidth,
 } = useApplication()
 const {
     getFriendlyErrorMessage: getFriendlyCryptoKeysErrorMessage,
@@ -277,6 +279,10 @@ function onWindowResize() {
     }
     if (sidebarOpenOffset.value > 0) {
         sidebarOpenOffset.value = window.innerWidth - sidebarOpenRightPadding
+    }
+    if (!document.activeElement || !(document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+        viewportHeight.value = window.innerHeight
+        viewportWidth.value = window.innerWidth
     }
 }
 

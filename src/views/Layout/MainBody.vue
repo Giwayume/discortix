@@ -81,10 +81,15 @@ onMounted(() => {
 .application__main__body__content {
     width: 100%;
     flex-grow: 1;
+    flex-shrink: 0;
+    flex-basis: 0;
     max-width: 100%;
     overflow: hidden;
 }
 .application__main__body__footer {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; // Required for embedded layouts sizing to the correct height.
     flex-grow: 0;
     flex-shrink: 1;
     width: 100%;

@@ -23,17 +23,20 @@ export function useEmoji() {
     const { joined: joinedRooms } = storeToRefs(useRoomStore())
     const { currentTopLevelSpace, currentTopLevelSpaceId, currentTopLevelSpaceName } = storeToRefs(useSpaceStore())
 
-    const currentRoomCustomEmoji = computed<EmojiPickerCategory[]>(() => {
+    function getCustomEmojiPickerCategories(packUsage: 'emoticon' | 'sticker'): EmojiPickerCategory[] {
         const emojiCategories: EmojiPickerCategory[] = []
 
         const includedEmojiPackIds = new Set<string>()
 
+        const defaultEmojiPackUsage = ['emoticon', 'sticker']
+
         // Emoji uploaded to user's profile
         const userEmoji: EventImPoniesUserEmotesContent | undefined = accountData.value['im.ponies.user_emotes']
-        if (userEmoji?.images) {
+        const userEmojiCategories: string[] = userEmoji?.pack?.usage ?? defaultEmojiPackUsage
+        if (userEmoji?.images && userEmojiCategories.includes(packUsage)) {
             const category: EmojiPickerCategory = {
                 id: 'yourEmoji',
-                category: t('emojiPicker.yourEmoji'),
+                category: t(packUsage === 'emoticon' ? 'emojiPicker.yourEmoji' : 'stickerPicker.yourStickers'),
                 emoji: [],
                 hidden: false,
             }
@@ -56,11 +59,14 @@ export function useEmoji() {
         for (const fluffyChatRoomEmotes of currentRoom?.stateEventsByType['im.ponies.room_emotes'] ?? []) {
             const stateKey = fluffyChatRoomEmotes.stateKey
             const roomEmoji: EventImPoniesRoomEmotesContent | undefined = fluffyChatRoomEmotes?.content
-            if (roomEmoji?.images && currentRoomId !== currentTopLevelSpace.value?.roomId) {
+            const roomEmojiCategories: string[] = roomEmoji?.pack?.usage ?? defaultEmojiPackUsage
+            if (roomEmoji?.images && currentRoomId !== currentTopLevelSpace.value?.roomId && roomEmojiCategories.includes(packUsage)) {
                 includedEmojiPackIds.add(`${currentRoomId}|im.ponies.room_emotes|${stateKey}`)
                 const category: EmojiPickerCategory = {
                     id: `roomEmoji|${currentRoomId}|im.ponies.room_emotes|${stateKey}`,
-                    category: roomEmoji?.pack?.displayName ?? currentRoom?.stateEventsByType['m.room.name']?.[0]?.content.name ?? t('emojiPicker.roomEmoji'),
+                    category: roomEmoji?.pack?.displayName
+                        ?? currentRoom?.stateEventsByType['m.room.name']?.[0]?.content.name
+                        ?? t(packUsage === 'emoticon' ? 'emojiPicker.roomEmoji' : 'stickerPicker.roomStickers'),
                     emoji: [],
                     hidden: false,
                 }
@@ -81,11 +87,14 @@ export function useEmoji() {
         for (const roomImagePack of currentRoom?.stateEventsByType['m.room.image_pack'] ?? []) {
             const stateKey = roomImagePack.stateKey
             const roomEmoji: EventRoomImagePackContent | undefined = roomImagePack?.content
-            if (roomEmoji?.images && currentRoomId !== currentTopLevelSpace.value?.roomId) {
+            const roomEmojiCategories: string[] = roomEmoji?.pack?.usage ?? defaultEmojiPackUsage
+            if (roomEmoji?.images && currentRoomId !== currentTopLevelSpace.value?.roomId && roomEmojiCategories.includes(packUsage)) {
                 includedEmojiPackIds.add(`${currentRoomId}|m.room.image_pack|${stateKey}`)
                 const category: EmojiPickerCategory = {
                     id: `roomEmoji|${currentRoomId}|m.room.image_pack|${stateKey}`,
-                    category: roomEmoji?.pack?.displayName ?? currentRoom?.stateEventsByType['m.room.name']?.[0]?.content.name ?? t('emojiPicker.roomEmoji'),
+                    category: roomEmoji?.pack?.displayName
+                        ?? currentRoom?.stateEventsByType['m.room.name']?.[0]?.content.name
+                        ?? t(packUsage === 'emoticon' ? 'emojiPicker.roomEmoji' : 'stickerPicker.roomStickers'),
                     emoji: [],
                     hidden: false,
                 }
@@ -106,11 +115,14 @@ export function useEmoji() {
         for (const fluffyChatSpaceEmotes of currentTopLevelSpace.value?.stateEventsByType['im.ponies.room_emotes'] ?? []) {
             const stateKey = fluffyChatSpaceEmotes.stateKey
             const spaceEmoji: EventImPoniesRoomEmotesContent | undefined = fluffyChatSpaceEmotes?.content
-            if (spaceEmoji?.images) {
+            const spaceEmojiCategories: string[] = spaceEmoji?.pack?.usage ?? defaultEmojiPackUsage
+            if (spaceEmoji?.images && spaceEmojiCategories.includes(packUsage)) {
                 includedEmojiPackIds.add(`${currentTopLevelSpaceId.value}|im.ponies.room_emotes|${stateKey}`)
                 const category: EmojiPickerCategory = {
                     id: `spaceEmoji|${currentTopLevelSpaceId.value}|im.ponies.room_emotes|${stateKey}`,
-                    category: spaceEmoji?.pack?.displayName ?? currentTopLevelSpaceName.value ?? t('emojiPicker.spaceEmoji'),
+                    category: spaceEmoji?.pack?.displayName
+                        ?? currentTopLevelSpaceName.value
+                        ?? t(packUsage === 'emoticon' ? 'emojiPicker.spaceEmoji' : 'stickerPicker.spaceStickers'),
                     emoji: [],
                     hidden: false,
                 }
@@ -131,11 +143,14 @@ export function useEmoji() {
         for (const spaceImagePack of currentTopLevelSpace.value?.stateEventsByType['m.room.image_pack'] ?? []) {
             const stateKey = spaceImagePack.stateKey
             const spaceEmoji: EventRoomImagePackContent | undefined = spaceImagePack?.content
-            if (spaceEmoji?.images) {
+            const spaceEmojiCategories: string[] = spaceEmoji?.pack?.usage ?? defaultEmojiPackUsage
+            if (spaceEmoji?.images && spaceEmojiCategories.includes(packUsage)) {
                 includedEmojiPackIds.add(`${currentTopLevelSpaceId.value}|m.room.image_pack|${stateKey}`)
                 const category: EmojiPickerCategory = {
                     id: `spaceEmoji|${currentTopLevelSpaceId.value}|m.room.image_pack|${stateKey}`,
-                    category: spaceEmoji?.pack?.displayName ?? currentTopLevelSpaceName.value ?? t('emojiPicker.spaceEmoji'),
+                    category: spaceEmoji?.pack?.displayName
+                        ?? currentTopLevelSpaceName.value
+                        ?? t(packUsage === 'emoticon' ? 'emojiPicker.spaceEmoji' : 'stickerPicker.spaceStickers'),
                     emoji: [],
                     hidden: false,
                 }
@@ -164,11 +179,14 @@ export function useEmoji() {
                     if (!room) continue
                     const roomImagePack = room.stateEventsByType['m.room.image_pack']?.find((event) => event.stateKey === stateKey)
                     const roomEmoji: EventRoomImagePackContent | undefined = roomImagePack?.content
-                    if (roomEmoji?.images && currentRoomId !== currentTopLevelSpace.value?.roomId) {
+                    const roomEmojiCategories: string[] = roomEmoji?.pack?.usage ?? defaultEmojiPackUsage
+                    if (roomEmoji?.images && currentRoomId !== currentTopLevelSpace.value?.roomId && roomEmojiCategories.includes(packUsage)) {
                         includedEmojiPackIds.add(`${currentRoomId}|m.room.image_pack|${stateKey}`)
                         const category: EmojiPickerCategory = {
                             id: `roomEmoji|${currentRoomId}|m.room.image_pack|${stateKey}`,
-                            category: roomEmoji?.pack?.displayName ?? currentRoom?.stateEventsByType['m.room.name']?.[0]?.content.name ?? t('emojiPicker.roomEmoji'),
+                            category: roomEmoji?.pack?.displayName
+                                ?? currentRoom?.stateEventsByType['m.room.name']?.[0]?.content.name
+                                ?? t(packUsage === 'emoticon' ? 'emojiPicker.roomEmoji' : 'stickerPicker.roomStickers'),
                             emoji: [],
                             hidden: false,
                         }
@@ -188,6 +206,14 @@ export function useEmoji() {
         }
 
         return emojiCategories
+    }
+
+    const currentRoomCustomEmoji = computed<EmojiPickerCategory[]>(() => {
+        return getCustomEmojiPickerCategories('emoticon')
+    })
+
+    const currentRoomCustomStickers = computed<EmojiPickerCategory[]>(() => {
+        return getCustomEmojiPickerCategories('sticker')
     })
 
     const currentRoomCustomEmojiByCode = computed<Record<string, EmojiPickerEmojiItem>>(() => {
@@ -207,5 +233,6 @@ export function useEmoji() {
     return {
         currentRoomCustomEmoji,
         currentRoomCustomEmojiByCode,
+        currentRoomCustomStickers,
     }
 }

@@ -707,6 +707,14 @@
             "copySpaceId": "Copy Space ID"
         }
     },
+    "stickerPicker": {
+        "searchPlaceholder": "Find the perfect sticker",
+        "noStickers": "This chat room has no stickers, and you have not uploaded any personal stickers to your account.",
+        "clearSearchButton": "Clear Search",
+        "yourStickers": "Your Stickers",
+        "spaceStickers": "Space Stickers",
+        "roomStickers": "Room Stickers"
+    },
     "timeSince": {
         "unknown": "Long ago",
         "secondsAgo": "1 second ago | {count} seconds ago",
