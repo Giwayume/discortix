@@ -47,6 +47,10 @@ let decryptMegolmEvent: ((roomId: string,
         eventContent: EventRoomEncryptedContent
     ) => any) | undefined = undefined
 
+function isRoomStateEventType(type: string) {
+    return /^(m\.room|m\.space|im\.ponies\.room_emotes)/.test(type)
+}
+
 function getRoomStateEventsByType(room: InvitedRoom, type: string): ApiV3SyncStrippedStateEvent[];
 function getRoomStateEventsByType(room: KnockedRoom, type: string): ApiV3SyncStrippedStateEvent[];
 function getRoomStateEventsByType(room: JoinedRoom, type: string): ApiV3SyncClientEventWithoutRoomId[];
@@ -682,7 +686,7 @@ export const useRoomStore = defineStore('room', () => {
                     manageTimelineGap(joined.value[roomId], joinedRoomSync.timeline, sync.nextBatch)
                     if (joinedRoomSync.timeline.events) {
                         for (const timelineEvent of joinedRoomSync.timeline.events) {
-                            if (joined.value[roomId].stateEventsByType[timelineEvent.type]) {
+                            if (isRoomStateEventType(timelineEvent.type) || joined.value[roomId].stateEventsByType[timelineEvent.type]) {
                                 addJoinedOrLeftRoomStateEvent(joined.value[roomId], timelineEvent)
                             }
                             await addJoinedOrLeftRoomTimelineEvent(joined.value[roomId], timelineEvent, decryptedRoomEvents)
@@ -1011,7 +1015,9 @@ export const useRoomStore = defineStore('room', () => {
                         (event) => event.stateKey && (event.content.membership === 'join' || event.content.membership === 'invite')
                     )
                     if (heroes.size < 5) {
-                        heroes = new Set(memberEvents.filter((event) => event.stateKey !== sessionUserId.value).map((event) => event.stateKey ?? ''))
+                        heroes = new Set(memberEvents.filter(
+                            (event) => event.stateKey !== sessionUserId.value
+                        ).map((event) => event.stateKey ?? ''))
                     }
                     if (!joinedMemberCount) {
                         joinedMemberCount = memberEvents.filter(

@@ -106,7 +106,11 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
+
+import { useApplication } from '@/composables/application'
+import { onHistoryNavigation, useRouterHistory } from '@/composables/router-history'
 
 import { useRoomStore } from '@/stores/room'
 
@@ -127,6 +131,18 @@ import ScrollPanel from 'primevue/scrollpanel'
 import type { MenuItem, MenuItemCommandEvent } from 'primevue/menuitem'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
+
+const { isMobileView } = useApplication()
+const {
+    pushRouteHashCategory,
+    popRouteHashCategory,
+    popRouteHashCategoryState,
+    routeHashCategoryExists,
+    routeHashCategoryExistsWithState,
+    getRouteHashCategoryState,
+} = useRouterHistory()
 
 const { joined: joinedRooms } = storeToRefs(useRoomStore())
 
@@ -145,6 +161,13 @@ watch(() => props.visible, (visible, wasVisible) => {
     if (visible && !wasVisible) {
         mainPanelVisible.value = false
         mainPanelSidebarOffset.value = 0
+        if (!routeHashCategoryExists(route, 'room-settings')) {
+            pushRouteHashCategory(router, 'room-settings')
+        }
+    } else if (!visible && wasVisible) {
+        if (routeHashCategoryExists(route, 'room-settings')) {
+            popRouteHashCategory(router, 'room-settings')
+        }
     }
 })
 
@@ -154,6 +177,11 @@ const emit = defineEmits<{
 
 const mainPanelVisible = ref<boolean>(false)
 watch(() => mainPanelVisible.value, () => {
+
+    if (!mainPanelVisible.value && routeHashCategoryExistsWithState(route, 'room-settings')) {
+        popRouteHashCategoryState(router, 'room-settings')
+    }
+
     isAnimatingSidebarToggle.value = true
     setTimeout(() => {
         isAnimatingSidebarToggle.value = false
@@ -254,6 +282,14 @@ function selectMenuItem(event: MenuItemCommandEvent) {
     selectedMenuItem.value = event.item
     mainPanelSidebarOffset.value = 0
     mainPanelVisible.value = true
+
+    if (isMobileView.value) {
+        if (routeHashCategoryExistsWithState(route, 'room-settings')) {
+            pushRouteHashCategory(router, 'room-settings', [`${selectedMenuItem.value.key}`], 'replace')
+        } else {
+            pushRouteHashCategory(router, 'room-settings', [`${selectedMenuItem.value.key}`])
+        }
+    }
 }
 
 const selectedMenuItem = ref<MenuItem>(menuItems.value[0]!.items[0]!)
@@ -352,6 +388,31 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('pointerup', onPointerUpWindow, true)
+})
+
+onHistoryNavigation((to, from, info) => {
+    if (info.source === 'browser') {
+        if (routeHashCategoryExists(to, 'room-settings')) {
+            if (!props.visible) {
+                emit('update:visible', true)
+            }
+            if (!routeHashCategoryExistsWithState(to, 'room-settings')) {
+                mainPanelVisible.value = false
+            } else {
+                const menuItemKey = getRouteHashCategoryState(to, 'room-settings')[0]
+                const menuItem = menuItems.value.reduce((accumulator, currentCategory) => {
+                    const menuItem = currentCategory.items.find((item) => item.key === menuItemKey)
+                    return menuItem ?? accumulator
+                }, undefined as MenuItem | undefined)
+                if (menuItem) {
+                    selectMenuItem({ originalEvent: new Event('click'), item: menuItem })
+                    mainPanelVisible.value = true
+                }
+            }
+        } else if (props.visible) {
+            emit('update:visible', false)
+        }
+    }
 })
 
 </script>

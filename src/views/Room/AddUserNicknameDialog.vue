@@ -36,10 +36,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 
+import { useApplication } from '@/composables/application'
 import { useAccountData } from '@/composables/account-data'
+import { useRouterHistory, onHistoryNavigation } from '@/composables/router-history'
 
 import { useAccountDataStore } from '@/stores/account-data'
 import { useProfileStore } from '@/stores/profile'
@@ -56,8 +59,16 @@ import type {
 const uuid = uuidv4()
 const { t } = useI18n()
 const toast = useToast()
+const route = useRoute()
+const router = useRouter()
 
+const { isMobileView } = useApplication()
 const { setAccountDataByType } = useAccountData()
+const {
+    pushRouteHashCategory,
+    popRouteHashCategory,
+    routeHashCategoryExists,
+} = useRouterHistory()
 
 const { userNicknames } = storeToRefs(useAccountDataStore())
 const { profiles } = storeToRefs(useProfileStore())
@@ -113,6 +124,25 @@ async function save() {
 watch(() => props.visible, (visible, wasVisible) => {
     if (visible && !wasVisible) {
         nickname.value = userNicknames.value[props.userId!] ?? ''
+        if (isMobileView.value && !routeHashCategoryExists(route, 'add-user-nickname')) {
+            pushRouteHashCategory(router, 'add-user-nickname')
+        }
+    } else if (!visible && wasVisible) {
+        if (isMobileView.value && routeHashCategoryExists(route, 'add-user-nickname')) {
+            popRouteHashCategory(router, 'add-user-nickname')
+        }
+    }
+})
+
+onHistoryNavigation((to, from, info) => {
+    if (isMobileView.value && info.source === 'browser') {
+        if (routeHashCategoryExists(to, 'add-user-nickname')) {
+            if (!props.visible) {
+                emit('update:visible', true)
+            }
+        } else if (props.visible) {
+            emit('update:visible', false)
+        }
     }
 })
 

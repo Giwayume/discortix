@@ -1,36 +1,43 @@
 <template>
     <div
-        v-if="visible"
+        v-if="visible && !inline"
         ref="popoverOverlay"
         class="expression-picker-popover-overlay"
+        :style="{ '--expression-picker-z-index': zIndex - 1 }"
         @click="onClickOverlay"
     />
     <div
-        v-if="visible"
+        v-if="visible || inline"
         ref="popoverContainer"
         class="expression-picker"
         :class="{
             'expression-picker--mobile': isMobileView,
+            'expression-picker--inline': inline,
         }"
         role="dialog"
         :aria-label="t('expressionPicker.title')"
-        :style="isMobileView ? { '--expression-picker-height': expressionPickerHeight } : floatingStyles"
+        :style="{
+            '--expression-picker-height': expressionPickerHeight,
+            '--expression-picker-z-index': zIndex,
+            ...(isMobileView || inline ? {} : floatingStyles),
+        }"
     >
-        <a ref="dialogFocusStartAnchor" tabindex="0" />
+        <a ref="dialogFocusStartAnchor" tabindex="0" class="outline-0!" />
         <nav v-if="!props.emojiOnly" class="expression-picker__nav">
-            <Button :label="t('expressionPicker.gifs')" severity="secondary" variant="text" size="small" :aria-pressed="selectedNav === 'gifs'" @click="selectedNav = 'gifs'" />
+            <!-- <Button :label="t('expressionPicker.gifs')" severity="secondary" variant="text" size="small" :aria-pressed="selectedNav === 'gifs'" @click="selectedNav = 'gifs'" /> -->
             <Button :label="t('expressionPicker.stickers')" severity="secondary" variant="text" size="small" :aria-pressed="selectedNav === 'stickers'" @click="selectedNav = 'stickers'" />
             <Button :label="t('expressionPicker.emoji')" severity="secondary" variant="text" size="small" :aria-pressed="selectedNav === 'emoji'" @click="selectedNav = 'emoji'" />
         </nav>
         <div v-if="selectedNav === 'gifs'">TODO</div>
         <StickerPicker v-if="selectedNav === 'stickers'" @selectSticker="emit('selectSticker', $event)" />
-        <EmojiPicker v-if="selectedNav === 'emoji'" @selectEmoji="emit('selectEmoji', $event)" />
+        <EmojiPicker v-if="selectedNav === 'emoji'" :allowCustomEmoji="allowCustomEmoji" @selectEmoji="emit('selectEmoji', $event)" />
     </div>
 </template>
 
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import {
     useFloating,
     autoPlacement as floatingAutoPlacement,
@@ -39,6 +46,7 @@ import {
 } from '@floating-ui/vue'
 
 import { useApplication } from '@/composables/application'
+import { onHistoryNavigation, useRouterHistory } from '@/composables/router-history'
 
 import { useClientSettingsStore } from '@/stores/client-settings'
 
@@ -50,16 +58,35 @@ import Button from 'primevue/button'
 import type { EmojiPickerEmojiItem } from '@/types'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 
 const { isMobileView, viewportHeight } = useApplication()
+const {
+    pushRouteHashCategory,
+    popRouteHashCategory,
+    routeHashCategoryExists,
+} = useRouterHistory()
 
 const { settings } = useClientSettingsStore()
 
 const props = defineProps({
+    allowCustomEmoji: {
+        type: Boolean,
+        default: true,
+    },
     emojiOnly: {
         type: Boolean,
         default: false,
-    }
+    },
+    inline: {
+        type: Boolean,
+        default: false,
+    },
+    zIndex: {
+        type: Number,
+        default: 20,
+    },
 })
 watch(() => props.emojiOnly, (emojiOnly) => {
     if (emojiOnly) {
@@ -74,8 +101,17 @@ const emit = defineEmits<{
 }>()
 
 const visible = ref<boolean>(false)
-watch(() => visible.value, (visible) => {
-    if (!visible) emit('hidden')
+watch(() => visible.value, (visible, wasVisible) => {
+    if (visible && !wasVisible) {
+        if (!props.inline && !routeHashCategoryExists(route, 'expression-picker')) {
+            pushRouteHashCategory(router, 'expression-picker')
+        }
+    } else if (!visible && wasVisible) {
+        emit('hidden')
+        if (!props.inline && routeHashCategoryExists(route, 'expression-picker')) {
+            popRouteHashCategory(router, 'expression-picker')
+        }
+    }
 })
 
 const selectedNav = ref<'gifs' | 'stickers' | 'emoji'>('emoji')
@@ -145,9 +181,10 @@ function hide() {
 }
 
 function show(event: Event) {
-    if (!event.target) return
     lastShownTime = window.performance.now()
-    targetElement.value = event.target as HTMLElement
+    if (event.target) {
+        targetElement.value = event.target as HTMLElement
+    }
     expressionPickerHeight.value = (viewportHeight.value / 2) + 'px'
     visible.value = true
     nextTick(() => {
@@ -164,6 +201,17 @@ function toggle(event: Event) {
     }
 }
 
+onHistoryNavigation((to, from, info) => {
+    if (props.inline) return
+    if (info.source === 'browser') {
+        if (routeHashCategoryExists(to, 'expression-picker')) {
+            show(new Event('click'))
+        } else {
+            hide()
+        }
+    }
+})
+
 defineExpose({
     show,
     hide,
@@ -174,12 +222,14 @@ defineExpose({
 
 <style lang="scss" scoped>
 .expression-picker-popover-overlay {
+    --expression-picker-z-index: 19;
+
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 19;
+    z-index: var(--expression-picker-z-index, 19);
 }
 @keyframes expression-picker-show-mobile {
     0% {
@@ -190,6 +240,7 @@ defineExpose({
     }
 }
 .expression-picker {
+    --expression-picker-z-index: 20;
     --expression-picker-height: 50dvh;
 
     display: flex;
@@ -207,7 +258,7 @@ defineExpose({
     box-shadow: var(--shadow-high);
     padding: 1rem 0 0 0;
     overflow: hidden;
-    z-index: 20;
+    z-index: var(--expression-picker-z-index, 20);
 
     &.expression-picker--mobile {
         position: relative;
@@ -215,6 +266,17 @@ defineExpose({
         max-width: none;
         height: 0;
         animation: expression-picker-show-mobile 0.3s forwards;
+    }
+
+    &.expression-picker--inline {
+        position: relative;
+        width: 100%;
+        max-width: none;
+        height: 0;
+        border: none;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+        height: var(--expression-picker-height, 50dvh);
     }
 }
 .expression-picker__nav {

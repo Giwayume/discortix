@@ -643,8 +643,9 @@ function createEventNodeFragment(e: EventWithRenderInfo, binding: RenderBinding,
                 if (eventContent.membership === 'leave') {
                     if (e.event.unsigned?.prevContent?.membership === 'invite') {
                         eventDescriptionSpan.append(document.createTextNode(i18nText.rejectedAnInvite!))
+                    } else {
+                        eventDescriptionSpan.append(document.createTextNode(i18nText.leftTheRoom!))
                     }
-                    eventDescriptionSpan.append(document.createTextNode(i18nText.leftTheRoom!))
                 } else if (eventContent.membership === 'ban') {
                     eventDescriptionSpan.textContent = i18nText.bannedFromTheRoom!
                 }

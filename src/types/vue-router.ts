@@ -4,5 +4,6 @@ import 'vue-router'
 declare module 'vue-router' {
     interface Router {
         lastNavigationSource: Ref<'browser' | 'api'>;
+        nextTick: () => Promise<void>;
     }
 }

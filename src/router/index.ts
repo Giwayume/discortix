@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
@@ -71,35 +71,91 @@ const router = createRouter({
 })
 
 let isJustNavigatedViaApi = false
+let isNavigating = false
+
+let nextTickPromiseResolves: Array<() => void> = []
+function resolveNextTickPromises() {
+    for (const resolve of nextTickPromiseResolves) {
+        try {
+            resolve()
+        } catch (error) {}
+    }
+    nextTickPromiseResolves = []
+}
 
 const routerGo = router.go
-router.go = function() {
+router.go = async function() {
     isJustNavigatedViaApi = true
-    return routerGo.apply(this, arguments as never)
+    isNavigating = true
+    try {
+        const response = routerGo.apply(this, arguments as never)
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        return response
+    } finally {
+        isNavigating = false
+        resolveNextTickPromises()
+    }
 }
 
 const routerPush = router.push
-router.push = function() {
+router.push = async function() {
     isJustNavigatedViaApi = true
-    return routerPush.apply(this, arguments as never)
+    isNavigating = true
+    try {
+        return await routerPush.apply(this, arguments as never)
+    } finally {
+        isNavigating = false
+        resolveNextTickPromises()
+    }
 }
 
 const routerBack = router.back
-router.back = function() {
+router.back = async function() {
     isJustNavigatedViaApi = true
-    return routerBack.apply(this, arguments as never)
+    isNavigating = true
+    try {
+        const response = routerBack.apply(this, arguments as never)
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        return response
+    } finally {
+        isNavigating = false
+        resolveNextTickPromises()
+    }
 }
 
 const routerForward = router.forward
-router.forward = function() {
+router.forward = async function() {
     isJustNavigatedViaApi = true
-    return routerForward.apply(this, arguments as never)
+    isNavigating = false
+    try {
+        const response = routerForward.apply(this, arguments as never)
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        return response
+    } finally {
+        isNavigating = false
+        resolveNextTickPromises()
+    }
 }
 
 const routerReplace = router.replace
-router.replace = function() {
+router.replace = async function() {
     isJustNavigatedViaApi = true
-    return routerReplace.apply(this, arguments as never)
+    isNavigating = false
+    try {
+        return await routerReplace.apply(this, arguments as never)
+    } finally {
+        isNavigating = false
+        resolveNextTickPromises()
+    }
+}
+
+router.nextTick = async function() {
+    await nextTick()
+    if (isNavigating) {
+        await new Promise<void>((resolve) => {
+            nextTickPromiseResolves.push(resolve)
+        })
+    }
 }
 
 router.lastNavigationSource = ref<'browser' | 'api'>('browser')

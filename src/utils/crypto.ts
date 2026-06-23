@@ -1,4 +1,5 @@
 import { stringify as canonicalJsonStringify } from '@/utils/canonical-json'
+import { EncryptionNotSupportedError } from '@/utils/error'
 
 import { decodeBase64, toBase64, encodeUnpaddedBase64 } from './base64'
 
@@ -105,6 +106,10 @@ export async function encryptFile(
     input: Blob,
 ): Promise<{ encryptedData: Uint8Array, encryptedFile: EncryptedFile }> {
     const plainBytes = new Uint8Array(await input.arrayBuffer())
+
+    if (!crypto?.subtle) {
+        throw new EncryptionNotSupportedError()
+    }
 
     const cryptoKey = await crypto.subtle.generateKey(
         { name: 'AES-CTR', length: 256 },

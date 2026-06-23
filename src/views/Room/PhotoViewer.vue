@@ -8,21 +8,23 @@
     >
         <template #container>
             <header class="photo-viewer__header">
-                <div v-if="posterProfile" class="photo-viewer__profile" :class="{ 'photo-viewer__profile--hidden': zoomScale > 1 }">
-                    <div class="w-10 h-10 mr-3 shrink-0">
-                        <AuthenticatedImage :mxcUri="posterProfile.avatarUrl" type="thumbnail" :width="48" :height="48" method="scale">
-                            <template v-slot="{ src }">
-                                <Avatar :image="src" shape="circle" class="p-avatar-full" :aria-label="t('layout.userAvatarImage')" />
-                            </template>
-                            <template #error>
-                                <Avatar icon="pi pi-user" shape="circle" class="p-avatar-full" :aria-label="t('layout.userAvatarImage')" />
-                            </template>
-                        </AuthenticatedImage>
-                    </div>
-                    <div class="flex flex-col text-nowrap justify-center">
-                        <div class="text-strong leading-4 relative">{{ posterDisplayName }}</div>
-                        <div class="text-subtle text-xs leading-4 mt-[2px] ml-1">{{ postDate }}</div>
-                    </div>
+                <div class="photo-viewer__profile" :class="{ 'photo-viewer__profile--hidden': zoomScale > 1 }">
+                    <template v-if="posterProfile">
+                        <div class="w-10 h-10 mr-3 shrink-0">
+                            <AuthenticatedImage :mxcUri="posterProfile.avatarUrl" type="thumbnail" :width="48" :height="48" method="scale">
+                                <template v-slot="{ src }">
+                                    <Avatar :image="src" shape="circle" class="p-avatar-full" :aria-label="t('layout.userAvatarImage')" />
+                                </template>
+                                <template #error>
+                                    <Avatar icon="pi pi-user" shape="circle" class="p-avatar-full" :aria-label="t('layout.userAvatarImage')" />
+                                </template>
+                            </AuthenticatedImage>
+                        </div>
+                        <div class="flex flex-col text-nowrap justify-center">
+                            <div class="text-strong leading-4 relative">{{ posterDisplayName }}</div>
+                            <div class="text-subtle text-xs leading-4 mt-[2px] ml-1">{{ postDate }}</div>
+                        </div>
+                    </template>
                 </div>
                 <div class="flex">
                     <div class="photo-viewer__control-group">
@@ -30,6 +32,7 @@
                             v-tooltip.bottom="{ value: isTouchEventsDetected ? undefined : zoomScale > 1 ? t('photoViewer.zoomOutButton') : t('photoViewer.zoomInButton') }"
                             :icon="'pi ' + (zoomScale > 1 ? 'pi-search-minus' : 'pi-search-plus')"
                             severity="secondary"
+                            :disabled="!props.imageEvent"
                             :aria-label="zoomScale > 1 ? t('photoViewer.zoomOutButton') : t('photoViewer.zoomInButton')"
                             @click="toggleZoom()"
                         />
@@ -37,6 +40,7 @@
                             v-tooltip.bottom="{ value: isTouchEventsDetected ? undefined : t('photoViewer.downloadButton') }"
                             icon="pi pi-download"
                             severity="secondary"
+                            :disabled="!props.imageEvent"
                             :aria-label="t('photoViewer.downloadButton')"
                             @click="download()"
                         />
@@ -64,6 +68,7 @@
                 @pointermove="onPointerMove"
             >
                 <AuthenticatedImage
+                    v-if="props.imageEvent"
                     :mxcUri="props.imageEvent?.content.url"
                     :encryptedFile="props.imageEvent?.content.file"
                     type="download"
@@ -88,6 +93,9 @@
                         >
                     </template>
                 </AuthenticatedImage>
+                <div v-else class="p-4">
+                    {{ t('photoViewer.noImage') }}
+                </div>
             </div>
         </template>
     </Dialog>
@@ -96,11 +104,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type PropType } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { translateTouchEventToPointerEvents } from '@/utils/dom-event'
 
 import { useApplication } from '@/composables/application'
 import { useMediaCache } from '@/composables/media-cache'
+import { useRouterHistory, onHistoryNavigation } from '@/composables/router-history'
 
 import { useAccountDataStore } from '@/stores/account-data'
 import { useProfileStore } from '@/stores/profile'
@@ -120,13 +130,20 @@ import {
 } from '@/types'
 
 const { t } = useI18n()
+const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 
 const { isTouchEventsDetected } = useApplication()
+const { getMxcObjectUrl } = useMediaCache()
+const {
+    pushRouteHashCategory,
+    popRouteHashCategory,
+    routeHashCategoryExists,
+} = useRouterHistory()
 
 const { userNicknames } = storeToRefs(useAccountDataStore())
 const { profiles } = storeToRefs(useProfileStore())
-const { getMxcObjectUrl } = useMediaCache()
 
 const props = defineProps({
     visible: {
@@ -149,6 +166,13 @@ watch(() => props.visible, (visible, wasVisible) => {
         zoomTranslateX.value = 0
         zoomTranslateY.value = 0
         pointersDown = []
+        if (!routeHashCategoryExists(route, 'view-photo')) {
+            pushRouteHashCategory(router, 'view-photo')
+        }
+    } else if (!visible && wasVisible) {
+        if (routeHashCategoryExists(route, 'view-photo')) {
+            popRouteHashCategory(router, 'view-photo')
+        }
     }
 })
 
@@ -455,8 +479,18 @@ onUnmounted(() => {
     document.removeEventListener('keydown', onDocumentKeydown, true)
     window.removeEventListener('pointerup', onPointerUpViewer, true)
     window.removeEventListener('touchend', onTouchEndViewer, true)
+})
 
-
+onHistoryNavigation((to, from, info) => {
+    if (info.source === 'browser') {
+        if (routeHashCategoryExists(to, 'view-photo')) {
+            if (!props.visible) {
+                emit('update:visible', true)
+            }
+        } else if (props.visible) {
+            emit('update:visible', false)
+        }
+    }
 })
 </script>
 

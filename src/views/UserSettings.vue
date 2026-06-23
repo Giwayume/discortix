@@ -155,7 +155,7 @@ import { storeToRefs } from 'pinia'
 
 import { useApplication } from '@/composables/application'
 import { useLogout } from '@/composables/logout'
-import { useRouterHistory, onHistoryNavigation } from '@/composables/router-history'
+import { onHistoryNavigation, useRouterHistory } from '@/composables/router-history'
 
 import { useProfileStore } from '@/stores/profile'
 
@@ -182,7 +182,14 @@ const route = useRoute()
 
 const { isMobileView, onOpenUserSettings } = useApplication()
 const { logout } = useLogout()
-const { historyStack, historyPosition } = useRouterHistory()
+const {
+    pushRouteHashCategory,
+    popRouteHashCategory,
+    popRouteHashCategoryState,
+    routeHashCategoryExists,
+    routeHashCategoryExistsWithState,
+    getRouteHashCategoryState,
+} = useRouterHistory()
 
 const { authenticatedUserAvatarUrl, authenticatedUserDisplayName } = storeToRefs(useProfileStore())
 
@@ -197,27 +204,12 @@ watch(() => props.visible, (visible, wasVisible) => {
     if (visible && !wasVisible) {
         mainPanelVisible.value = false
         mainPanelSidebarOffset.value = 0
-        if (!route.hash.startsWith('#user-settings')) {
-            router.push('#user-settings')
+        if (!routeHashCategoryExists(route, 'user-settings')) {
+            pushRouteHashCategory(router, 'user-settings')
         }
     } else if (!visible && wasVisible) {
-        if (route.hash.startsWith('#user-settings')) {
-            let delta = 0
-            let isNonUserSettingsHistoryFound = false
-            for (let position = historyPosition.value; position >= 0; position--) {
-                const current = historyStack.value[position]?.current
-                if (!current) break
-                if (!current.includes('#user-settings')) {
-                    isNonUserSettingsHistoryFound = true
-                    break
-                }
-                delta--
-            }
-            if (isNonUserSettingsHistoryFound && delta < 0) {
-                router.go(delta)
-            } else {
-                router.replace(route.fullPath.split('#')[0]!)
-            }
+        if (routeHashCategoryExists(route, 'user-settings')) {
+            popRouteHashCategory(router, 'user-settings')
         }
     }
 })
@@ -229,29 +221,8 @@ const emit = defineEmits<{
 const mainPanelVisible = ref<boolean>(false)
 watch(() => mainPanelVisible.value, () => {
 
-    if (!mainPanelVisible.value && route.hash.startsWith('#user-settings:')) {
-        let delta = 0
-        let isUserSettingsHistoryFound = false
-        for (let position = historyPosition.value; position >= 0; position--) {
-            const current = historyStack.value[position]?.current
-            if (!current) break
-            const currentHash = '#' + current.split('#')[1]
-            if (currentHash === '#user-settings') {
-                isUserSettingsHistoryFound = true
-            }
-            if (!currentHash.startsWith('#user-settings')) {
-                if (isUserSettingsHistoryFound) {
-                    delta++
-                }
-                break
-            }
-            delta--
-        }
-        if (isUserSettingsHistoryFound && delta < 0) {
-            router.go(delta)
-        } else {
-            router.replace('#user-settings')
-        }
+    if (!mainPanelVisible.value && routeHashCategoryExistsWithState(route, 'user-settings')) {
+        popRouteHashCategoryState(router, 'user-settings')
     }
 
     isAnimatingSidebarToggle.value = true
@@ -388,10 +359,10 @@ function selectMenuItem(event: MenuItemCommandEvent) {
     mainPanelVisible.value = true
 
     if (isMobileView.value) {
-        if (route.hash.startsWith('#user-settings:')) {
-            router.replace('#user-settings:' + selectedMenuItem.value.key)
+        if (routeHashCategoryExistsWithState(route, 'user-settings')) {
+            pushRouteHashCategory(router, 'user-settings', [`${selectedMenuItem.value.key}`], 'replace')
         } else {
-            router.push('#user-settings:' + selectedMenuItem.value.key)
+            pushRouteHashCategory(router, 'user-settings', [`${selectedMenuItem.value.key}`])
         }
     }
 }
@@ -505,18 +476,21 @@ onUnmounted(() => {
 
 onHistoryNavigation((to, from, info) => {
     if (info.source === 'browser') {
-        if (to.hash.startsWith('#user-settings')) {
+        if (routeHashCategoryExists(to, 'user-settings')) {
             if (!props.visible) {
                 emit('update:visible', true)
             }
-            if (to.hash === '#user-settings') {
+            if (!routeHashCategoryExistsWithState(to, 'user-settings')) {
                 mainPanelVisible.value = false
             } else {
-                const menuItemKey = to.hash.replace('#user-settings:', '')
-                const menuItem = menuItems.value.reduce((accumulator, currentCategory) => {
+                const menuItemKey = getRouteHashCategoryState(to, 'user-settings')[0]
+                let menuItem = menuItems.value.reduce((accumulator, currentCategory) => {
                     const menuItem = currentCategory.items.find((item) => item.key === menuItemKey)
                     return menuItem ?? accumulator
                 }, undefined as MenuItem | undefined)
+                if (!menuItem && menuItemKey === editProfileMenuItem.key) {
+                    menuItem = editProfileMenuItem
+                }
                 if (menuItem) {
                     selectMenuItem({ originalEvent: new Event('click'), item: menuItem })
                     mainPanelVisible.value = true

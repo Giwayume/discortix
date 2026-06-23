@@ -95,8 +95,207 @@ export function onHistoryNavigation(callback: NavigationCallback) {
     })
 }
 
+/**
+ * Returns true if the specified route hash has the specified category
+ * 
+ * ```
+ * Examples checking for "category-a":
+ * # -> false
+ * #category-a -> true
+ * #category-a.a.b -> true
+ * #category-b~category-a -> true
+ * ```
+ */
+function routeHashCategoryExists(routeOrHash: RouteLocationNormalizedLoadedGeneric | string, category: string): boolean {
+    const hash = ((routeOrHash as RouteLocationNormalizedLoadedGeneric).hash != null
+        ? (routeOrHash as RouteLocationNormalizedLoadedGeneric).hash : routeOrHash as string).replace(/^#/, '')
+    const categoriesWithState = hash.split('~').filter((str) => !!str)
+    for (const categoryWithState of categoriesWithState) {
+        if (categoryWithState === category || categoryWithState.startsWith(category + '.')) {
+            return true
+        }
+    }
+    return false
+}
+
+/**
+ * Returns true if the specified route hash has the specified category and it also has state.
+ * 
+ * ```
+ * Examples checking for "category-a":
+ * # -> false
+ * #category-a -> false
+ * #category-a.a.b -> true
+ * #category-b~category-a -> false
+ * ```
+ */
+function routeHashCategoryExistsWithState(routeOrHash: RouteLocationNormalizedLoadedGeneric | string, category: string): boolean {
+    const hash = ((routeOrHash as RouteLocationNormalizedLoadedGeneric).hash != null
+        ? (routeOrHash as RouteLocationNormalizedLoadedGeneric).hash : routeOrHash as string).replace(/^#/, '')
+    const categoriesWithState = hash.split('~').filter((str) => !!str)
+    for (const categoryWithState of categoriesWithState) {
+        if (categoryWithState.startsWith(category + '.')) {
+            return true
+        }
+    }
+    return false
+}
+
+/**
+ * Returns the state part of the category hash.
+ * 
+ * ```
+ * Example retrieving state for "category-a":
+ * #category-a.a.b -> ["a", "b"]
+ * ```
+ */
+function getRouteHashCategoryState(routeOrHash: RouteLocationNormalizedLoadedGeneric | string, category: string): string[] {
+    const hash = ((routeOrHash as RouteLocationNormalizedLoadedGeneric).hash != null
+        ? (routeOrHash as RouteLocationNormalizedLoadedGeneric).hash : routeOrHash as string).replace(/^#/, '')
+    const categoriesWithState = hash.split('~').filter((str) => !!str)
+    for (const categoryWithState of categoriesWithState) {
+        if (categoryWithState.startsWith(category + '.')) {
+            return categoryWithState.split('.').slice(1)
+        }
+    }
+    return []
+}
+
+/**
+ * Adds the category (with optional state) to the current route hash.
+ * 
+ * ```
+ * Examples adding "category-a":
+ * # -> #category-a
+ * #category-b -> #category-b~category-a
+ * #category-a -> #category-a
+ * 
+ * Example with state ["a", "b"]:
+ * # -> #category-a.a.b
+ * ```
+ */
+async function pushRouteHashCategory(
+    router: Router,
+    category: string,
+    state: string[] = [],
+    routerMethod: 'push' | 'replace' = 'push'
+) {
+    const oldHash = router.currentRoute.value.hash
+    const categoriesWithState = oldHash.replace(/^#/, '').split('~').filter((str) => !!str)
+
+    let isCategoryFound = false
+    for (const [categoryWithStateIndex, categoryWithState] of categoriesWithState.entries()) {
+        if (categoryWithState === category || categoryWithState.startsWith(category + '.')) {
+            categoriesWithState[categoryWithStateIndex] = [category, ...state].join('.')
+            isCategoryFound = true
+            break
+        }
+    }
+    if (!isCategoryFound) {
+        categoriesWithState.push([category, ...state].join('.'))
+    }
+    const newHash = '#' + categoriesWithState.join('~')
+    if (newHash !== oldHash) {
+        if (routerMethod === 'push') {
+            await router.push(newHash)
+        } else {
+            await router.replace(newHash)
+        }
+    }
+}
+
+/** 
+ * Returns to the last browser history state that doesn't have this category in the hash,
+ * or replaces the current history state if no such past state exists.
+ * 
+ * ```
+ * Examples removing "category-a":
+ * # -> #
+ * #category-a -> #
+ * #category-a.a.b -> #
+ * #category-b~category-a -> #category-b
+ * ```
+ */
+async function popRouteHashCategory(router: Router, category: string) {
+    let delta = 0
+    let isNonCategoryHistoryFound = false
+    for (let position = historyPosition.value; position >= 0; position--) {
+        const current = historyStack.value[position]?.current
+        if (!current) break
+        const hash = current.split('#')[1] ?? ''
+        if (!routeHashCategoryExists(hash, category)) {
+            isNonCategoryHistoryFound = true
+            break
+        }
+        delta--
+    }
+    if (isNonCategoryHistoryFound && delta < 0) {
+        router.go(delta)
+    } else {
+        const categories = router.currentRoute.value.hash
+            .replace(/^#/, '')
+            .split('~')
+            .filter((str) => {
+                if (!str) return false
+                if (str === category || str.startsWith(category + '.')) return false
+                return true
+            })
+        await router.replace('#' + categories.join('~'))
+    }
+}
+
+/** 
+ * Returns to the last browser history state that doesn't have any state for the category in the hash,
+ * or replaces the current history state if no such past state exists.
+ * 
+ * ```
+ * Examples removing state for "category-a":
+ * # -> #category-a
+ * #category-a -> #category-a
+ * #category-a.a.b -> #category-a
+ * #category-b~category-a -> #category-b~category-a
+ * ```
+ */
+async function popRouteHashCategoryState(router: Router, category: string) {
+    let delta = 0
+    let isUserSettingsHistoryFound = false
+    for (let position = historyPosition.value; position >= 0; position--) {
+        const current = historyStack.value[position]?.current
+        if (!current) {
+            if (delta < 0) delta++
+            break
+        }
+        const hash = current.split('#')[1] ?? ''
+
+        const categoryExists = routeHashCategoryExists(hash, category)
+        const categoryHasState = routeHashCategoryExistsWithState(hash, category)
+
+        if (categoryExists && !categoryHasState) {
+            isUserSettingsHistoryFound = true
+        }
+        if (!categoryExists) {
+            if (isUserSettingsHistoryFound) {
+                delta++
+            }
+            break
+        }
+        delta--
+    }
+    if (isUserSettingsHistoryFound && delta < 0) {
+        router.go(delta)
+    } else {
+        await router.replace('#' + category)
+    }
+}
+
 export function useRouterHistory() {
     return {
+        routeHashCategoryExists,
+        routeHashCategoryExistsWithState,
+        getRouteHashCategoryState,
+        pushRouteHashCategory,
+        popRouteHashCategory,
+        popRouteHashCategoryState,
         historyStack: readonly(historyStack),
         historyPosition: readonly(historyPosition),
         lastNavigationDirection: readonly(lastNavigationDirection),

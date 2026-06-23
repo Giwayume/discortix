@@ -121,7 +121,7 @@
         </div>
         <div class="hidden"><Menu /></div> <!-- Inject menu styles, hacky. -->
     </SidebarListBody>
-    <ResponsiveContextMenu ref="spaceMenu" :model="spaceMenuItems" @hide="onHideSpaceMenu">
+    <ResponsiveContextMenu ref="spaceMenu" routerCategory="space-context-menu" :model="spaceMenuItems" @hide="onHideSpaceMenu">
         <template #item="{ item, props }">
             <a class="p-contextmenu-item-link" v-bind="props.action">
                 <span class="p-contextmenu-item-label">{{ item.label }}</span>
@@ -134,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
@@ -311,6 +311,7 @@ async function runSpaceMenuCommand(event: MenuItemCommandEvent) {
         case 'inviteToSpace':
             break
         case 'spaceSettings':
+            await router.nextTick()
             roomSettingsRoomId.value = currentTopLevelSpaceId.value
             roomSettingsVisible.value = true
             break

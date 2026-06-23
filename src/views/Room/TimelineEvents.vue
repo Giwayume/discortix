@@ -1108,11 +1108,6 @@ function onKeydownTimeline(event: KeyboardEvent) {
     }
 }
 
-// function viewPhoto(event: ApiV3SyncClientEventWithoutRoomId<EventImageContent>) {
-//     photoViewerImageEvent.value = event
-//     photoViewerVisible.value = true
-// }
-
 function findRenderedEvent(eventId?: string) {
     let event: ApiV3SyncClientEventWithoutRoomId | undefined = undefined
     findEvent:

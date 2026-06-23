@@ -1,6 +1,7 @@
 <template>
     <ResponsiveContextMenu
         ref="contextMenu"
+        routerCategory="message-more-actions"
         :model="contextMenuItems"
         @hide="emit('hide')"
     >
@@ -28,6 +29,7 @@
 import { computed, defineAsyncComponent, ref, type PropType } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 
 import { useKeyboard } from '@/composables/keyboard'
 import { useRooms } from '@/composables/rooms'
@@ -56,6 +58,7 @@ interface EventChunk {
 
 const { t } = useI18n()
 const toast = useToast()
+const router = useRouter()
 
 const { isShiftKeyPressed } = useKeyboard()
 const { redactEvent } = useRooms()
@@ -230,6 +233,7 @@ async function runContextMenuCommand(event: MenuItemCommandEvent) {
     if (!eventId) return
     switch (event.item.key) {
         case 'addReaction':
+            await router.nextTick()
             emit('selectEmoji', event.originalEvent, eventId)
             emit('update:targetEventId', eventId)
             emit('keepMessageActionsContextMenuTargetEventId', true)

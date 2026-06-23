@@ -436,6 +436,66 @@ export const EventNoticeContentSchema = z.object({
 })
 export type EventNoticeContent = z.infer<typeof EventNoticeContentSchema>
 
+/** @see https://github.com/matrix-org/matrix-spec-proposals/blob/main/proposals/3381-polls.md */
+export const EventPollEndContentSchema = z.object({
+    'm.poll.results': z.record(z.string(), z.number()).optional(),
+    'm.relates_to': z.object({
+        eventId: z.string().optional(),
+        relType: z.enum(['m.reference']).optional(),
+    }),
+    'm.text': z.array(
+        z.object({
+            body: z.string(),
+            mimetype: z.string().optional(),
+        }),
+    ),
+})
+export type EventPollEndContent = z.infer<typeof EventPollEndContentSchema>
+
+/** @see https://github.com/matrix-org/matrix-spec-proposals/blob/main/proposals/3381-polls.md */
+export const EventPollResponseContentSchema = z.object({
+    'm.relates_to': z.object({
+        eventId: z.string().optional(),
+        relType: z.enum(['m.reference']).optional(),
+    }),
+    'm.selections': z.array(z.string()),
+})
+export type EventPollResponseContent = z.infer<typeof EventPollResponseContentSchema>
+
+/** @see https://github.com/matrix-org/matrix-spec-proposals/blob/main/proposals/3381-polls.md */
+export const EventPollStartContentSchema = z.object({
+    'm.poll': z.object({
+        kind: z.string().optional(), // m.disclosed, m.undisclosed
+        maxSelections: z.number().optional(),
+        question: z.object({
+            'm.text': z.array(
+                z.object({
+                    body: z.string(),
+                    mimetype: z.string().optional(),
+                }),
+            ),
+        }),
+        answers: z.array(
+            z.object({
+                'm.id': z.string(),
+                'm.text': z.array(
+                    z.object({
+                        body: z.string(),
+                        mimetype: z.string().optional(),
+                    })
+                ),
+            })
+        ),
+    }),
+    'm.text': z.array(
+        z.object({
+            body: z.string(),
+            mimetype: z.string().optional(),
+        }),
+    ),
+})
+export type EventPollStartContent = z.infer<typeof EventPollStartContentSchema>
+
 /** @see https://spec.matrix.org/v1.17/client-server-api/#mpresence */
 export const EventPresenceContentSchema = z.object({
     avatarUrl: z.string().optional(),
@@ -900,6 +960,9 @@ export const eventContentSchemaByType = {
     'm.location': EventLocationContentSchema,
     'm.marked_unread': EventMarkedUnreadContentSchema,
     'm.notice': EventNoticeContentSchema,
+    'm.poll.end': EventPollEndContentSchema,
+    'm.poll.response': EventPollResponseContentSchema,
+    'm.poll.start': EventPollStartContentSchema,
     'm.presence': EventPresenceContentSchema,
     'm.push_rules': EventPushRulesContentSchema,
     'm.reaction': EventReactionContentSchema,
@@ -959,6 +1022,9 @@ export interface EventContentByType {
     'm.location': EventLocationContent,
     'm.marked_unread': EventMarkedUnreadContent,
     'm.notice': EventNoticeContent,
+    'm.poll.end': EventPollEndContent,
+    'm.poll.response': EventPollResponseContent,
+    'm.poll.start': EventPollStartContent,
     'm.presence': EventPresenceContent,
     'm.push_rules': EventPushRulesContent,
     'm.reaction': EventReactionContent,

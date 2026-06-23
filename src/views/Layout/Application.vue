@@ -87,8 +87,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 
@@ -98,6 +98,7 @@ import { useCryptoKeys } from '@/composables/crypto-keys'
 import { createLogger } from '@/composables/logger'
 import { useOlm } from '@/composables/olm'
 import { useProfiles } from '@/composables/profiles'
+import { onHistoryNavigation, useRouterHistory } from '@/composables/router-history'
 import { useSync } from '@/composables/sync'
 
 import { useCryptoKeysStore } from '@/stores/crypto-keys'
@@ -126,6 +127,7 @@ import type { EventKeyVerificationRequestContent, EventKeyVerificationCancelCont
 const log = createLogger(import.meta.url)
 const toast = useToast()
 
+const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const {
@@ -133,24 +135,30 @@ const {
     sidebarOpenRightPadding,
     sidebarOpenOffset,
     isAnimatingSidebarToggle,
+    toggleApplicationSidebar,
     viewportHeight,
     viewportWidth,
 } = useApplication()
+const { settings } = useClientSettingsStore()
 const {
     getFriendlyErrorMessage: getFriendlyCryptoKeysErrorMessage,
     initialize: initializeCryptoKeys,
 } = useCryptoKeys()
 const { onInboundMessage, sendMessageToDevices } = useOlm()
-const { settings } = useClientSettingsStore()
+const {
+    getFriendlyErrorMessage: getFriendlyProfilesErrorMessage,
+    initialize: initializeProfiles,
+} = useProfiles()
+const {
+    pushRouteHashCategory,
+    popRouteHashCategory,
+    routeHashCategoryExists,
+} = useRouterHistory()
 const {
     getFriendlyErrorMessage: getFriendlySyncErrorMessage,
     initialize: initializeSync,
     syncInitialized,
 } = useSync()
-const {
-    getFriendlyErrorMessage: getFriendlyProfilesErrorMessage,
-    initialize: initializeProfiles,
-} = useProfiles()
 
 const sessionStore = useSessionStore()
 const {
@@ -454,6 +462,33 @@ function onPointerUpWindow(event: PointerEvent) {
     isDraggingDrawer.value = undefined
     primaryPointerDown = undefined
 }
+
+let sidebarOffsetCheckTimeoutHandle: number | undefined = undefined
+watch(() => sidebarOpenOffset.value, () => {
+    if (isDraggingDrawer.value || !isMobileView.value) return
+    clearTimeout(sidebarOffsetCheckTimeoutHandle)
+    sidebarOffsetCheckTimeoutHandle = setTimeout(updateApplicationSidebarHistoryState, 100)
+})
+function updateApplicationSidebarHistoryState() {
+    if (sidebarOpenOffset.value > 0) {
+        if (routeHashCategoryExists(route, 'main')) {
+            popRouteHashCategory(router, 'main')
+        }
+    } else {
+        if (!routeHashCategoryExists(route, 'main')) {
+            pushRouteHashCategory(router, 'main')
+        }
+    }
+}
+onHistoryNavigation((to, from, info) => {
+    if (info.source === 'browser') {
+        if (routeHashCategoryExists(to, 'main')) {
+            toggleApplicationSidebar(false)
+        } else {
+            toggleApplicationSidebar(true)
+        }
+    }
+})
 </script>
 
 <style lang="scss" scoped>

@@ -6,7 +6,7 @@
                 icon="pi pi-arrow-left"
                 severity="secondary"
                 variant="text"
-                class="!p-0 !w-10 !h-10 !ml-1"
+                class="!p-0 !w-10 !h-10 !ml-1 shrink-0!"
                 :style="{ '--p-icon-size': '1.25rem' }"
                 :aria-label="t('layout.sidebarMenuButton')"
                 @click="toggleApplicationSidebar()"

@@ -1,6 +1,6 @@
 <template>
     <MainHeader>
-        <div class="flex pl-4 py-2 pr-2 items-center w-full">
+        <div class="flex pl-4 py-2 pr-2 items-center w-full overflow-hidden">
             <template v-if="isInsideSpace">
                 <span class="pi pi-hashtag w-4 mr-2 text-center text-(--channel-icon)" />
             </template>
@@ -194,6 +194,9 @@
             </a>
         </template>
     </ContextMenu>
+    <CreatePollDialog
+        v-model:visible="createPollDialogVisible"
+    />
     <ModifyAttachmentDialog
         v-model:visible="modifyAttachmentDialogVisible"
         :media="editingSelectedMedia"
@@ -225,7 +228,7 @@ import { v4 as uuidv4 } from 'uuid'
 import type { GroupSession } from 'vodozemac-wasm-bindings'
 
 import { encryptFile } from '@/utils/crypto'
-import { FileTooBigError, HttpError, PendingNetworkRequestError } from '@/utils/error'
+import { EncryptionNotSupportedError, FileTooBigError, HttpError, PendingNetworkRequestError } from '@/utils/error'
 import { pickFile } from '@/utils/file-access'
 import { formatMessage } from '@/utils/message'
 import { isRoomPartOfSpace } from '@/utils/room'
@@ -249,6 +252,7 @@ import { useSessionStore } from '@/stores/session'
 
 const AddFriendsToGroupDmDialog = defineAsyncComponent(() => import('@/views/Layout/AddFriendsToGroupDmDialog.vue'))
 import AuthenticatedImage from '@/views/Common/AuthenticatedImage.vue'
+const CreatePollDialog = defineAsyncComponent(() => import('@/views/Room/CreatePollDialog.vue'))
 const ExpressionPicker = defineAsyncComponent(() => import('@/views/Room/ExpressionPicker.vue'))
 const GroupMemberListAside = defineAsyncComponent(() => import('@/views/Room/GroupMemberListAside.vue'))
 import MainBody from '@/views/Layout/MainBody.vue'
@@ -434,6 +438,7 @@ const typingDisplayMessageKey = computed(() => {
 \*------------------*/
 
 const mediaContextMenu = ref<InstanceType<typeof ContextMenu>>()
+const createPollDialogVisible = ref<boolean>(false)
 
 const addMediaContextMenuItems = ref<MenuItem[]>([
     {
@@ -447,6 +452,7 @@ const addMediaContextMenuItems = ref<MenuItem[]>([
         label: t('room.messageAddMenu.createPoll'),
         icon: 'pi pi-chart-bar',
         command() {
+            createPollDialogVisible.value = true
         }
     },
 ])
@@ -456,35 +462,43 @@ const editingSelectedMedia = ref<MediaAttachmentPendingUpload>()
 const modifyAttachmentDialogVisible = ref<boolean>(false)
 
 async function selectMedia() {
-    const file = await pickFile({ multiple: false })
-    const mediaInfo = await createMediaInfo(file, true)
-    let encryptedFile: EncryptedFile | undefined = undefined
-    let encryptedFileBlob: Blob | undefined = undefined
-    let encryptedThumbnailFile: EncryptedFile | undefined = undefined
-    let encryptedThumbnailFileBlob: Blob | undefined = undefined
-    if (currentRoomEncryptionEnabledTimestamp.value != null) {
-        let encryptedData: Uint8Array
-        ({ encryptedFile, encryptedData } = await encryptFile(file))
-        encryptedFileBlob = new Blob([encryptedData as never])
-        if ((mediaInfo.type === 'image' || mediaInfo.type === 'video') && mediaInfo.thumbnailBlob) {
-            ({ encryptedFile: encryptedThumbnailFile, encryptedData } = await encryptFile(mediaInfo.thumbnailBlob))
-            encryptedThumbnailFileBlob = new Blob([encryptedData as never])
+    try {
+        const file = await pickFile({ multiple: false })
+        const mediaInfo = await createMediaInfo(file, true)
+        let encryptedFile: EncryptedFile | undefined = undefined
+        let encryptedFileBlob: Blob | undefined = undefined
+        let encryptedThumbnailFile: EncryptedFile | undefined = undefined
+        let encryptedThumbnailFileBlob: Blob | undefined = undefined
+        if (currentRoomEncryptionEnabledTimestamp.value != null) {
+            let encryptedData: Uint8Array
+            ({ encryptedFile, encryptedData } = await encryptFile(file))
+            encryptedFileBlob = new Blob([encryptedData as never])
+            if ((mediaInfo.type === 'image' || mediaInfo.type === 'video') && mediaInfo.thumbnailBlob) {
+                ({ encryptedFile: encryptedThumbnailFile, encryptedData } = await encryptFile(mediaInfo.thumbnailBlob))
+                encryptedThumbnailFileBlob = new Blob([encryptedData as never])
+            }
         }
-    }
 
-    selectedMedia.value.push({
-        description: '',
-        id: uuidv4(),
-        file,
-        filename: file.name,
-        mediaInfo,
-        previewObjectUrl: URL.createObjectURL(file),
-        spoiler: false,
-        encryptedFile,
-        encryptedFileBlob,
-        encryptedThumbnailFile,
-        encryptedThumbnailFileBlob,
-    })
+        selectedMedia.value.push({
+            description: '',
+            id: uuidv4(),
+            file,
+            filename: file.name,
+            mediaInfo,
+            previewObjectUrl: URL.createObjectURL(file),
+            spoiler: false,
+            encryptedFile,
+            encryptedFileBlob,
+            encryptedThumbnailFile,
+            encryptedThumbnailFileBlob,
+        })
+    } catch (error) {
+        let messageText = t('errors.unexpected')
+        if (error instanceof EncryptionNotSupportedError) {
+            messageText = t('errors.selectMedia.encryptionNotSupported')
+        }
+        toast.add({ severity: 'error', summary: messageText, life: 10000 })
+    }
 }
 
 function editSelectedMedia(media: MediaAttachmentPendingUpload) {

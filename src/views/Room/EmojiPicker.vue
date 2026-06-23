@@ -10,7 +10,7 @@
                     @click="clearSearchText()"
                 />
             </IconField>
-            <Button :label="t('emojiPicker.addEmojiButton')" severity="secondary" class="shrink-0" />
+            <Button :label="t('emojiPicker.addEmojiButton')" severity="secondary" class="shrink-0" @click="addEmoji()" />
         </header>
         <div class="emoji-picker__body">
             <div class="emoji-picker__categories">
@@ -105,6 +105,7 @@ import defaultEmojiCategories from '@/i18n/default-emoji/default-emoji.en.json'
 
 import { throttle } from '@/utils/timing'
 
+import { useApplication } from '@/composables/application'
 import { useEmoji } from '@/composables/emoji'
 
 import { useClientSettingsStore } from '@/stores/client-settings'
@@ -120,8 +121,17 @@ import ScrollPanel from 'primevue/scrollpanel'
 import { type EmojiPickerCategory, type EmojiPickerEmojiItem } from '@/types'
 
 const { t } = useI18n()
+
+const { openUserSettings } = useApplication()
 const { settings } = useClientSettingsStore()
 const { currentRoomCustomEmoji } = useEmoji()
+
+const props = defineProps({
+    allowCustomEmoji: {
+        type: Boolean,
+        default: true,
+    },
+})
 
 const emit = defineEmits<{
     (e: 'selectEmoji', emoji: EmojiPickerEmojiItem): void
@@ -129,8 +139,10 @@ const emit = defineEmits<{
 
 const emojiCategories = computed<EmojiPickerCategory[]>(() => {
     const categories: EmojiPickerCategory[] = []
-    for (const category of currentRoomCustomEmoji.value) {
-        categories.push(category)
+    if (props.allowCustomEmoji) {
+        for (const category of currentRoomCustomEmoji.value) {
+            categories.push(category)
+        }
     }
     for (const category of defaultEmojiCategories) {
         categories.push(reactive(category))
@@ -271,6 +283,10 @@ const onInputSearch = throttle(() => {
         }
     }
 }, 250, { trailing: true })
+
+function addEmoji() {
+    openUserSettings('emoji')
+}
 
 </script>
 

@@ -34,6 +34,28 @@
         "saveButton": "Save",
         "saveError": "An error occurred when saving the nickname. Please try again later."
     },
+    "createPollDialog": {
+        "title": "Create Poll",
+        "question": "Question",
+        "questionPlaceholder": "What question do you want to ask?",
+        "answers": "Answers",
+        "answerPlaceholder": "Type your answer",
+        "addAnotherAnswer": "Add another answer",
+        "chooseAnswerEmoji": "Choose answer emoji",
+        "replaceEmoji": "Replace Emoji",
+        "removeEmoji": "Remove Emoji",
+        "removeAnswer": "Remove answer",
+        "duration": "Duration",
+        "1Hour": "1 hour",
+        "4Hours": "4 hours",
+        "8Hours": "8 hours",
+        "24Hours": "24 hours",
+        "3Days": "3 days",
+        "1Week": "1 week",
+        "2Weeks": "2 weeks",
+        "allowMultipleAnswers": "Allow Multiple Answers",
+        "postButton": "Post"
+    },
     "createRoom": {
         "title": "Create Chat Room",
         "inputPlaceholder": "Send your first message",
@@ -225,6 +247,9 @@
         },
         "profiles": {
             "missingSessionData": "This session is missing required data in order to load the user profile. We recommend logging in again in order to fix this issue."
+        },
+        "selectMedia": {
+            "encryptionNotSupported": "File encryption is not supported on this device. Usually this is because the website is hosted without HTTPS security. Please contact your server admin."
         },
         "sync": {
             "schemaValidation": "We could not load the page because the sync API responded in an unexpected format.",
@@ -467,6 +492,7 @@
         "zoomInButton": "Zoom In",
         "zoomOutButton": "Zoom Out",
         "downloadButton": "Download",
+        "noImage": "No image has been selected. Please close the photo viewer.",
         "downloadError": "An error occurred while trying to download the image. Try again later."
     },
     "presence": {

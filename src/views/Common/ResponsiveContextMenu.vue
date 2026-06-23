@@ -50,10 +50,13 @@
 import {
     ref,
     useSlots,
+    watch,
     type PropType,
 } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { useApplication } from '@/composables/application'
+import { onHistoryNavigation, useRouterHistory } from '@/composables/router-history'
 
 import ContextMenu from 'primevue/contextmenu'
 import Drawer from 'primevue/drawer'
@@ -62,12 +65,24 @@ import ScrollPanel from 'primevue/scrollpanel'
 
 import type { MenuItem } from 'primevue/menuitem'
 
+const route = useRoute()
+const router = useRouter()
+
 const { isTouchEventsDetected } = useApplication()
+const {
+    pushRouteHashCategory,
+    popRouteHashCategory,
+    routeHashCategoryExists,
+} = useRouterHistory()
 
 const props = defineProps({
     model: {
         type: Array as PropType<MenuItem[]>,
         default: [],
+    },
+    routerCategory: {
+        type: String,
+        default: undefined,
     },
 })
 
@@ -163,6 +178,32 @@ function show(event: Event) {
         contextMenu.value.show(event)
     }
 }
+
+watch(() => drawerVisible.value, (visible) => {
+    if (!props.routerCategory) return
+    if (visible) {
+        if (!routeHashCategoryExists(route, props.routerCategory)) {
+            pushRouteHashCategory(router, props.routerCategory)
+        }
+        emit('show')
+    } else {
+        if (routeHashCategoryExists(route, props.routerCategory)) {
+            popRouteHashCategory(router, props.routerCategory)
+        }
+        emit('hide')
+    }
+})
+
+onHistoryNavigation((to, from, info) => {
+    if (!props.routerCategory || !isTouchEventsDetected.value) return
+    if (info.source === 'browser') {
+        if (routeHashCategoryExists(to, props.routerCategory)) {
+            show(new Event('click'))
+        } else {
+            hide()
+        }
+    }
+})
 
 defineExpose({
     hide,
