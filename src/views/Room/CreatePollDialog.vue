@@ -13,10 +13,16 @@
             <div class="p-dialog-title">{{ t('createPollDialog.title') }}</div>
         </template>
 
-        <form :id="'create-poll-dialog-form-' + uuid" @submit.prevent="save">
+        <form :id="'create-poll-dialog-form-' + uuid" @submit.prevent="post">
             <div class="flex flex-col pt-4">
                 <label :for="'poll-question-input-' + uuid" class="pb-2 text-strong font-medium">{{ t('createPollDialog.question') }}</label>
-                <InputText :id="'poll-question-input-' + uuid" v-model="question" :placeholder="t('createPollDialog.questionPlaceholder')" :maxlength="questionMaxLength" />
+                <InputText :id="'poll-question-input-' + uuid" v-model="question" :placeholder="t('createPollDialog.questionPlaceholder')" :maxlength="questionMaxLength" @input="questionValidation = undefined" />
+                <Message v-if="questionValidation" severity="error" size="small" variant="simple" class="mt-2">
+                    <template #icon>
+                        <span class="pi pi-exclamation-circle !text-xs !leading-3 -mt-[1px]" aria-hidden="true" />
+                    </template>
+                    {{ t('createPollDialog.validation.question.' + questionValidation) }}
+                </Message>
                 <span class="text-subtle text-right text-xs mt-1">{{ question.length }} / {{ questionMaxLength }}</span>
             </div>
             <div role="group" :aria-labelledby="'poll-answers-heading-' + uuid" class="flex flex-col pt-4">
@@ -47,6 +53,7 @@
                             :placeholder="t('createPollDialog.answerPlaceholder')"
                             :maxlength="answerMaxLength"
                             class="border-x-0!"
+                            @input="answer.validation = undefined"
                         />
                         <InputGroupAddon v-if="answers.length > 1">
                             <Button
@@ -59,6 +66,12 @@
                             />
                         </InputGroupAddon>
                     </InputGroup>
+                    <Message v-if="answer.validation" severity="error" size="small" variant="simple" class="mt-2 mb-4">
+                        <template #icon>
+                            <span class="pi pi-exclamation-circle !text-xs !leading-3 -mt-[1px]" aria-hidden="true" />
+                        </template>
+                        {{ t('createPollDialog.validation.answer.' + answer.validation) }}
+                    </Message>
                 </template>
                 <Button
                     v-if="answers.length < answersMaxCount"
@@ -133,13 +146,21 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, nextTick, ref, watch } from 'vue'
+import { defineAsyncComponent, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
+import type { GroupSession } from 'vodozemac-wasm-bindings'
 
 import { useApplication } from '@/composables/application'
 import { useRouterHistory, onHistoryNavigation } from '@/composables/router-history'
+import { createLogger } from '@/composables/logger'
+import { useMegolm } from '@/composables/megolm'
+import { useRooms } from '@/composables/rooms'
+
+import { useRoomStore } from '@/stores/room'
+import { useSessionStore } from '@/stores/session'
 
 const ExpressionPicker = defineAsyncComponent(() => import('@/views/Room/ExpressionPicker.vue'))
 
@@ -150,10 +171,17 @@ import Dialog from 'primevue/dialog'
 import InputGroup from 'primevue/inputgroup'
 import InputGroupAddon from 'primevue/inputgroupaddon'
 import InputText from 'primevue/inputtext'
+import Message from 'primevue/message'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
 
-import type { EmojiPickerEmojiItem } from '@/types'
+import type {
+    ApiV3SyncClientEventWithoutRoomId,
+    EventPollStartContent,
+    EmojiPickerEmojiItem,
+} from '@/types'
+
+const log = createLogger(import.meta.url)
 
 const uuid = uuidv4()
 const { t } = useI18n()
@@ -167,15 +195,24 @@ const {
     popRouteHashCategory,
     routeHashCategoryExists,
 } = useRouterHistory()
+const { getOutboundGroupSession } = useMegolm()
+const { sendMessageEvent } = useRooms()
+
+const roomStore = useRoomStore()
+const {
+    associateTransactionIdWithEventId,
+    populateSentMessageEvent,
+} = roomStore
+const { userId: sessionUserId } = storeToRefs(useSessionStore())
 
 const props = defineProps({
     visible: {
         type: Boolean,
         default: false,
     },
-    userId: {
+    roomId: {
         type: String,
-        default: undefined,
+        required: true,
     },
 })
 
@@ -186,12 +223,17 @@ const emit = defineEmits<{
 interface PollAnswer {
     emoji: string;
     body: string;
+    validation: 'required' | undefined;
 }
 
 const isSaving = ref<boolean>(false)
 const question = ref<string>('')
+const questionValidation = ref<'required'>()
 const questionMaxLength = 300
-const answers = ref<PollAnswer[]>([{ emoji: '', body: '' }, { emoji: '', body: '' }])
+const answers = ref<PollAnswer[]>([
+    { emoji: '', body: '', validation: undefined },
+    { emoji: '', body: '', validation: undefined }
+])
 const answerMaxLength = 55
 const answersMaxCount = 20
 const duration = ref<string>('24Hours')
@@ -240,6 +282,7 @@ function addAnswer() {
     answers.value.push({
         emoji: '',
         body: '',
+        validation: undefined,
     })
 }
 
@@ -262,24 +305,101 @@ function onEmojiSelected(emoji: EmojiPickerEmojiItem) {
     expressionPicker.value?.hide()
 }
 
-async function save() {
-    if (props.userId) {
-        isSaving.value = true
-        try {
+async function post() {
+    isSaving.value = true
+    try {
 
-        } catch (error) {
-            // toast.add({ severity: 'error', summary: t('addUserNicknameDialog.saveError'), life: 5000 })
-        } finally {
-            isSaving.value = false
+        let willSubmit = true;
+        if (question.value.trim().length === 0) {
+            questionValidation.value = 'required'
+            willSubmit = false;
+        } else {
+            questionValidation.value = undefined
         }
+        for (const answer of answers.value) {
+            if (answer.body.trim().length === 0) {
+                answer.validation = 'required'
+                willSubmit = false;
+            } else {
+                answer.validation = undefined
+            }
+        }
+
+        if (!willSubmit) {
+            return
+        }
+
+        await createPollStartEvent()
+        emit('update:visible', false)
+    } catch (error) {
+        toast.add({ severity: 'error', summary: t('createPollDialog.postError'), life: 5000 })
+    } finally {
+        isSaving.value = false
     }
-    emit('update:visible', false)
+}
+
+async function createPollStartEvent() {
+    let eventContent: EventPollStartContent = {
+        'm.text': [
+            {
+                mimetype: 'text/plain',
+                body: `${question.value}\n${answers.value.map((answer, index) => {
+                    return `${index + 1}. ${answer.emoji}${answer.body}`
+                }).join('\n')}`
+            },
+        ],
+        'm.poll': {
+            kind: 'm.disclosed',
+            maxSelections: allowMultipleAnswers.value ? answers.value.length : 1,
+            question: {
+                'm.text': [
+                    { body: question.value },
+                ],
+            },
+            answers: answers.value.map((answer, index) => {
+                return {
+                    'm.id': `${index + 1}-${answer.body.split(/\s+/).join('-').toLowerCase().replace(/[^a-z0-9\-]/g, '').slice(0, 30)}`,
+                    'm.text': [
+                        { body: (answer.emoji ? answer.emoji + ' ' : '') + answer.body },
+                    ],
+                }
+            }),
+        },
+    }
+
+    const txnId = uuidv4()
+    const event: ApiV3SyncClientEventWithoutRoomId = reactive({
+        content: eventContent,
+        eventId: `PLACEHOLDER_${txnId}`,
+        originServerTs: Date.now(),
+        sender: sessionUserId.value!,
+        type: 'm.poll.start',
+        txnId,
+        sendError: false,
+    })
+
+    populateSentMessageEvent(props.roomId, event)
+    try {
+        let groupSession: GroupSession | undefined = await getOutboundGroupSession(props.roomId)
+        const response = await sendMessageEvent<EventPollStartContent>(
+            props.roomId, event.type, txnId, event.content, groupSession
+        )
+        associateTransactionIdWithEventId(props.roomId, txnId, response.eventId)
+    } catch (error) {
+        log.error('Error sending message:', error)
+        event.sendError = true
+    }
 }
 
 watch(() => props.visible, (visible, wasVisible) => {
     if (visible && !wasVisible) {
         question.value = ''
-        answers.value = [{ emoji: '', body: '' }, { emoji: '', body: '' }]
+        answers.value = [
+            { emoji: '', body: '', validation: undefined },
+            { emoji: '', body: '', validation: undefined },
+        ]
+        duration.value = '24Hours'
+        allowMultipleAnswers.value = false
         if (isMobileView.value && !routeHashCategoryExists(route, 'create-poll')) {
             pushRouteHashCategory(router, 'create-poll')
         }

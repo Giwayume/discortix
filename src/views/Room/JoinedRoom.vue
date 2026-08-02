@@ -196,6 +196,7 @@
     </ContextMenu>
     <CreatePollDialog
         v-model:visible="createPollDialogVisible"
+        :roomId="props.room.roomId"
     />
     <ModifyAttachmentDialog
         v-model:visible="modifyAttachmentDialogVisible"
@@ -820,7 +821,7 @@ async function onSubmitMessageForm() {
         try {
             let groupSession: GroupSession | undefined = await getOutboundGroupSession(roomId)
             const response = await sendMessageEvent<EventTextContent>(
-                roomId, 'm.room.message', txnId, event.content, groupSession
+                roomId, event.type, txnId, event.content, groupSession
             )
             associateTransactionIdWithEventId(roomId, txnId, response.eventId)
         } catch (error) {

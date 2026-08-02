@@ -334,6 +334,175 @@
     --p-icon-size: 0.625rem;
 }
 
+.p-chattimeline-event-poll {
+    background-color: var(--background-surface-high);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    max-width: 29.5rem;
+    overflow: hidden;
+    margin: 0.25rem 0;
+    padding: 1rem;
+    position: relative;
+    width: 100%;
+
+    .p-chattimeline-event-poll-question {
+        color: var(--text-strong);
+        font-family: var(--font-primary);
+        font-size: 1rem;
+        font-weight: 500;
+        line-height: 1.25;
+        word-break: break-word;
+    }
+
+    ul.p-chattimeline-event-poll-answers {
+        display: grid;
+        gap: 0.5rem;
+        grid-auto-rows: 1fr;
+        grid-template-columns: 1fr;
+        list-style: none;
+        margin: 0.5rem 0 1rem;
+
+        > li {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: var(--background-mod-subtle);
+            border: 1px solid transparent;
+            border-radius: var(--radius-sm);
+            box-sizing: border-box;
+            color: var(--text-default);
+            font-size: 0.875rem;
+            font-weight: 500;
+            gap: 0.5rem;
+            min-height: 3.125rem;
+            overflow: hidden;
+            padding: 0.5rem 1rem;
+            position: relative;
+            width: 100%;
+            word-break: break-word;
+            z-index: 1;
+
+            &::before {
+                content: '';
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                background-color: var(--interactive-background-active);
+            }
+
+            &.p-chattimeline-event-poll-answer-winner {
+                border-color: var(--status-positive);
+
+                &::before {
+                    background-color: var(--polls-victor-fill);
+                }
+            }
+
+            .p-chattimeline-event-poll-answer-result {
+                display: inline-flex;
+            }
+
+            &[role="radio"], &[role="checkbox"] {
+                cursor: pointer;
+
+                &:hover {
+                    border-color: var(--border-strong);
+                }
+
+                &::after {
+                    content: '';
+                    width: 1.5rem;
+                    height: 1.5rem;
+                    background-image: url('data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%2224%22 height%3D%2224%22 viewBox%3D%220 0 24 24%22%3E%3Cpath fill-rule%3D%22evenodd%22 clip-rule%3D%22evenodd%22 d%3D%22M12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20ZM12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z%22 fill%3D%22white%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E');
+                    background-repeat: no-repeat;
+                    background-size: 1.5rem;
+                    color: var(--text-strong);
+                }
+
+                .p-chattimeline-event-poll-answer-result {
+                    display: none;
+                    gap: 0.5rem;
+                    align-items: center;
+                    font-size: 0.75rem;
+                }
+
+                &[aria-checked="true"] {
+                    border-color: var(--control-brand-foreground);
+                    &::after {
+                        background-image: url('data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%2224%22 height%3D%2224%22 viewBox%3D%220 0 24 24%22%3E%3Cpath fill-rule%3D%22evenodd%22 clip-rule%3D%22evenodd%22 d%3D%22M12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20ZM12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z%22 fill%3D%22white%22%3E%3C%2Fpath%3E%3Ccircle cx%3D%2212%22 cy%3D%2212%22 r%3D%225%22 fill%3D%22%238CA0FD%22%3E%3C%2Fcircle%3E%3C%2Fsvg%3E');
+                    }
+                }
+            }
+
+            &[role="checkbox"] {
+                &::after {
+                    border: 0.125rem solid var(--text-default);
+                    border-radius: 0.1875rem;
+                    background-image: none;
+                    width: 1.25rem;
+                    height: 1.25rem;
+                    background-size: 1rem;
+                }
+
+                &[aria-checked="true"] {
+                    &::after {
+                        border-color: var(--checkbox-background-selected-default);
+                        background-color: var(--checkbox-background-selected-default);
+                        background-image: url('data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%2217%22 height%3D%2217%22 fill%3D%22none%22 viewBox%3D%220 0 24 24%22%3E%3Cpath fill%3D%22white%22 d%3D%22M21.7 5.3a1 1 0 0 1 0 1.4l-12 12a1 1 0 0 1-1.4 0l-6-6a1 1 0 1 1 1.4-1.4L9 16.58l11.3-11.3a1 1 0 0 1 1.4 0Z%22 class%3D%22%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E');
+                    }
+                }
+            }
+        }
+    }
+
+    .p-chattimeline-event-poll-summary {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        font-size: 0.875rem;
+        min-height: 2.375rem;
+        width: 100%;
+
+        .link {
+            color: var(--text-strong);
+        }
+    }
+
+    .p-chattimeline-event-poll-vote-container {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: auto;
+        gap: 1rem;
+        align-items: center;
+    }
+    .p-chattimeline-event-poll-vote-return-button {
+        display: none;
+        margin-left: auto;
+    }
+
+    &.p-chattimeline-event-poll--results {
+        .p-chattimeline-event-poll-answer-result {
+            display: inline-flex !important;
+        }
+        .p-chattimeline-event-poll-vote-container {
+            display: none !important;
+        }
+        .p-chattimeline-event-poll-vote-return-button {
+            display: inline-flex !important;
+        }
+
+        li[role="radio"],li[role="checkbox"] {
+            &::after {
+                display: none !important;
+            }
+        }
+    }
+}
+
 .p-chattimeline-event-content {
     display: flex;
     flex-wrap: wrap;

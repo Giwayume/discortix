@@ -418,6 +418,108 @@ function createEventNodeFragment(e: EventWithRenderInfo, binding: RenderBinding,
             stickerImage.setAttribute('title', eventContent?.body)
             stickerImage.setAttribute('tabindex', '0')
             eventNodeRoot.append(stickerImage)
+        } else if (e.event.type === 'm.poll.start') {
+            const isPollOpen: boolean = true;
+            const isMultipleSelection = (e.event.content?.['m.poll']?.maxSelections || 1) > 1
+
+            const poll = document.createElement('div')
+            poll.className = 'p-chattimeline-event-poll'
+            eventNodeRoot.append(poll)
+
+            const pollQuestion = document.createElement('header')
+            pollQuestion.className = 'p-chattimeline-event-poll-question'
+            pollQuestion.textContent = e.event.content?.['m.poll']?.question?.['m.text']?.[0]?.body ?? ''
+            poll.append(pollQuestion)
+
+            if (isPollOpen && !isMultipleSelection) {
+                const pollPrompt = document.createElement('p')
+                pollPrompt.className = 'text-subtle text-xs mt-1'
+                pollPrompt.textContent = isMultipleSelection ? i18nText.pollSelectOneOrMoreAnswers! : i18nText.pollSelectOneAnswer!
+                poll.append(pollPrompt)
+            }
+
+            const pollAnswers = document.createElement('ul')
+            pollAnswers.className = 'p-chattimeline-event-poll-answers'
+            poll.append(pollAnswers)
+            if (isPollOpen) {
+                pollAnswers.setAttribute('role', 'group')
+            }
+
+            for (const answer of e.event.content?.['m.poll']?.answers ?? []) {
+                const pollAnswer = document.createElement('li')
+                if (isPollOpen) {
+                    pollAnswer.setAttribute('role', isMultipleSelection ? 'checkbox' : 'radio')
+                    pollAnswer.setAttribute('aria-checked', 'false')
+                    pollAnswer.setAttribute('tabindex', '0')
+                    pollAnswer.setAttribute('data-link-id', 'selectPollAnswer')
+                }
+                pollAnswers.append(pollAnswer)
+
+                const pollAnswerBody = document.createElement('span')
+                pollAnswerBody.textContent = answer?.['m.text']?.[0]?.body ?? ''
+                pollAnswer.append(pollAnswerBody)
+
+                const pollAnswerVotes = document.createElement('span')
+                pollAnswerVotes.className = 'p-chattimeline-event-poll-answer-result'
+                pollAnswerVotes.textContent = '0' + i18nText.pollVotes!
+                pollAnswer.append(pollAnswerVotes)
+
+                const percentageContainer = document.createElement('span')
+                percentageContainer.className = 'text-base font-bold'
+                percentageContainer.textContent = '0%'
+                pollAnswerVotes.append(percentageContainer)
+            }
+
+            const pollSummary = document.createElement('div')
+            pollSummary.className = 'p-chattimeline-event-poll-summary'
+            poll.append(pollSummary)
+
+            const voteCountButton = document.createElement('span')
+            voteCountButton.setAttribute('data-link-id', 'showPollVotes')
+            voteCountButton.setAttribute('role', 'button')
+            voteCountButton.setAttribute('tabindex', '0')
+            voteCountButton.className = 'link'
+            voteCountButton.textContent = '0' + i18nText.pollVotes!
+            pollSummary.append(voteCountButton)
+
+            const pollClosedText = document.createElement('span')
+            pollClosedText.className = 'text-muted'
+            if (isPollOpen) {
+                pollClosedText.innerHTML = '•&nbsp;&nbsp;14d' + i18nText.pollTimeLeft!
+            } else {
+                pollClosedText.innerHTML = '•&nbsp;&nbsp;' + i18nText.pollClosed!
+            }
+            pollSummary.append(pollClosedText)
+
+            if (isPollOpen) {
+                const pollVoteContainer = document.createElement('span')
+                pollVoteContainer.className = 'p-chattimeline-event-poll-vote-container'
+                pollSummary.append(pollVoteContainer)
+
+                const pollShowResultsButton = document.createElement('span')
+                pollShowResultsButton.setAttribute('data-link-id', 'togglePollResults')
+                pollShowResultsButton.setAttribute('role', 'button')
+                pollShowResultsButton.setAttribute('tabindex', '0')
+                pollShowResultsButton.className = 'link'
+                pollShowResultsButton.textContent = i18nText.pollShowResults!
+                pollVoteContainer.append(pollShowResultsButton)
+
+                const pollVoteButton = document.createElement('span')
+                pollVoteButton.setAttribute('data-link-id', 'votePoll')
+                pollVoteButton.setAttribute('role', 'button')
+                pollVoteButton.setAttribute('tabindex', '0')
+                pollVoteButton.className = 'p-button p-button-sm px-4!'
+                pollVoteButton.textContent = i18nText.pollVoteButton!
+                pollVoteContainer.append(pollVoteButton)
+
+                const pollVoteReturnButton = document.createElement('span')
+                pollVoteReturnButton.className = 'p-chattimeline-event-poll-vote-return-button p-button p-button-sm p-button-secondary'
+                pollVoteReturnButton.setAttribute('data-link-id', 'togglePollResults')
+                pollVoteReturnButton.setAttribute('role', 'button')
+                pollVoteReturnButton.setAttribute('tabindex', '0')
+                pollVoteReturnButton.textContent = i18nText.pollBackToVoteButton!
+                pollSummary.append(pollVoteReturnButton)
+            }
         } else if (e.event.type === 'm.room.encrypted') {
             const encryptedNotice = document.createElement('div')
             encryptedNotice.className = 'text-(--channels-default)'

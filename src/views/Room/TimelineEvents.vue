@@ -223,6 +223,14 @@ const i18nText = {
     replyToNoAttachmentPreview: t('room.replyToNoAttachmentPreview'),
     unknownUserDisplayname: t('room.unknownUserDisplayname'),
     audioLoadFailed: t('errors.message.audioLoadFailed'),
+    pollSelectOneAnswer: t('room.poll.selectOneAnswer'),
+    pollSelectOneOrMoreAnswers: t('room.poll.selectOneOrMoreAnswers'),
+    pollVotes: t('room.poll.votes'),
+    pollShowResults: t('room.poll.showResults'),
+    pollVoteButton: t('room.poll.voteButton'),
+    pollBackToVoteButton: t('room.poll.backToVoteButton'),
+    pollTimeLeft: t('room.poll.timeLeft'),
+    pollClosed: t('room.poll.closed'),
 }
 
 const eventChunkSwapReadyUuid = ref<string | undefined>()
@@ -1044,6 +1052,22 @@ function onPointerUpTimeline(event: PointerEvent) {
             case 'retrySendMessage':
                 emit('retrySendMessage', eventId)
                 return
+            case 'selectPollAnswer':
+                link.setAttribute('aria-checked', link.getAttribute('aria-checked') === 'true' ? 'false' : 'true')
+                if (link.getAttribute('role') === 'radio') {
+                    link.parentElement?.querySelectorAll(':scope > li[role="radio"]').forEach((otherRadio) => {
+                        if (otherRadio !== link) {
+                            otherRadio.setAttribute('aria-checked', 'false')
+                        }
+                    })
+                }
+                return
+            case 'showPollVotes':
+                // TODO - open modal
+                return
+            case 'togglePollResults':
+                link.closest('.p-chattimeline-event-poll')?.classList.toggle('p-chattimeline-event-poll--results')
+                return
             case 'viewFullImage': {
                 if (!props.room.visibleTimeline) return
                 const event = findRenderedEvent(eventId)
@@ -1056,6 +1080,9 @@ function onPointerUpTimeline(event: PointerEvent) {
                 const userId = link.getAttribute('data-user-id')
                 if (!userId) return
                 emit('showUserProfile', event, userId)
+                return
+            case 'votePoll':
+                // TODO
                 return
             default:
                 break

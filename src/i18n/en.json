@@ -54,7 +54,16 @@
         "1Week": "1 week",
         "2Weeks": "2 weeks",
         "allowMultipleAnswers": "Allow Multiple Answers",
-        "postButton": "Post"
+        "validation": {
+            "question": {
+                "required": "Please type a question"
+            },
+            "answer": {
+                "required": "Please type an answer"
+            }
+        },
+        "postButton": "Post",
+        "postError": "An error occurred when trying to create the poll. Please try again later."
     },
     "createRoom": {
         "title": "Create Chat Room",
@@ -648,7 +657,17 @@
         "bannedFromTheRoom": "was banned from the room.",
         "replyToNoMessagePreview": "Click to see message",
         "replyToNoAttachmentPreview": "Click to see attachment",
-        "unknownUserDisplayname": "Anonymous"
+        "unknownUserDisplayname": "Anonymous",
+        "poll": {
+            "selectOneAnswer": "Select one answer",
+            "selectOneOrMoreAnswers": "Select one or more answers",
+            "votes": " votes",
+            "showResults": "Show results",
+            "voteButton": "Vote",
+            "backToVoteButton": "Go back to vote",
+            "timeLeft": " left",
+            "closed": "Poll closed"
+        }
     },
     "roomSettings": {
         "title": {

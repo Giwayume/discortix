@@ -6,7 +6,10 @@
     --blurple-50: hsl(234.935 calc(1*85.556%) 64.706%/1);
     --blurple-60: hsl(232.941 calc(1*46.667%) 50%/1);
 
+    --brand-360: hsl(229.381 calc(1*96.581%) 77.059%/1);
+
     --green-360: hsl(141.649 calc(1*44.292%) 42.941%/1);
+    --green-360-hsl: 141.649 calc(1*44.292%) 42.941%;
 
     --green-new-31: hsl(138.837 calc(1*36.441%) 53.725%/1);
     --green-new-50: hsl(151.128 calc(1*100%) 26.078%/1);
@@ -115,6 +118,8 @@
     --checkbox-border-selected-hover: hsl(var(--opacity-12-hsl)/0.12156862745098039);
     --checkbox-icon-active: var(--neutral-1);
 
+    --control-brand-foreground: var(--brand-360);
+
     --control-connected-background-default: var(--green-new-50);
     --control-connected-border-default: hsl(var(--opacity-white-8-hsl)/0.0784313725490196);
     --control-connected-text-default: var(--white);
@@ -187,6 +192,8 @@
 
     --modal-background: var(--neutral-64);
 
+    --polls-victor-fill: hsl(var(--green-360-hsl)/0.2);
+
     --radio-background-default: hsl(var(--opacity-black-8-hsl)/0.0784313725490196);
     --radio-background-hover: hsl(var(--opacity-black-8-hsl)/0.0784313725490196);
     --radio-border-default: hsl(var(--opacity-64-hsl)/0.6392156862745098);
@@ -207,6 +214,8 @@
     --spoiler-hidden-background: var(--neutral-43);
     --spoiler-hidden-background-hover: var(--neutral-34);
     --spoiler-hidden-color: var(--primary-200);
+
+    --status-positive: var(--green-360);
 
     --text-default: var(--neutral-10);
     --text-strong: var(--neutral-1);

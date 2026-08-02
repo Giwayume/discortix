@@ -7,6 +7,7 @@ export const customEventTypes = [
 
 // Lists all known "setting-type" events. The events we do not wish to display in the timeline are commented out.
 export const settingsEventTypes = [
+    'm.poll.end',
     // 'm.room.aliases',
     'm.room.avatar',
     // 'm.room.canonical_alias',
@@ -35,6 +36,8 @@ export const settingsEventTypes = [
 
 // Lists all known "message-type" events. The events we do not wish to display in the timeline are commented out.
 export const messageEventTypes = [
+    // 'm.poll.response',
+    'm.poll.start',
     'm.room.encrypted',
     'm.room.message',
     'm.sticker',
@@ -43,9 +46,6 @@ export const messageEventTypes = [
     'm.audio',
     'm.file',
     'm.image',
-    // 'm.poll.end',
-    // 'm.poll.response',
-    'm.poll.start',
     'm.sticker',
     'm.text',
     'm.video',
